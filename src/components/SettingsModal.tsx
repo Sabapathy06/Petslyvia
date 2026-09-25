@@ -17,13 +17,17 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { user, logout } = useAuth();
-  const { profile, pet, soundEnabled, toggleSound, setPlayerRole, refreshData } = useGameData();
+  const { profile, pet, soundEnabled, toggleSound, setPlayerRole, updateProfile } = useGameData();
 
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedUid, setCopiedUid] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
-  const [displayName, setDisplayName] = useState(profile?.display_name || 'Explorer');
+  const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  React.useEffect(() => {
+    if (profile?.display_name) setDisplayName(profile.display_name);
+  }, [profile?.display_name]);
 
   if (!isOpen) return null;
 
@@ -50,8 +54,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     sound.playClick();
     setSaveStatus('saving');
     try {
-      profile.display_name = displayName.trim();
-      await refreshData();
+      await updateProfile({ display_name: displayName.trim() });
       setSaveStatus('saved');
       setIsEditingName(false);
       setTimeout(() => setSaveStatus('idle'), 2000);

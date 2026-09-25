@@ -17,15 +17,7 @@ interface LocalAuthAccount {
 const LOCAL_AUTH_KEY = 'petslyvia_auth_accounts';
 const CURRENT_SESSION_KEY = 'petslyvia_active_session';
 
-const DEFAULT_PRELOADED_ACCOUNTS: Record<string, LocalAuthAccount> = {
-  'demo.player@gmail.com': {
-    id: 'user_google_demo',
-    email: 'demo.player@gmail.com',
-    passwordHash: 'password123',
-    displayName: 'Demo Explorer',
-    googleLinked: true,
-  },
-};
+const DEFAULT_PRELOADED_ACCOUNTS: Record<string, LocalAuthAccount> = {};
 
 function getLocalAccounts(): Record<string, LocalAuthAccount> {
   try {
