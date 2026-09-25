@@ -260,6 +260,7 @@ export interface SimulationStep {
   petAction: string;
   crystalsCollected: GridPos[];
   openGates: string[];
+  switchesActive?: string[];
   status: 'running' | 'success' | 'failed' | 'collision';
   message?: string;
 }

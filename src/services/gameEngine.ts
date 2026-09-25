@@ -74,6 +74,7 @@ export function runDeterministicSimulation(
     petAction: 'start',
     crystalsCollected: [...state.crystalsCollected],
     openGates: [...state.openGates],
+    switchesActive: [...state.switchesActive],
     status: 'running',
     message: 'Start position',
   });
@@ -126,6 +127,7 @@ export function runDeterministicSimulation(
       petAction: action.type,
       crystalsCollected: [...state.crystalsCollected],
       openGates: [...state.openGates],
+      switchesActive: [...state.switchesActive],
       status: state.status,
       message: state.message,
     });
@@ -240,6 +242,14 @@ function executeAction(
       state.crystalsCollected.push({ x: newX, y: newY });
       state.message = `Collected crystal at (${newX}, ${newY})!`;
     }
+
+    // Auto-activate switch pressure plate if stepped on
+    const steppedSwitch = switches.find((s) => s.x === newX && s.y === newY);
+    if (steppedSwitch && steppedSwitch.targetGateId && !state.openGates.includes(steppedSwitch.targetGateId)) {
+      state.openGates.push(steppedSwitch.targetGateId);
+      state.switchesActive.push(steppedSwitch.targetGateId);
+      state.message = `Stepped on switch at (${newX}, ${newY})! Gate [${steppedSwitch.targetGateId}] unlocked and opened.`;
+    }
     return;
   }
 
@@ -330,6 +340,14 @@ function executeAction(
     if (crystal && !state.crystalsCollected.some((c) => c.x === newX && c.y === newY)) {
       state.crystalsCollected.push({ x: newX, y: newY });
       state.message = `Collected crystal at (${newX}, ${newY})!`;
+    }
+
+    // Auto-activate switch pressure plate if stepped on
+    const steppedSwitch = switches.find((s) => s.x === newX && s.y === newY);
+    if (steppedSwitch && steppedSwitch.targetGateId && !state.openGates.includes(steppedSwitch.targetGateId)) {
+      state.openGates.push(steppedSwitch.targetGateId);
+      state.switchesActive.push(steppedSwitch.targetGateId);
+      state.message = `Stepped on switch at (${newX}, ${newY})! Gate [${steppedSwitch.targetGateId}] unlocked and opened.`;
     }
     return;
   }

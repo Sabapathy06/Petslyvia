@@ -6,7 +6,7 @@ import {
   Sparkles, Zap, Map, ChevronDown, ChevronRight,
   Terminal, Code2, Bot, Layers, Check, HelpCircle,
   Volume2, VolumeX, Eye, Lightbulb, Trash2, Plus, ArrowRight,
-  ArrowUp, ArrowDown, CornerDownLeft, Award, Lock, BookOpen, Send, Mic, KeyRound
+  ArrowUp, ArrowDown, CornerDownLeft, Award, Lock, BookOpen, Send, Mic, KeyRound, Hammer
 } from 'lucide-react';
 import {
   PROGRESSIVE_MISSIONS,
@@ -31,6 +31,8 @@ import { DarkIdeEditor } from '@/components/coding/DarkIdeEditor';
 import { CodespaceHintModal } from '@/components/coding/CodespaceHintModal';
 import { CodespaceSolutionModal } from '@/components/coding/CodespaceSolutionModal';
 import { getProblemHints, getProblemSolution } from '@/services/codingSolutionService';
+import { getWallChallenge, type WallChallenge } from '@/services/wallChallengeService';
+import { WallChallengeModal } from '@/components/coding/WallChallengeModal';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers & Constants
@@ -55,7 +57,7 @@ function getStarterCode(mission: MissionDefinition, lang: 'python' | 'javascript
       return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    // Set 3 · Loops — C17 Codespace\n    // Objective: ${mission.objective}\n    for (int step = 0; step < 8; step++) {\n        move_right();\n    }\n    return 0;\n}\n`;
     }
     if (mission.conceptSet === 'conditions' || mission.id.includes('cond')) {
-      return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    // Set 2 · Conditions — C17 Codespace\n    move_forward();\n    turn_right();\n    for (int i = 0; i < 3; i++) {\n        move_forward();\n    }\n    return 0;\n}\n`;
+      return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    // Mission 120: Conditions & Barrier Challenge\n    // Tip: Step on switch (1,1) to unlock gate, or click any wall to solve & shatter it!\n    move_right();\n    interact();\n    for (int i = 0; i < 4; i++) {\n        move_right();\n    }\n    return 0;\n}\n`;
     }
     if (mission.conceptSet === 'variables' || mission.id.includes('var')) {
       return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    int steps = 4;\n    for (int i = 0; i < steps; i++) {\n        move_right();\n    }\n    return 0;\n}\n`;
@@ -70,7 +72,7 @@ function getStarterCode(mission: MissionDefinition, lang: 'python' | 'javascript
       return `# Set 3 · Loops — Python 3.12 Codespace\n# Objective: ${mission.objective}\n\nfor step in range(8):\n    pet.move_right()\n`;
     }
     if (mission.conceptSet === 'conditions' || mission.id.includes('cond')) {
-      return `# Set 2 · Conditions — Python 3.12 Codespace\n# Check state and make smart decisions\n\npet.move_forward()\npet.turn_right()\nfor step in range(3):\n    pet.move_forward()\n`;
+      return `# Mission 120: Conditions & Barrier Challenge\n# Tip: Step on switch (1,1) to unlock gate, or click any wall to solve & shatter it!\npet.move_right()\npet.interact()\nfor step in range(4):\n    pet.move_right()\n`;
     }
     if (mission.conceptSet === 'variables' || mission.id.includes('var')) {
       return `# Set 1 · Variables — Python 3.12 Codespace\nsteps = 4\nfor step in range(steps):\n    pet.move_right()\n`;
@@ -84,7 +86,7 @@ function getStarterCode(mission: MissionDefinition, lang: 'python' | 'javascript
       return `// Set 3 · Loops — JavaScript Codespace\n// Objective: ${mission.objective}\n\nfor (let i = 0; i < 8; i++) {\n  pet.moveRight();\n}\n`;
     }
     if (mission.conceptSet === 'conditions' || mission.id.includes('cond')) {
-      return `// Set 2 · Conditions — JavaScript Codespace\npet.moveForward();\npet.turnRight();\nfor (let i = 0; i < 3; i++) {\n  pet.moveForward();\n}\n`;
+      return `// Mission 120: Conditions & Barrier Challenge\n// Tip: Step on switch (1,1) to unlock gate, or click any wall to solve & shatter it!\npet.moveRight();\npet.interact();\nfor (let i = 0; i < 4; i++) {\n  pet.moveRight();\n}\n`;
     }
     return `// Petslyvia Academy — JavaScript Codespace\n// Objective: ${mission.objective}\n\npet.moveRight();\npet.moveRight();\npet.moveRight();\n`;
   }
@@ -136,6 +138,11 @@ export function AcademyPage() {
 
   const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Wall Challenge & Barrier Shattering Mechanics
+  const [brokenWalls, setBrokenWalls] = useState<Set<string>>(new Set());
+  const [selectedWallChallenge, setSelectedWallChallenge] = useState<WallChallenge | null>(null);
+  const [wallModalOpen, setWallModalOpen] = useState(false);
+
   // Safe pet attributes
   const petType = ((pet as any)?.pet_type || (pet as any)?.type || 'fox') as PetType;
   const petName = (pet as any)?.pet_name || (pet as any)?.name || 'Pebble';
@@ -152,6 +159,9 @@ export function AcademyPage() {
     setPythonCode(getStarterCode(mission, 'python'));
     setJsCode(getStarterCode(mission, 'javascript'));
     setCCode(getStarterCode(mission, 'c'));
+    setBrokenWalls(new Set<string>());
+    setSelectedWallChallenge(null);
+    setWallModalOpen(false);
     setSimResult(null);
     setStepIdx(0);
     setIsPlaying(false);
@@ -162,7 +172,7 @@ export function AcademyPage() {
     setTerminalLogs([
       `📘 Mission Loaded: ${mission.title}`,
       `🎯 Goal: ${mission.objective}`,
-      `Ready to write code or arrange blocks.`,
+      `Ready to write code or arrange blocks. Tip: Click any wall to solve & break it!`,
     ]);
 
     if (mission.learningMode === 'typed' || mission.learningMode === 'debug') {
@@ -191,6 +201,30 @@ export function AcademyPage() {
   const academySolutionC = getProblemSolution(mission, 'c');
   const academySolutionPython = getProblemSolution(mission, 'python');
   const academySolutionJs = getProblemSolution(mission, 'javascript');
+
+  // Active obstacles (excluding shattered/broken walls)
+  const activeObstacles = mission.obstacles.filter(
+    (o) => !brokenWalls.has(`${o.x},${o.y}`)
+  );
+
+  const handleOpenWallChallenge = (x: number, y: number) => {
+    sound.playClick();
+    const challenge = getWallChallenge(mission, x, y);
+    setSelectedWallChallenge(challenge);
+    setWallModalOpen(true);
+  };
+
+  const handleWallBroken = (wallKey: string) => {
+    setBrokenWalls((prev) => {
+      const next = new Set(prev);
+      next.add(wallKey);
+      return next;
+    });
+    setTerminalLogs((prev) => [
+      ...prev,
+      `💥 OBSTACLE SHATTERED at (${wallKey})! Corridor opened.`,
+    ]);
+  };
 
   // Switch Mission handler
   const handleSelectMission = (m: MissionDefinition) => {
@@ -306,13 +340,13 @@ export function AcademyPage() {
       blocksToExecute = compileRes.blocks;
     }
 
-    // Run deterministic grid simulation
+    // Run deterministic grid simulation (accounting for shattered walls)
     const result = runDeterministicSimulation(
       mission.gridSize,
       mission.startPos,
       mission.startDir,
       mission.goalPos,
-      mission.obstacles,
+      activeObstacles,
       mission.crystals,
       mission.switches,
       blocksToExecute
@@ -725,7 +759,7 @@ export function AcademyPage() {
                 gridSize={mission.gridSize}
                 startPos={mission.startPos}
                 goalPos={mission.goalPos}
-                obstacles={mission.obstacles}
+                obstacles={activeObstacles}
                 crystals={mission.crystals}
                 switches={mission.switches}
                 activeStep={activeStep}
@@ -763,9 +797,19 @@ export function AcademyPage() {
                       const isPet = activeStep.petPos.x === x && activeStep.petPos.y === y;
                       const isGoal = mission.goalPos.x === x && mission.goalPos.y === y;
                       const isStart = mission.startPos.x === x && mission.startPos.y === y;
-                      const hasObstacle = mission.obstacles.some((o) => o.x === x && o.y === y);
+                      const obstacleDef = mission.obstacles.find((o) => o.x === x && o.y === y);
+                      const switchDef = mission.switches?.find((s) => s.x === x && s.y === y);
+                      const isWallBroken = brokenWalls.has(`${x},${y}`);
+                      const isGate = obstacleDef?.type === 'gate';
+                      const isGateOpen = isGate && (isWallBroken || activeStep.openGates?.includes(obstacleDef.id || `${x},${y}`));
+                      const isSwitchActive =
+                        switchDef &&
+                        (activeStep.switchesActive?.includes(switchDef.targetGateId || `${x},${y}`) ||
+                          isGateOpen ||
+                          (activeStep.petPos.x === x && activeStep.petPos.y === y));
                       const crystalDef = mission.crystals.find((c) => c.x === x && c.y === y);
                       const isCollected = crystalDef && activeStep.crystalsCollected?.some((c) => c.x === x && c.y === y);
+                      const isIntactWall = !!obstacleDef && !isWallBroken && !isGateOpen;
 
                       // Responsive cell sizing
                       const width = mission.gridSize.width;
@@ -786,8 +830,14 @@ export function AcademyPage() {
                               ? 'bg-[#18482d] border-2 border-emerald-400 ring-2 ring-emerald-500/30 shadow-lg'
                               : isGoal
                               ? 'bg-[#143e2b] border-2 border-teal-400/80 shadow-md'
-                              : hasObstacle
+                              : isWallBroken
+                              ? 'bg-[#171914] border border-amber-500/40 shadow-inner'
+                              : isGateOpen
+                              ? 'bg-[#0f2c1e] border-2 border-emerald-500/40 shadow-sm'
+                              : isIntactWall
                               ? 'bg-[#2b1814] border-2 border-rose-900/60 shadow-inner'
+                              : switchDef
+                              ? 'bg-[#1e142e] border border-purple-500/40'
                               : 'bg-[#122b1e] border border-white/5 hover:border-white/20'
                           }`}
                         >
@@ -849,8 +899,82 @@ export function AcademyPage() {
                             </div>
                           )}
 
-                          {/* 3. Crystal Gem */}
-                          {!isPet && crystalDef && (
+                          {/* 3. Shattered Wall (Cleared rubble / open path) */}
+                          {!isPet && isWallBroken && (
+                            <div className="flex flex-col items-center justify-center animate-in zoom-in duration-300">
+                              <span className="text-base sm:text-lg">💥</span>
+                              <span className="text-[7px] font-black text-amber-400 uppercase tracking-wider">
+                                Open
+                              </span>
+                            </div>
+                          )}
+
+                          {/* 4. Switch Pressure Plate */}
+                          {!isPet && !isWallBroken && switchDef && (
+                            <div className="flex flex-col items-center justify-center">
+                              <div
+                                className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs transition-all border ${
+                                  isSwitchActive
+                                    ? 'bg-emerald-500/25 border-emerald-400 text-emerald-300 ring-2 ring-emerald-500/40 scale-105'
+                                    : 'bg-purple-500/20 border-purple-400/60 text-purple-300 animate-pulse'
+                                }`}
+                              >
+                                {isSwitchActive ? '🟢' : '🟣'}
+                              </div>
+                              <span
+                                className={`text-[7px] font-black uppercase tracking-wider mt-0.5 ${
+                                  isSwitchActive ? 'text-emerald-400' : 'text-purple-300'
+                                }`}
+                              >
+                                {isSwitchActive ? 'Active' : 'Switch'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* 5. Gate Obstacle */}
+                          {!isPet && !isWallBroken && isGate && (
+                            isGateOpen ? (
+                              <div className="flex flex-col items-center justify-center animate-in zoom-in duration-300">
+                                <span className="text-lg">🚪🔓</span>
+                                <span className="text-[7px] font-black text-emerald-400 uppercase tracking-wider">
+                                  Unlocked
+                                </span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenWallChallenge(x, y)}
+                                title="Locked Gate: Click to solve coding challenge and shatter!"
+                                className="group relative flex flex-col items-center justify-center cursor-pointer p-1 rounded-xl hover:bg-rose-500/20 transition-all active:scale-95"
+                              >
+                                <span className="text-lg group-hover:scale-110 transition-transform">🚪🔒</span>
+                                <span className="text-[7px] font-black text-rose-400 uppercase tracking-wider group-hover:text-amber-300">
+                                  Gate
+                                </span>
+                                <span className="absolute -top-2.5 -right-2 bg-gradient-to-r from-amber-500 to-orange-500 text-black text-[7px] font-black px-1.5 py-0.5 rounded-full shadow-md animate-bounce">
+                                  ⚡Solve
+                                </span>
+                              </button>
+                            )
+                          )}
+
+                          {/* 6. Stone Wall Obstacle */}
+                          {!isPet && !isWallBroken && !isGate && obstacleDef && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenWallChallenge(x, y)}
+                              title="Guardian Wall: Click to solve coding challenge and shatter!"
+                              className="group relative flex flex-col items-center justify-center cursor-pointer p-1 rounded-xl hover:bg-amber-500/20 transition-all active:scale-95"
+                            >
+                              <span className="text-lg group-hover:scale-110 transition-transform">🧱</span>
+                              <span className="absolute -top-2.5 -right-2 bg-gradient-to-r from-amber-500 to-orange-500 text-black text-[7px] font-black px-1.5 py-0.5 rounded-full shadow-md animate-bounce">
+                                ⚡Solve
+                              </span>
+                            </button>
+                          )}
+
+                          {/* 7. Crystal Gem */}
+                          {!isPet && !isWallBroken && !obstacleDef && crystalDef && (
                             <div className="flex flex-col items-center justify-center">
                               {isCollected ? (
                                 <span className="text-sm opacity-20 filter grayscale">💎</span>
@@ -862,15 +986,8 @@ export function AcademyPage() {
                             </div>
                           )}
 
-                          {/* 4. Obstacle */}
-                          {!isPet && hasObstacle && (
-                            <div className="text-lg opacity-80">
-                              🧱
-                            </div>
-                          )}
-
-                          {/* 5. Start Marker */}
-                          {!isPet && !isGoal && isStart && (
+                          {/* 8. Start Marker */}
+                          {!isPet && !isGoal && !isWallBroken && !obstacleDef && isStart && (
                             <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">
                               START
                             </span>
@@ -881,12 +998,36 @@ export function AcademyPage() {
                   )}
                 </div>
 
+                {/* Shattered Obstacles Active Banner */}
+                {brokenWalls.size > 0 && (
+                  <div className="mt-2.5 px-3 py-1 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-between text-xs text-amber-300">
+                    <span className="flex items-center gap-1.5 font-bold text-[11px]">
+                      <span>💥</span>
+                      <span>{brokenWalls.size} Wall(s) Shattered & Cleared!</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        setBrokenWalls(new Set());
+                      }}
+                      className="text-[10px] text-zinc-400 hover:text-white underline cursor-pointer"
+                    >
+                      Reset Walls
+                    </button>
+                  </div>
+                )}
+
                 {/* 2D Board Legend */}
-                <div className="mt-3 flex items-center gap-4 text-[10px] text-white/40">
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-[10px] text-white/50">
                   <span className="flex items-center gap-1">🐾 Pet: {petName}</span>
-                  <span className="flex items-center gap-1">🌀 Goal Portal</span>
-                  <span className="flex items-center gap-1">💎 Crystal Gem</span>
-                  <span className="flex items-center gap-1">🧱 Obstacle</span>
+                  <span className="flex items-center gap-1">🌀 Goal</span>
+                  <span className="flex items-center gap-1">🟣 Switch</span>
+                  <span className="flex items-center gap-1">🚪 Gate</span>
+                  <span className="flex items-center gap-1">
+                    🧱 Wall (<strong className="text-amber-400">⚡Click to Solve</strong>)
+                  </span>
+                  <span className="flex items-center gap-1">💥 Shattered Path</span>
                 </div>
               </div>
             )}
@@ -1201,9 +1342,25 @@ export function AcademyPage() {
 
             {/* Compiler Output / Diagnostics Console */}
             {compilerError && (
-              <div className="mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl flex items-center gap-2">
-                <AlertCircle size={14} className="shrink-0" />
-                <span>{compilerError}</span>
+              <div className="mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={14} className="shrink-0 text-rose-500" />
+                  <span>{compilerError}</span>
+                </div>
+                {/* If path has intact obstacles, offer quick solve button */}
+                {mission.obstacles.some((o) => !brokenWalls.has(`${o.x},${o.y}`)) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const firstWall = mission.obstacles.find((o) => !brokenWalls.has(`${o.x},${o.y}`));
+                      if (firstWall) handleOpenWallChallenge(firstWall.x, firstWall.y);
+                    }}
+                    className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-lg text-[11px] flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-sm active:scale-95"
+                  >
+                    <Hammer size={12} />
+                    <span>⚡ Solve Wall to Break It</span>
+                  </button>
+                )}
               </div>
             )}
 
@@ -1330,6 +1487,15 @@ export function AcademyPage() {
           else if (appliedLang === 'python') setPythonCode(appliedCode);
           else if (appliedLang === 'javascript') setJsCode(appliedCode);
         }}
+      />
+
+      {/* Guardian Wall / Obstacle Challenge Modal */}
+      <WallChallengeModal
+        isOpen={wallModalOpen}
+        challenge={selectedWallChallenge}
+        onClose={() => setWallModalOpen(false)}
+        onWallBroken={handleWallBroken}
+        initialLanguage={currentLang}
       />
     </div>
   );

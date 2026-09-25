@@ -380,6 +380,52 @@ for (let step = 0; step < steps; step++) {
     keyConcept: 'State Variables & Memory Assignment',
   },
 
+  prog_cond_1: {
+    hints: {
+      strategy: 'Step onto the purple switch at (1, 1) to trigger the condition and unlock the gate at (3, 1), or click any wall to solve its challenge and shatter it! Then move forward to the goal portal at (5, 1).',
+      path: 'Move right 1 step to (1, 1) to trigger switch, then continue 4 steps right through the gate to the goal at (5, 1).',
+      cTip: 'move_right(); interact(); for (int i = 0; i < 4; i++) { move_right(); }',
+      pyTip: 'pet.move_right()\npet.interact()\nfor i in range(4):\n    pet.move_right()',
+      jsTip: 'pet.moveRight();\npet.interact();\nfor (let i = 0; i < 4; i++) {\n    pet.moveRight();\n}',
+    },
+    c: `#include <stdio.h>
+#include "petslyvia.h"
+
+int main() {
+    // Mission 120: The Locked Door Solution
+    // 1. Step onto switch at (1,1) and activate condition
+    move_right();
+    interact();
+    
+    // 2. Gate unlocks! Walk through (3,1) to the portal at (5,1)
+    for (int step = 0; step < 4; step++) {
+        move_right();
+    }
+    return 0;
+}`,
+    python: `# Mission 120: The Locked Door Solution
+# 1. Step onto switch at (1,1) and activate
+pet.move_right()
+pet.interact()
+
+# 2. Gate opens! Walk through to the portal at (5,1)
+for step in range(4):
+    pet.move_right()
+`,
+    javascript: `// Mission 120: The Locked Door Solution
+// 1. Step onto switch at (1,1) and activate
+pet.moveRight();
+pet.interact();
+
+// 2. Gate opens! Walk through to the portal at (5,1)
+for (let step = 0; step < 4; step++) {
+    pet.moveRight();
+}
+`,
+    explanation: 'A conditional gate opens when its corresponding switch state evaluates to true. Pressing the switch at (1,1) satisfies the condition, unlocking the gate at (3,1) and allowing safe passage to (5,1). Alternatively, solving the Guardian Wall challenge shatters the obstacle directly!',
+    keyConcept: 'Condition Evaluation & Gate Triggers',
+  },
+
   prog_func_1: {
     hints: {
       strategy: 'Encapsulate the repeated movement pattern into a custom function and call it to navigate.',

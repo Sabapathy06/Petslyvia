@@ -27,9 +27,9 @@ interface CodespaceIdeHeaderProps {
 }
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, { short: string; full: string; badge: string }> = {
-  c: { short: 'C ( gcc 8.x )', full: 'C (gcc 14.2 / C17)', badge: '⚙️' },
-  python: { short: 'Python ( 3.12 )', full: 'Python (Python 3.12)', badge: '🐍' },
-  javascript: { short: 'JS ( Node 20 )', full: 'JavaScript (Node.js 20)', badge: '⚡' },
+  c: { short: 'C (gcc 8.x)', full: 'C (gcc 14.2 / C17)', badge: '⚙️' },
+  python: { short: 'Python 3.12', full: 'Python (Python 3.12)', badge: '🐍' },
+  javascript: { short: 'JS (Node 20)', full: 'JavaScript (Node.js 20)', badge: '⚡' },
 };
 
 export function CodespaceIdeHeader({
@@ -80,7 +80,7 @@ export function CodespaceIdeHeader({
   };
 
   return (
-    <div className="bg-[#121316] border-b border-[#26282e] px-3 sm:px-4 py-2 flex items-center justify-between gap-2 select-none">
+    <div className="bg-[#121316] border-b border-[#26282e] px-3 sm:px-4 py-2 flex items-center justify-between gap-2 select-none overflow-x-auto custom-scrollbar">
       {/* Left Icon Actions: Tutor, Download/Copy, Reset */}
       <div className="flex items-center gap-1.5 sm:gap-2">
         {/* Tutor / Teacher Icon (Circle matching the user's reference image) */}
@@ -134,19 +134,19 @@ export function CodespaceIdeHeader({
       </div>
 
       {/* Center / Right: Language Selector Dropdown + Hint + Solution Buttons */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         {/* Language Selector Dropdown (Styled identically to the user's reference image) */}
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative shrink-0" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => {
               sound.playClick();
               setDropdownOpen(!dropdownOpen);
             }}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#23252b] hover:bg-[#2c2f38] border border-[#3a3e4a] text-zinc-200 hover:text-white rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer shadow-inner"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#23252b] hover:bg-[#2c2f38] border border-[#3a3e4a] text-zinc-200 hover:text-white rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer shadow-inner whitespace-nowrap shrink-0"
           >
-            <span>{LANGUAGE_LABELS[language].short}</span>
-            <ChevronDown size={14} className={`text-zinc-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+            <span className="whitespace-nowrap">{LANGUAGE_LABELS[language].short}</span>
+            <ChevronDown size={14} className={`text-zinc-400 shrink-0 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Dropdown Menu */}
