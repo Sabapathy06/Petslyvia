@@ -15,6 +15,7 @@ import { MultiplayerPage } from '@/pages/MultiplayerPage';
 import { CodingLabPage } from '@/pages/CodingLabPage';
 import { AchievementsSkillsPage } from '@/pages/AchievementsSkillsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { AcademyPage } from '@/pages/AcademyPage';
 import type { JSX } from 'react';
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -90,6 +91,8 @@ function AppRoutes() {
           <Route path="quantumlab" element={<ErrorBoundary><CodingLabPage /></ErrorBoundary>} />
           <Route path="skills" element={<ErrorBoundary><AchievementsSkillsPage /></ErrorBoundary>} />
           <Route path="settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
+          <Route path="academy" element={<ErrorBoundary><AcademyPage /></ErrorBoundary>} />
+          <Route path="coding-academy" element={<ErrorBoundary><AcademyPage /></ErrorBoundary>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

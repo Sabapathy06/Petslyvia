@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Home, Compass, Bug, Building2, ShoppingBag,
-  Sparkles, Users, Code2, Lock, ArrowRight, Star, Bot, Zap, Map
+  Sparkles, Users, Code2, Lock, ArrowRight, Star, Bot, Zap, Map, BookOpen
 } from 'lucide-react';
 import { useGameData } from '@/hooks/useGameData';
 import { AILevelGeneratorModal } from '@/components/AILevelGeneratorModal';
 import { PetSVG } from '@/components/PetSVG';
+
 import type { MissionDefinition } from '@/types/game';
 import { sound } from '@/utils/audio';
 
@@ -26,6 +27,19 @@ interface WorldRegion {
 
 const WORLD_REGIONS: WorldRegion[] = [
   {
+    id: 'academy',
+    name: 'Petslyvia Academy',
+    tagline: 'Beginner to Coder — Step by Step',
+    description: 'Start here! A structured 10-set journey from guided arrows all the way to writing real Python code and solving real-world scenarios independently.',
+    path: '/app/academy',
+    icon: BookOpen,
+    themeColor: '#14b8a6',
+    bgLight: 'bg-[#ccfbf1]',
+    unlockLevel: 1,
+    stageTag: 'Progressive Coding Journey',
+  },
+  {
+
     id: 'logic_forest',
     name: 'Logic Forest',
     tagline: 'Pathways & Sequences',
