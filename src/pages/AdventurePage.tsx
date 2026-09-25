@@ -12,6 +12,7 @@ import { useGameData } from '@/hooks/useGameData';
 import { PetSVG } from '@/components/PetSVG';
 import { GameScene3D } from '@/components/game3d/GameScene3D';
 import { AIGameMaster } from '@/components/AIGameMaster';
+import { AILevelGeneratorModal } from '@/components/AILevelGeneratorModal';
 import { sound } from '@/utils/audio';
 
 // Convert VisualBlock array to readable code string
@@ -120,8 +121,9 @@ const parseCodeToBlocks = (source: string): VisualBlock[] => {
 export function AdventurePage() {
   const { profile, pet, progress, completeMission, setPlayerRole } = useGameData();
 
+  const [customAiMission, setCustomAiMission] = useState<MissionDefinition | null>(null);
   const [selectedMissionId, setSelectedMissionId] = useState<string>('mission_1');
-  const mission = MISSIONS_LIST.find((m) => m.id === selectedMissionId) || MISSIONS_LIST[0];
+  const mission = customAiMission || MISSIONS_LIST.find((m) => m.id === selectedMissionId) || MISSIONS_LIST[0];
 
   // 3D vs 2D Display mode (Default 3D!)
   const [viewMode3D, setViewMode3D] = useState<boolean>(true);
@@ -144,7 +146,37 @@ export function AdventurePage() {
   // Modals
   const [showRevealModal, setShowRevealModal] = useState(false);
   const [showAiHelper, setShowAiHelper] = useState(false);
+  const [showAiLevelModal, setShowAiLevelModal] = useState(false);
   const [lastErrorMsg, setLastErrorMsg] = useState<string | undefined>();
+
+  // Load from sessionStorage if an AI level was created from WorldMap or other pages
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('petslyvia_active_ai_mission');
+      if (stored) {
+        const parsed = JSON.parse(stored) as MissionDefinition;
+        if (parsed && parsed.id) {
+          setCustomAiMission(parsed);
+          setSelectedMissionId(parsed.id);
+          sessionStorage.removeItem('petslyvia_active_ai_mission');
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Launch new AI Level
+  const handleLaunchAiLevel = (lvl: MissionDefinition) => {
+    setCustomAiMission(lvl);
+    setSelectedMissionId(lvl.id);
+    const initial = lvl.initialBlocks ? [...lvl.initialBlocks] : [];
+    setBlocks(initial);
+    setRawCodeInput(blocksToCode(initial, coderLanguage));
+    setSimulationResult(null);
+    setCurrentStepIndex(0);
+    setLastErrorMsg(undefined);
+  };
 
   // Reset workspace when mission changes
   useEffect(() => {
@@ -327,22 +359,41 @@ export function AdventurePage() {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/20 border border-indigo-500/40 rounded-full text-xs font-bold text-indigo-300 mb-2">
             <Sparkles size={14} /> Mission Arena
+            {customAiMission && (
+              <span className="ml-1.5 px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-300 text-[10px] font-black uppercase">
+                AI Custom Stage
+              </span>
+            )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">{mission.title}</h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">{mission.description}</p>
+          <p className="text-xs sm:text-sm text-slate-300 mt-1">{mission.story || (mission as any).description}</p>
         </div>
 
-        {/* Mission Switcher Pills */}
-        <div className="flex flex-wrap gap-2">
+        {/* Mission Switcher Pills & AI Generator Button */}
+        <div className="flex flex-wrap items-center gap-2">
+          {customAiMission && (
+            <button
+              onClick={() => {
+                sound.playClick();
+                setSelectedMissionId(customAiMission.id);
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400 flex items-center gap-1.5 cursor-pointer"
+            >
+              <Bot size={13} className="text-amber-300 animate-pulse" />
+              AI Active Stage
+            </button>
+          )}
+
           {MISSIONS_LIST.filter((m) => m.worldArea === 'logic_forest').map((m, idx) => (
             <button
               key={m.id}
               onClick={() => {
                 sound.playClick();
+                setCustomAiMission(null);
                 setSelectedMissionId(m.id);
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                m.id === selectedMissionId
+                m.id === selectedMissionId && !customAiMission
                   ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30 font-black'
                   : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
@@ -350,6 +401,18 @@ export function AdventurePage() {
               Mission {idx + 1}
             </button>
           ))}
+
+          {/* AI Level Architect Trigger Button */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              setShowAiLevelModal(true);
+            }}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-400 hover:to-pink-400 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-500/25 border border-indigo-400/50 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+          >
+            <Sparkles size={14} className="text-amber-300 animate-bounce" />
+            AI Level Architect
+          </button>
         </div>
       </div>
 
@@ -838,6 +901,33 @@ export function AdventurePage() {
               </div>
             )}
 
+            {/* Victory Success Card */}
+            {simulationResult?.success && !isPlaying && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-3.5 bg-gradient-to-r from-emerald-950/90 via-slate-900 to-teal-950/90 border border-emerald-500/50 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-emerald-500/10"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">🏆</span>
+                  <div>
+                    <div className="text-xs font-black text-emerald-400">Mission Cleared!</div>
+                    <div className="text-[10px] text-slate-300 font-medium">+{mission.xpReward} XP earned</div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setShowAiLevelModal(true);
+                  }}
+                  className="px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <Sparkles size={13} className="text-amber-300" /> Next AI Level
+                </button>
+              </motion.div>
+            )}
+
             {/* Run Execution Button */}
             <button
               onClick={handleRunSimulation}
@@ -911,12 +1001,25 @@ export function AdventurePage() {
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowRevealModal(false)}
-                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 font-black text-slate-950 rounded-2xl text-sm transition-all cursor-pointer"
-              >
-                CONTINUE EXPLORING →
-              </button>
+              <div className="flex items-center gap-2.5 pt-1">
+                <button
+                  onClick={() => setShowRevealModal(false)}
+                  className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 font-black text-slate-950 rounded-2xl text-sm transition-all cursor-pointer hover:opacity-95"
+                >
+                  CONTINUE →
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowRevealModal(false);
+                    setShowAiLevelModal(true);
+                  }}
+                  className="py-3.5 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 font-black text-white rounded-2xl text-sm transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-indigo-500/25"
+                >
+                  <Sparkles size={15} className="text-amber-300" />
+                  Next AI Level ✨
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
@@ -929,6 +1032,13 @@ export function AdventurePage() {
         lastError={lastErrorMsg}
         isOpen={showAiHelper}
         onClose={() => setShowAiHelper(false)}
+      />
+
+      {/* AI Level Architect Modal */}
+      <AILevelGeneratorModal
+        isOpen={showAiLevelModal}
+        onClose={() => setShowAiLevelModal(false)}
+        onLaunchLevel={handleLaunchAiLevel}
       />
     </div>
   );

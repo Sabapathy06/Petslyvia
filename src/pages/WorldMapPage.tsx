@@ -1,10 +1,13 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Home, Compass, Bug, Building2, ShoppingBag,
-  Sparkles, Users, Code2, Lock, ArrowRight, Star
+  Sparkles, Users, Code2, Lock, ArrowRight, Star, Bot, Zap
 } from 'lucide-react';
 import { useGameData } from '@/hooks/useGameData';
+import { AILevelGeneratorModal } from '@/components/AILevelGeneratorModal';
+import type { MissionDefinition } from '@/types/game';
 import { sound } from '@/utils/audio';
 
 interface WorldRegion {
@@ -121,8 +124,16 @@ const WORLD_REGIONS: WorldRegion[] = [
 
 export function WorldMapPage() {
   const { profile, pet } = useGameData();
+  const navigate = useNavigate();
+  const [showAiModal, setShowAiModal] = useState(false);
 
   const userLevel = profile?.current_level ?? 1;
+
+  const handleLaunchAiLevel = (lvl: MissionDefinition) => {
+    sessionStorage.setItem('petslyvia_active_ai_mission', JSON.stringify(lvl));
+    sound.playVictory();
+    navigate('/app/forest');
+  };
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
@@ -140,6 +151,44 @@ export function WorldMapPage() {
             Welcome, <strong className="text-white">{profile?.display_name || 'Player'}</strong>! Explore the diverse regions to develop your logic instincts, rescue glitched sectors, and evolve your companion <strong className="text-amber-300">{pet?.pet_name || 'Pet'}</strong> from an Infant into a Master.
           </p>
         </div>
+      </div>
+
+      {/* AI Infinite Stage Architect Portal Card */}
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-indigo-950/80 via-purple-950/70 to-slate-900 border border-indigo-500/40 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex items-start gap-4 relative z-10">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center shadow-xl shadow-indigo-500/30 shrink-0">
+            <Bot size={28} className="text-white animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
+                Infinite Procedural Engine
+              </span>
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                ✓ 100% Guaranteed Solvable
+              </span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
+              AI Level Architect 🚀
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl leading-relaxed">
+              Generate infinite custom 3D logic puzzles with tailored difficulties, themes, laser barriers, and energy crystals on demand.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            sound.playClick();
+            setShowAiModal(true);
+          }}
+          className="relative z-10 px-6 py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-400 hover:to-pink-400 text-white font-black text-sm rounded-2xl shadow-xl shadow-indigo-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95 shrink-0"
+        >
+          <Sparkles size={18} className="text-amber-300 animate-bounce" />
+          Generate AI Mission ✨
+        </button>
       </div>
 
       {/* World Regions Grid */}
@@ -220,6 +269,13 @@ export function WorldMapPage() {
           })}
         </div>
       </div>
+
+      {/* AI Level Architect Modal */}
+      <AILevelGeneratorModal
+        isOpen={showAiModal}
+        onClose={() => setShowAiModal(false)}
+        onLaunchLevel={handleLaunchAiLevel}
+      />
     </div>
   );
 }
