@@ -27,6 +27,10 @@ import { GameScene3D } from '@/components/game3d/GameScene3D';
 import { PetSVG } from '@/components/PetSVG';
 import { sound } from '@/utils/audio';
 import type { PetState, PetType } from '@/types/database';
+import { DarkIdeEditor } from '@/components/coding/DarkIdeEditor';
+import { CodespaceHintModal } from '@/components/coding/CodespaceHintModal';
+import { CodespaceSolutionModal } from '@/components/coding/CodespaceSolutionModal';
+import { getProblemHints, getProblemSolution } from '@/services/codingSolutionService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers & Constants
@@ -125,6 +129,8 @@ export function AcademyPage() {
   const [petState, setPetState] = useState<PetState>('focused');
   const [missionSuccessModal, setMissionSuccessModal] = useState(false);
   const [showHint, setShowHint] = useState(false);
+  const [academyHintModalOpen, setAcademyHintModalOpen] = useState(false);
+  const [academySolutionModalOpen, setAcademySolutionModalOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiMessage, setAiMessage] = useState<string | null>(null);
 
@@ -178,6 +184,13 @@ export function AcademyPage() {
   const missionsInSet = PROGRESSIVE_MISSIONS.filter(
     (m) => (m.conceptSet || 'sequence') === activeConceptSet
   );
+
+  // Language & Solutions for Academy Modals
+  const currentLang = (activeTab === 'blocks' ? 'c' : activeTab) as 'c' | 'python' | 'javascript';
+  const academyHints = getProblemHints(mission, currentLang);
+  const academySolutionC = getProblemSolution(mission, 'c');
+  const academySolutionPython = getProblemSolution(mission, 'python');
+  const academySolutionJs = getProblemSolution(mission, 'javascript');
 
   // Switch Mission handler
   const handleSelectMission = (m: MissionDefinition) => {
@@ -923,33 +936,30 @@ export function AcademyPage() {
             </div>
           )}
 
-          {/* Educational Concept & Hint Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-[#f0f5f1]">
-            <button
-              onClick={() => setShowHint(!showHint)}
-              className="text-xs text-[#5b7566] hover:text-[#1b382b] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Lightbulb size={13} className="text-amber-500" />
-              <span>{showHint ? 'Hide mission hint' : '💡 Reveal a hint'}</span>
-            </button>
+          {/* Educational Concept, Problem Hints & Solution Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[#f0f5f1]">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAcademyHintModalOpen(true)}
+                className="text-xs bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-900 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                <Lightbulb size={13} className="text-amber-600 animate-pulse" />
+                <span>💡 Problem Hints (3)</span>
+              </button>
 
-            <span className="text-[11px] text-[#7a9386]">
+              <button
+                onClick={() => setAcademySolutionModalOpen(true)}
+                className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-900 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                <KeyRound size={13} className="text-emerald-600" />
+                <span>🔓 View Solution</span>
+              </button>
+            </div>
+
+            <span className="text-[11px] text-[#7a9386] font-mono">
               Reward: +{mission.xpReward} XP · +{mission.coinReward} gems
             </span>
           </div>
-
-          {showHint && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3.5 bg-amber-50/80 border border-amber-200/80 rounded-2xl text-xs text-amber-900 space-y-1"
-            >
-              <span className="font-bold block text-amber-950">💡 Step-by-Step Guide:</span>
-              <p className="leading-relaxed">
-                {mission.hints?.[0] || mission.explanation || 'Think about the exact sequence of moves needed.'}
-              </p>
-            </motion.div>
-          )}
         </div>
 
         {/* ───────────────────────────────────────────────────────────── */}
@@ -1141,211 +1151,52 @@ export function AcademyPage() {
             )}
 
             {/* ═════════════════════════════════════════════════════════ */}
-            {/* TAB 2: PYTHON CODESPACE (Compiler & Virtual Runtime)     */}
+            {/* TABS 2-4: DARK THEME CODESPACE (C, Python, JavaScript)    */}
             {/* ═════════════════════════════════════════════════════════ */}
-            {activeTab === 'python' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono font-bold text-[#2d6a4f] flex items-center gap-1.5">
-                    <Terminal size={13} />
-                    main.py (Python 3.12)
-                  </span>
-                  <button
-                    onClick={() => setPythonCode(getStarterCode(mission, 'python'))}
-                    className="text-[11px] text-[#7a9386] hover:text-[#1b382b] flex items-center gap-1"
-                  >
-                    <RotateCcw size={11} /> Reset template
-                  </button>
-                </div>
-
-                <textarea
-                  rows={9}
-                  value={pythonCode}
-                  onChange={(e) => setPythonCode(e.target.value)}
-                  className="w-full bg-[#0a1811] text-[#a7f3d0] font-mono text-xs p-3.5 rounded-2xl border border-[#1e4b34] focus:ring-1 focus:ring-[#2d6a4f] outline-none leading-relaxed resize-none shadow-inner"
-                  spellCheck={false}
-                />
-
-                {/* Quick Python Syntax Snippets */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-[#7a9386] uppercase tracking-wider block">
-                    Quick Syntax Snippets:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('pet.move_right()')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + pet.move_right()
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('pet.move_forward()')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + pet.move_forward()
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('pet.turn_right()')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + pet.turn_right()
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleInsertSnippet('for step in range(8):\n    pet.move_right()')
-                      }
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#2d6a4f] font-mono text-[10px] border border-[#d8e5dc] font-bold"
-                    >
-                      + for in range(8):
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ═════════════════════════════════════════════════════════ */}
-            {/* TAB 3: JAVASCRIPT CODESPACE (Sandbox Runtime)            */}
-            {/* ═════════════════════════════════════════════════════════ */}
-            {activeTab === 'javascript' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono font-bold text-amber-700 flex items-center gap-1.5">
-                    <Code2 size={13} />
-                    index.js (Node.js v20)
-                  </span>
-                  <button
-                    onClick={() => setJsCode(getStarterCode(mission, 'javascript'))}
-                    className="text-[11px] text-[#7a9386] hover:text-[#1b382b] flex items-center gap-1"
-                  >
-                    <RotateCcw size={11} /> Reset template
-                  </button>
-                </div>
-
-                <textarea
-                  rows={9}
-                  value={jsCode}
-                  onChange={(e) => setJsCode(e.target.value)}
-                  className="w-full bg-[#1c1917] text-amber-200 font-mono text-xs p-3.5 rounded-2xl border border-stone-700 focus:ring-1 focus:ring-amber-500 outline-none leading-relaxed resize-none shadow-inner"
-                  spellCheck={false}
-                />
-
-                {/* Quick JS Syntax Snippets */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-[#7a9386] uppercase tracking-wider block">
-                    Quick Syntax Snippets:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('pet.moveRight();')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + pet.moveRight();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('pet.moveForward();')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + pet.moveForward();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('pet.turnRight();')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + pet.turnRight();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleInsertSnippet('for (let i = 0; i < 8; i++) {\n  pet.moveRight();\n}')
-                      }
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-amber-700 font-mono text-[10px] border border-[#d8e5dc] font-bold"
-                    >
-                      + for loop (8)
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ═════════════════════════════════════════════════════════ */}
-            {/* TAB 4: C LANGUAGE CODESPACE (GCC 14.2 / C17 Runtime)     */}
-            {/* ═════════════════════════════════════════════════════════ */}
-            {activeTab === 'c' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono font-bold text-sky-700 flex items-center gap-1.5">
-                    <Code2 size={13} />
-                    main.c (GCC 14.2 / C17)
-                  </span>
-                  <button
-                    onClick={() => setCCode(getStarterCode(mission, 'c'))}
-                    className="text-[11px] text-[#7a9386] hover:text-[#1b382b] flex items-center gap-1"
-                  >
-                    <RotateCcw size={11} /> Reset template
-                  </button>
-                </div>
-
-                <textarea
-                  rows={9}
-                  value={cCode}
-                  onChange={(e) => setCCode(e.target.value)}
-                  className="w-full bg-[#0a192f] text-sky-200 font-mono text-xs p-3.5 rounded-2xl border border-sky-900 focus:ring-1 focus:ring-sky-500 outline-none leading-relaxed resize-none shadow-inner"
-                  spellCheck={false}
-                />
-
-                {/* Quick C Syntax Snippets */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-[#7a9386] uppercase tracking-wider block">
-                    Quick C Syntax Snippets:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('move_right();')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + move_right();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('move_forward();')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + move_forward();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('turn_right();')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + turn_right();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleInsertSnippet('for (int i = 0; i < 8; i++) {\n        move_right();\n    }')
-                      }
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-sky-700 font-mono text-[10px] border border-[#d8e5dc] font-bold"
-                    >
-                      + for loop (8)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('printf("Pet reached checkpoint!\\n");')}
-                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
-                    >
-                      + printf()
-                    </button>
-                  </div>
-                </div>
-              </div>
+            {activeTab !== 'blocks' && (
+              <DarkIdeEditor
+                mission={mission}
+                language={activeTab}
+                code={activeTab === 'python' ? pythonCode : activeTab === 'javascript' ? jsCode : cCode}
+                onCodeChange={(newCode) => {
+                  if (activeTab === 'python') setPythonCode(newCode);
+                  else if (activeTab === 'javascript') setJsCode(newCode);
+                  else setCCode(newCode);
+                }}
+                onLanguageChange={(newLang) => {
+                  setActiveTab(newLang);
+                }}
+                onResetCode={() => {
+                  if (activeTab === 'python') setPythonCode(getStarterCode(mission, 'python'));
+                  else if (activeTab === 'javascript') setJsCode(getStarterCode(mission, 'javascript'));
+                  else setCCode(getStarterCode(mission, 'c'));
+                }}
+                minHeight="h-64 sm:h-72"
+                snippets={
+                  activeTab === 'python'
+                    ? [
+                        { label: '+ pet.move_right()', code: 'pet.move_right()' },
+                        { label: '+ pet.move_forward()', code: 'pet.move_forward()' },
+                        { label: '+ pet.turn_right()', code: 'pet.turn_right()' },
+                        { label: '+ for step in range(8):', code: 'for step in range(8):\n    pet.move_right()', color: 'bg-emerald-950/60 border-emerald-700/50 text-emerald-300 font-bold' },
+                      ]
+                    : activeTab === 'javascript'
+                    ? [
+                        { label: '+ pet.moveRight();', code: 'pet.moveRight();' },
+                        { label: '+ pet.moveForward();', code: 'pet.moveForward();' },
+                        { label: '+ pet.turnRight();', code: 'pet.turnRight();' },
+                        { label: '+ for loop (8)', code: 'for (let i = 0; i < 8; i++) {\n  pet.moveRight();\n}', color: 'bg-amber-950/60 border-amber-700/50 text-amber-300 font-bold' },
+                      ]
+                    : [
+                        { label: '+ move_right();', code: 'move_right();' },
+                        { label: '+ move_forward();', code: 'move_forward();' },
+                        { label: '+ turn_right();', code: 'turn_right();' },
+                        { label: '+ for loop (8)', code: 'for (int i = 0; i < 8; i++) {\n        move_right();\n    }', color: 'bg-cyan-950/60 border-cyan-700/50 text-cyan-300 font-bold' },
+                        { label: '+ printf()', code: 'printf("Pet reached checkpoint!\\n");' },
+                      ]
+                }
+                onInsertSnippet={handleInsertSnippet}
+              />
             )}
 
             {/* Compiler Output / Diagnostics Console */}
@@ -1454,6 +1305,32 @@ export function AcademyPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Academy Problem Hints Modal */}
+      <CodespaceHintModal
+        isOpen={academyHintModalOpen}
+        onClose={() => setAcademyHintModalOpen(false)}
+        hints={academyHints}
+        missionTitle={mission.title}
+        language={currentLang}
+      />
+
+      {/* Academy Problem Solution Modal */}
+      <CodespaceSolutionModal
+        isOpen={academySolutionModalOpen}
+        onClose={() => setAcademySolutionModalOpen(false)}
+        missionTitle={mission.title}
+        solutionC={academySolutionC}
+        solutionPython={academySolutionPython}
+        solutionJs={academySolutionJs}
+        initialLanguage={currentLang}
+        onApplySolution={(appliedCode, appliedLang) => {
+          setActiveTab(appliedLang);
+          if (appliedLang === 'c') setCCode(appliedCode);
+          else if (appliedLang === 'python') setPythonCode(appliedCode);
+          else if (appliedLang === 'javascript') setJsCode(appliedCode);
+        }}
+      />
     </div>
   );
 }

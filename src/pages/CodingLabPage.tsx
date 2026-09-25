@@ -11,6 +11,8 @@ import { useGameData } from '@/hooks/useGameData';
 import { PetSVG } from '@/components/PetSVG';
 import { GameScene3D } from '@/components/game3d/GameScene3D';
 import { sound } from '@/utils/audio';
+import { DarkIdeEditor } from '@/components/coding/DarkIdeEditor';
+import type { SupportedLanguage } from '@/components/coding/CodespaceIdeHeader';
 
 const getCodeTemplate = (missionId: string, lang: 'python' | 'javascript' | 'c') => {
   if (missionId === 'coding_lab_2') {
@@ -410,134 +412,47 @@ export function CodingLabPage() {
 
       {/* Main Grid: Code Editor (Left) + 3D/2D Sandbox Simulation (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Code Editor Console */}
-        <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card flex flex-col justify-between space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-mono text-[#5b7566] flex items-center gap-1.5 font-bold">
-                <Terminal size={14} className="text-[#2d6a4f]" />
-                main.{language === 'python' ? 'py' : language === 'javascript' ? 'js' : 'c'}
-              </span>
-              <button
-                onClick={handleReset}
-                className="text-[11px] text-[#5b7566] hover:text-[#1b382b] flex items-center gap-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] px-2.5 py-1 rounded-xl transition-colors cursor-pointer font-semibold"
-              >
-                <RotateCcw size={12} /> Reset
-              </button>
-            </div>
-
-            <textarea
-              rows={12}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="w-full bg-[#f8faf8] text-[#1b382b] font-mono text-xs sm:text-sm p-4 rounded-2xl border border-[#d8e5dc] focus:ring-1 focus:ring-[#2d6a4f] outline-none leading-relaxed resize-none shadow-inner"
-              spellCheck={false}
-            />
-
-            {/* Quick Action Snippets */}
-            <div className="mt-3 space-y-1.5">
-              <span className="text-[11px] text-[#5b7566] font-bold block">
-                Quick Syntax Snippets:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {language === 'python' ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('move_forward()')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
-                    >
-                      + move_forward()
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('turn_right()')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
-                    >
-                      + turn_right()
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('turn_left()')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
-                    >
-                      + turn_left()
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('for step in range(3):\n    move_forward()')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#2d6a4f] font-mono text-[11px] border border-[#d8e5dc] transition-colors font-bold"
-                    >
-                      + for step in range(3):
-                    </button>
-                  </>
-                ) : language === 'javascript' ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('move_forward();')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
-                    >
-                      + move_forward();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('turn_right();')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
-                    >
-                      + turn_right();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('for (let i = 0; i < 3; i++) {\n  move_forward();\n}')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#2d6a4f] font-mono text-[11px] border border-[#d8e5dc] transition-colors font-bold"
-                    >
-                      + for loop(3)
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('move_forward();')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
-                    >
-                      + move_forward();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('turn_right();')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
-                    >
-                      + turn_right();
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('for (int i = 0; i < 3; i++) {\n        move_forward();\n    }')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#2d6a4f] font-mono text-[11px] border border-[#d8e5dc] transition-colors font-bold"
-                    >
-                      + for (int i = 0; i &lt; 3; i++)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertSnippet('printf("Pet navigating stage\\n");')}
-                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#5b7566] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
-                    >
-                      + printf()
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
+        {/* Left: Code Editor Console (Dark Theme IDE matching reference screenshot) */}
+        <div className="lg:col-span-6 bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card flex flex-col justify-between space-y-4">
+          <DarkIdeEditor
+            mission={codeMission}
+            language={language}
+            code={code}
+            onCodeChange={setCode}
+            onLanguageChange={(newLang) => handleSelectLanguage(newLang)}
+            onResetCode={handleReset}
+            minHeight="h-72 sm:h-96"
+            snippets={
+              language === 'python'
+                ? [
+                    { label: '+ move_forward()', code: 'move_forward()' },
+                    { label: '+ turn_right()', code: 'turn_right()' },
+                    { label: '+ turn_left()', code: 'turn_left()' },
+                    { label: '+ for step in range(3):', code: 'for step in range(3):\n    move_forward()', color: 'bg-emerald-950/60 border-emerald-700/50 text-emerald-300 font-bold' },
+                  ]
+                : language === 'javascript'
+                ? [
+                    { label: '+ move_forward();', code: 'move_forward();' },
+                    { label: '+ turn_right();', code: 'turn_right();' },
+                    { label: '+ for loop(3)', code: 'for (let i = 0; i < 3; i++) {\n  move_forward();\n}', color: 'bg-amber-950/60 border-amber-700/50 text-amber-300 font-bold' },
+                  ]
+                : [
+                    { label: '+ move_forward();', code: 'move_forward();' },
+                    { label: '+ turn_right();', code: 'turn_right();' },
+                    { label: '+ for (int i = 0; i < 3; i++)', code: 'for (int i = 0; i < 3; i++) {\n        move_forward();\n    }', color: 'bg-cyan-950/60 border-cyan-700/50 text-cyan-300 font-bold' },
+                    { label: '+ printf()', code: 'printf("Pet navigating stage\\n");' },
+                  ]
+            }
+            onInsertSnippet={handleInsertSnippet}
+          />
 
           <button
             onClick={handleRunCode}
             disabled={isPlaying}
-            className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black text-sm rounded-2xl shadow-soft transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+            className="w-full py-3.5 bg-gradient-to-r from-[#2d6a4f] to-[#1b4d3e] hover:from-[#245841] hover:to-[#163e32] text-white font-black text-sm rounded-2xl shadow-soft transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
           >
             <Play size={16} className="fill-white" />
-            <span>{isPlaying ? 'EXECUTING SCRIPT...' : 'RUN PROGRAM'}</span>
+            <span>{isPlaying ? 'EXECUTING SCRIPT...' : `RUN ${language.toUpperCase()} PROGRAM`}</span>
           </button>
         </div>
 

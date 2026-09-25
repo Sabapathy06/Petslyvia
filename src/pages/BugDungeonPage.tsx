@@ -14,6 +14,7 @@ import { GameScene3D } from '@/components/game3d/GameScene3D';
 import { AIGameMaster } from '@/components/AIGameMaster';
 import { sound } from '@/utils/audio';
 import { REACTION_CONFIGS } from '@/data/reactions';
+import { DarkIdeEditor } from '@/components/coding/DarkIdeEditor';
 
 // Convert VisualBlock array to readable code string
 const blocksToCode = (blockList: VisualBlock[], lang: 'python' | 'javascript' | 'c'): string => {
@@ -707,117 +708,44 @@ export function BugDungeonPage() {
               </div>
             </div>
           ) : (
-            /* CODE EDITOR WORKSPACE MODE */
+            /* CODE EDITOR WORKSPACE MODE with DarkIdeEditor */
             <div className="space-y-3">
-              {/* Language Selector and Snippet Helper Buttons */}
-              <div className="flex items-center justify-between flex-wrap gap-2 bg-slate-950/70 p-2.5 rounded-2xl border border-slate-800">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-bold text-slate-400">Language:</span>
-                  <div className="flex bg-slate-900 rounded-lg p-0.5 border border-slate-700">
-                    <button
-                      onClick={() => handleSwitchLanguage('python')}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                        language === 'python'
-                          ? 'bg-indigo-600 text-white font-black'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Python
-                    </button>
-                    <button
-                      onClick={() => handleSwitchLanguage('javascript')}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                        language === 'javascript'
-                          ? 'bg-amber-500 text-slate-950 font-black'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      JavaScript
-                    </button>
-                    <button
-                      onClick={() => handleSwitchLanguage('c')}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                        language === 'c'
-                          ? 'bg-emerald-600 text-white font-black'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      C
-                    </button>
-                  </div>
-                </div>
-
-                <span className="text-[10px] font-mono text-emerald-400 font-bold">
-                  ✓ {blocks.length} commands parsed
-                </span>
-              </div>
-
-              {/* Quick Code Insert Snippets */}
-              <div className="flex flex-wrap gap-1.5 bg-slate-950/50 p-2 rounded-xl border border-slate-800/80">
-                <button
-                  onClick={() => handleInsertSnippet(language === 'python' ? 'move_forward()' : 'move_forward();')}
-                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded text-[11px] font-mono cursor-pointer"
-                >
-                  + forward()
-                </button>
-                <button
-                  onClick={() => handleInsertSnippet(language === 'python' ? 'turn_right()' : 'turn_right();')}
-                  className="px-2 py-0.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded text-[11px] font-mono cursor-pointer"
-                >
-                  + turn_right()
-                </button>
-                <button
-                  onClick={() => handleInsertSnippet(language === 'python' ? 'turn_left()' : 'turn_left();')}
-                  className="px-2 py-0.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded text-[11px] font-mono cursor-pointer"
-                >
-                  + turn_left()
-                </button>
-                <button
-                  onClick={() => handleInsertSnippet(language === 'python' ? 'interact()' : 'interact();')}
-                  className="px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 rounded text-[11px] font-mono cursor-pointer"
-                >
-                  + interact()
-                </button>
-                <button
-                  onClick={() =>
-                    handleInsertSnippet(
-                      language === 'python'
-                        ? 'for step in range(3):\n    move_forward()'
-                        : language === 'javascript'
-                        ? 'for (let i = 0; i < 3; i++) {\n  move_forward();\n}'
-                        : 'for (int i = 0; i < 3; i++) {\n    move_forward();\n}'
-                    )
-                  }
-                  className="px-2 py-0.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/40 text-amber-300 rounded text-[11px] font-mono cursor-pointer"
-                >
-                  + loop(3)
-                </button>
-                {language === 'c' && (
-                  <button
-                    onClick={() => handleInsertSnippet('printf("Debug dungeon grid\\n");')}
-                    className="px-2 py-0.5 bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/40 text-cyan-300 rounded text-[11px] font-mono cursor-pointer"
-                  >
-                    + printf()
-                  </button>
-                )}
-              </div>
-
-              {/* Code Textarea Editor */}
-              <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
-                <textarea
-                  value={rawCode}
-                  onChange={(e) => handleCodeChange(e.target.value)}
-                  placeholder={
-                    language === 'python'
-                      ? '# Type your commands here:\nmove_forward()\nturn_right()\ninteract()\n'
-                      : language === 'javascript'
-                      ? '// Type your commands here:\nmove_forward();\nturn_right();\ninteract();\n'
-                      : '// Type your C commands here:\n#include <stdio.h>\nint main() {\n  move_forward();\n  turn_right();\n  return 0;\n}\n'
-                  }
-                  className="w-full h-48 bg-slate-950 text-slate-100 font-mono text-xs p-3.5 outline-none resize-none focus:ring-1 focus:ring-rose-500 leading-relaxed custom-scrollbar"
-                  spellCheck={false}
-                />
-              </div>
+              <DarkIdeEditor
+                mission={breakFixMission}
+                language={language}
+                code={rawCode}
+                onCodeChange={handleCodeChange}
+                onLanguageChange={handleSwitchLanguage}
+                onResetCode={handleResetBug}
+                minHeight="h-56 sm:h-64"
+                snippets={
+                  language === 'python'
+                    ? [
+                        { label: '+ forward()', code: 'move_forward()' },
+                        { label: '+ turn_right()', code: 'turn_right()' },
+                        { label: '+ turn_left()', code: 'turn_left()' },
+                        { label: '+ interact()', code: 'interact()' },
+                        { label: '+ loop(3)', code: 'for step in range(3):\n    move_forward()', color: 'bg-amber-950/60 border-amber-700/50 text-amber-300 font-bold' },
+                      ]
+                    : language === 'javascript'
+                    ? [
+                        { label: '+ forward()', code: 'move_forward();' },
+                        { label: '+ turn_right()', code: 'turn_right();' },
+                        { label: '+ turn_left()', code: 'turn_left();' },
+                        { label: '+ interact()', code: 'interact();' },
+                        { label: '+ loop(3)', code: 'for (let i = 0; i < 3; i++) {\n  move_forward();\n}', color: 'bg-amber-950/60 border-amber-700/50 text-amber-300 font-bold' },
+                      ]
+                    : [
+                        { label: '+ forward()', code: 'move_forward();' },
+                        { label: '+ turn_right()', code: 'turn_right();' },
+                        { label: '+ turn_left()', code: 'turn_left();' },
+                        { label: '+ interact()', code: 'interact();' },
+                        { label: '+ loop(3)', code: 'for (int i = 0; i < 3; i++) {\n    move_forward();\n}', color: 'bg-emerald-950/60 border-emerald-700/50 text-emerald-300 font-bold' },
+                        { label: '+ printf()', code: 'printf("Debug dungeon grid\\n");' },
+                      ]
+                }
+                onInsertSnippet={handleInsertSnippet}
+              />
             </div>
           )}
 

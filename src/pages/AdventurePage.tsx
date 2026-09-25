@@ -16,6 +16,7 @@ import { GameScene3D } from '@/components/game3d/GameScene3D';
 import { AIGameMaster } from '@/components/AIGameMaster';
 import { AILevelGeneratorModal } from '@/components/AILevelGeneratorModal';
 import { sound } from '@/utils/audio';
+import { DarkIdeEditor } from '@/components/coding/DarkIdeEditor';
 
 // Convert VisualBlock array to readable code string
 const blocksToCode = (blockList: VisualBlock[], lang: 'python' | 'javascript' | 'c'): string => {
@@ -836,61 +837,25 @@ export function AdventurePage() {
 
           {/* Coder Mode Textarea OR Next Moves Visual Queue */}
           {activeWorkspaceTab === 'code' ? (
-            <div className="bg-[#f4f8f5] p-3 rounded-2xl border border-[#d8e5dc] space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-mono text-[#5b7566]">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-[#1b382b]">Language:</span>
-                  <button
-                    onClick={() => {
-                      setCoderLanguage('python');
-                      setRawCodeInput(blocksToCode(blocks, 'python'));
-                    }}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      coderLanguage === 'python' ? 'bg-[#1b382b] text-white' : 'text-[#7a9386]'
-                    }`}
-                  >
-                    Python
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCoderLanguage('javascript');
-                      setRawCodeInput(blocksToCode(blocks, 'javascript'));
-                    }}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      coderLanguage === 'javascript' ? 'bg-[#1b382b] text-white' : 'text-[#7a9386]'
-                    }`}
-                  >
-                    JS
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCoderLanguage('c');
-                      setRawCodeInput(blocksToCode(blocks, 'c'));
-                    }}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      coderLanguage === 'c' ? 'bg-[#1b382b] text-white' : 'text-[#7a9386]'
-                    }`}
-                  >
-                    C
-                  </button>
-                </div>
-                <span className="text-[10px] text-[#2d6a4f] font-bold">
-                  ✓ {blocks.length} commands
-                </span>
-              </div>
-
-              <textarea
-                value={rawCodeInput}
-                onChange={(e) => handleCodeChange(e.target.value)}
-                placeholder={
-                  coderLanguage === 'python'
-                    ? '# Type Python instructions:\nmove_forward()\nturn_left()\nmove_forward()'
-                    : coderLanguage === 'javascript'
-                    ? '// Type JS instructions:\nmove_forward();\nturn_left();\nmove_forward();'
-                    : '// Type C instructions:\n#include <stdio.h>\nint main() {\n  move_forward();\n  turn_left();\n  return 0;\n}'
-                }
-                className="w-full h-36 bg-white text-[#1b382b] font-mono text-xs p-3 rounded-xl border border-[#d8e5dc] outline-none resize-none focus:ring-1 focus:ring-[#2d6a4f] leading-relaxed custom-scrollbar"
-                spellCheck={false}
+            <div className="space-y-2">
+              <DarkIdeEditor
+                mission={mission}
+                language={coderLanguage}
+                code={rawCodeInput}
+                onCodeChange={handleCodeChange}
+                onLanguageChange={(newLang) => {
+                  setCoderLanguage(newLang);
+                  setRawCodeInput(blocksToCode(blocks, newLang));
+                }}
+                onResetCode={() => {
+                  const initial =
+                    mission.initialBlocks && mission.initialBlocks.length > 0
+                      ? [...mission.initialBlocks]
+                      : [];
+                  setBlocks(initial);
+                  setRawCodeInput(blocksToCode(initial, coderLanguage));
+                }}
+                minHeight="h-44 sm:h-52"
               />
             </div>
           ) : (
