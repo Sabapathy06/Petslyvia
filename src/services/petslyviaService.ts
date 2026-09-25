@@ -47,34 +47,44 @@ export const petslyviaService = {
   // ----------------------------------------------------
   // PROFILE SERVICE
   // ----------------------------------------------------
-  async getProfile(userId: string): Promise<Profile | null> {
+  async getProfile(userId: string, userEmail?: string): Promise<Profile | null> {
+    const cleanEmail = userEmail?.trim().toLowerCase();
     if (isSupabaseConfigured()) {
       try {
-        const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+        let query = supabase.from('profiles').select('*');
+        if (cleanEmail && cleanEmail.includes('@')) {
+          query = query.or(`id.eq.${userId},email.eq.${cleanEmail}`);
+        } else {
+          query = query.eq('id', userId);
+        }
+        const { data, error } = await query.maybeSingle();
         if (data && !error) {
           const profile = data as Profile;
           const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
           profiles[userId] = profile;
+          if (profile.id) profiles[profile.id] = profile;
+          if (profile.email) profiles[profile.email.toLowerCase()] = profile;
           setLocal(STORAGE_KEYS.PROFILES, profiles);
           return profile;
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.warn('Supabase getProfile:', err);
       }
     }
     const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
-    return profiles[userId] || null;
+    return profiles[userId] || (cleanEmail ? profiles[cleanEmail] : null) || null;
   },
 
   async saveProfile(profile: Profile): Promise<Profile> {
     const updatedProfile: Profile = {
       ...profile,
+      email: profile.email ? profile.email.toLowerCase() : undefined,
       updated_at: new Date().toISOString(),
     };
 
     if (isSupabaseConfigured()) {
       try {
-        const { data, error } = await supabase.from('profiles').upsert({
+        const payload: Record<string, any> = {
           id: updatedProfile.id,
           username: updatedProfile.username || updatedProfile.display_name?.toLowerCase().replace(/\s+/g, '_') || 'player',
           display_name: updatedProfile.display_name || 'Player',
@@ -89,21 +99,29 @@ export const petslyviaService = {
           bugs_created: updatedProfile.bugs_created ?? 0,
           bugs_solved: updatedProfile.bugs_solved ?? 0,
           updated_at: updatedProfile.updated_at,
-        }).select().maybeSingle();
+        };
+
+        if (updatedProfile.email) {
+          payload.email = updatedProfile.email;
+        }
+
+        const { data, error } = await supabase.from('profiles').upsert(payload).select().maybeSingle();
 
         if (data && !error) {
           const saved = data as Profile;
           const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
           profiles[saved.id] = saved;
+          if (saved.email) profiles[saved.email.toLowerCase()] = saved;
           setLocal(STORAGE_KEYS.PROFILES, profiles);
           return saved;
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.warn('Supabase saveProfile:', err);
       }
     }
     const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
     profiles[updatedProfile.id] = updatedProfile;
+    if (updatedProfile.email) profiles[updatedProfile.email.toLowerCase()] = updatedProfile;
     setLocal(STORAGE_KEYS.PROFILES, profiles);
     return profiles[updatedProfile.id];
   },
@@ -111,23 +129,31 @@ export const petslyviaService = {
   // ----------------------------------------------------
   // PET SERVICE (1:1 with Profile)
   // ----------------------------------------------------
-  async getPet(userId: string): Promise<Pet | null> {
+  async getPet(userId: string, targetProfileId?: string): Promise<Pet | null> {
     if (isSupabaseConfigured()) {
       try {
-        const { data, error } = await supabase.from('pets').select('*').eq('user_id', userId).eq('is_active', true).maybeSingle();
+        let query = supabase.from('pets').select('*').eq('is_active', true);
+        if (targetProfileId && targetProfileId !== userId) {
+          query = query.or(`user_id.eq.${userId},user_id.eq.${targetProfileId}`);
+        } else {
+          query = query.eq('user_id', userId);
+        }
+        const { data, error } = await query.maybeSingle();
         if (data && !error) {
           const pet = data as Pet;
           const pets = getLocal<Record<string, Pet>>(STORAGE_KEYS.PETS, {});
           pets[userId] = pet;
+          if (targetProfileId) pets[targetProfileId] = pet;
+          if (pet.user_id) pets[pet.user_id] = pet;
           setLocal(STORAGE_KEYS.PETS, pets);
           return pet;
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.warn('Supabase getPet:', err);
       }
     }
     const pets = getLocal<Record<string, Pet>>(STORAGE_KEYS.PETS, {});
-    return pets[userId] || null;
+    return pets[userId] || (targetProfileId ? pets[targetProfileId] : null) || null;
   },
 
   async savePet(pet: Pet): Promise<Pet> {
@@ -169,11 +195,12 @@ export const petslyviaService = {
           const saved = data as Pet;
           const pets = getLocal<Record<string, Pet>>(STORAGE_KEYS.PETS, {});
           pets[pet.user_id] = saved;
+          if (saved.user_id) pets[saved.user_id] = saved;
           setLocal(STORAGE_KEYS.PETS, pets);
           return saved;
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.warn('Supabase savePet:', err);
       }
     }
     const pets = getLocal<Record<string, Pet>>(STORAGE_KEYS.PETS, {});

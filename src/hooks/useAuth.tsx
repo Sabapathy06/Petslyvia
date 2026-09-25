@@ -95,20 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load profile and 1:1 primary pet
+  // Load profile and 1:1 primary pet across any device by UID or Email
   const loadPlayerData = async (uid: string, userEmail?: string) => {
-    let p = await petslyviaService.getProfile(uid);
-    let petData = await petslyviaService.getPet(uid);
+    let p = await petslyviaService.getProfile(uid, userEmail);
+    // If profile was found under a persistent cloud ID (e.g. from previous device), use that ID
+    const actualUid = p?.id || uid;
+    let petData = await petslyviaService.getPet(actualUid, uid);
 
-    // If profile doesn't exist yet, initialize exactly 1 profile & 1 infant pet
+    // If profile doesn't exist yet anywhere in the cloud, initialize exactly 1 profile & 1 infant pet
     if (!p || !petData) {
       const emailName = userEmail ? userEmail.split('@')[0] : 'Explorer';
       const init = await petslyviaService.initializeNewPlayer(
-        uid,
+        actualUid,
         userEmail || 'player@petslyvia.world',
         emailName,
-        'cat',
-        'Pixel'
+        'fox',
+        'Sparky'
       );
       p = init.profile;
       petData = init.pet;
