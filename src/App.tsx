@@ -76,6 +76,9 @@ function AppRoutes() {
         <Route path="creator" element={<CreatorPage />} />
         <Route path="multiplayer" element={<MultiplayerPage />} />
         <Route path="lab" element={<CodingLabPage />} />
+        <Route path="quantum" element={<CodingLabPage />} />
+        <Route path="quantum-lab" element={<CodingLabPage />} />
+        <Route path="quantumlab" element={<CodingLabPage />} />
         <Route path="skills" element={<AchievementsSkillsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

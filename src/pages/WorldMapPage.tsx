@@ -51,7 +51,7 @@ const WORLD_REGIONS: WorldRegion[] = [
   },
   {
     id: 'coding_lab',
-    name: 'Coding Lab',
+    name: 'Quantum Lab',
     tagline: 'Real Python / JS Runtime',
     description: 'Transition from visual blocks to real production syntax with sandboxed execution.',
     path: '/app/lab',
@@ -59,7 +59,7 @@ const WORLD_REGIONS: WorldRegion[] = [
     themeColor: '#4f46e5',
     bgLight: 'bg-[#e0e7ff]',
     unlockLevel: 1,
-    stageTag: 'Stage 3: Forest of Logic',
+    stageTag: 'Stage 6: Quantum Logic Lab',
   },
   {
     id: 'bug_dungeon',

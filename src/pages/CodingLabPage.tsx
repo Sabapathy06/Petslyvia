@@ -272,7 +272,7 @@ export function CodingLabPage() {
       <div className="p-6 bg-white rounded-3xl border border-[#e2ece5] shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#eaf2ec] border border-[#d8e5dc] rounded-full text-xs font-bold text-[#2d6a4f] mb-2">
-            <Code2 size={14} /> Stage 7: Real Code Runtime & Sandbox
+            <Code2 size={14} /> Stage 6: Quantum Coding Lab & Runtime
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1b382b]">
             {codeMission.title}

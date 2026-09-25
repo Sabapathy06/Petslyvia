@@ -24,10 +24,10 @@ interface JourneyStep {
 const JOURNEY_STEPS: JourneyStep[] = [
   { id: 'step_1', stepNumber: 1, label: 'First steps', to: '/app/forest', areaKey: 'logic_forest' },
   { id: 'step_2', stepNumber: 2, label: 'Hidden magic', to: '/app/sanctuary', areaKey: 'pet_home' },
-  { id: 'step_3', stepNumber: 3, label: 'Forest of logic', to: '/app/lab', areaKey: 'coding_lab' },
+  { id: 'step_3', stepNumber: 3, label: 'Forest of logic', to: '/app/skills', areaKey: 'all' },
   { id: 'step_4', stepNumber: 4, label: 'Bug dungeon', to: '/app/dungeon', areaKey: 'bug_dungeon' },
   { id: 'step_5', stepNumber: 5, label: 'Smart city', to: '/app/city', areaKey: 'smart_city' },
-  { id: 'step_6', stepNumber: 6, label: 'Quantum lab', to: '/app/skills', areaKey: 'all' },
+  { id: 'step_6', stepNumber: 6, label: 'Quantum lab', to: '/app/lab', areaKey: 'all' },
   { id: 'step_7', stepNumber: 7, label: 'Creator island', to: '/app/creator', areaKey: 'creator_world' },
 ];
 
@@ -55,7 +55,7 @@ export function GameLayout() {
     if (p.includes('/shop')) return 'Bazaar Shop';
     if (p.includes('/creator')) return 'Creator Island';
     if (p.includes('/multiplayer')) return 'Bug Exchange';
-    if (p.includes('/lab')) return 'Coding Lab';
+    if (p.includes('/lab') || p.includes('/quantum')) return 'Quantum Lab';
     if (p.includes('/skills')) return 'Skills & Badges';
     if (p.includes('/settings')) return 'Settings';
     return 'World Map';
