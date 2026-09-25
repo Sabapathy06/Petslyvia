@@ -5,6 +5,7 @@ import {
   Sparkles, Brain, Bug, Palette, Code2, Users
 } from 'lucide-react';
 import { useGameData } from '@/hooks/useGameData';
+import { PetSVG } from '@/components/PetSVG';
 import { ACHIEVEMENTS_LIST } from '@/data/achievements';
 import { sound } from '@/utils/audio';
 

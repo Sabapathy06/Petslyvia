@@ -384,9 +384,9 @@ export function AcademyPage() {
     scenario:   { label: '🌍 Scenario',      color: '#14b8a6' },
   };
 
-  const petType  = (pet?.type  as any) || 'cat';
-  const petStage = (pet?.stage as any) || 'infant';
-  const petName  = pet?.name  || 'Buddy';
+  const petType  = (pet as any)?.pet_type || (pet as any)?.type || 'cat';
+  const petStage = (pet as any)?.stage || 'infant';
+  const petName  = (pet as any)?.pet_name || (pet as any)?.name || 'Buddy';
 
   return (
     <div className="flex h-screen bg-[#080f09] overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -481,7 +481,7 @@ export function AcademyPage() {
           </nav>
           <div className="flex-1" />
           <div className="flex items-center gap-3 text-[11px]">
-            <div className="flex items-center gap-1 text-yellow-400 font-semibold"><Zap className="w-3 h-3" /> {profile?.xp ?? 0} XP</div>
+            <div className="flex items-center gap-1 text-yellow-400 font-semibold"><Zap className="w-3 h-3" /> {(profile as any)?.total_xp ?? (profile as any)?.xp ?? 0} XP</div>
             <div className="text-teal-400 font-semibold">💎 {profile?.coins ?? 0}</div>
           </div>
           <button onClick={toggleSound} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/30 transition-colors">
