@@ -8,7 +8,7 @@ interface PetSVGProps {
   stage?: PetStage;
   size?: number;
   animationKey?: number;
-  reaction?: { config: ReactionConfig; id: number } | null;
+  reaction?: { config: any; id: number } | null;
   equipped?: EquippedAccessories | null;
   className?: string;
 }

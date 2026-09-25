@@ -188,6 +188,11 @@ export interface EquippedAccessories {
   back?: string | null;
   feet?: string | null;
   special?: string | null;
+  headwear?: string | null;
+  costume?: string | null;
+  glasses?: string | null;
+  backpack?: string | null;
+  shoes?: string | null;
 }
 
 export interface PlayerSkills {
@@ -214,6 +219,7 @@ export interface BugExchangeItem {
     goal: GridPos;
     obstacles: GridObstacle[];
     crystals: GridCrystal[];
+    switches?: GridSwitch[];
   };
   clue: string;
   solversCount: number;
@@ -238,6 +244,7 @@ export interface CommunityProblem {
     goal: GridPos;
     obstacles: GridObstacle[];
     crystals: GridCrystal[];
+    switches?: GridSwitch[];
   };
   availableBlocks: BlockType[];
   playsCount: number;

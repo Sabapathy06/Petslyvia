@@ -8,7 +8,7 @@ export interface OpponentArenaConfig {
   startPos: GridPos;
   startDir: 'right' | 'down' | 'left' | 'up';
   goalPos: GridPos;
-  obstacles: Array<{ x: number; y: number; type: 'wall' | 'water' | 'gate'; id?: string; isOpen?: boolean }>;
+  obstacles: GridObstacle[];
   crystals: Array<{ x: number; y: number }>;
   switches?: Array<{ x: number; y: number; targetGateId?: string }>;
   botPath: GridPos[];

@@ -101,6 +101,7 @@ export const PET_STATE_INFO: Record<PetState, StateInfo> = {
   tired: { label: 'Tired', emoji: '😮‍💨', color: '#f97316', description: 'Heavy workload lately. Time for a break.' },
   sleepy: { label: 'Sleepy', emoji: '😴', color: '#8b5cf6', description: 'Low activity today. A small task will help.' },
   recovering: { label: 'Recovering', emoji: '🌿', color: '#10b981', description: 'Recovering nicely thanks to healthy breaks.' },
+  thinking: { label: 'Thinking', emoji: '🤔', color: '#6366f1', description: 'Pondering your next algorithmic move.' },
 };
 
 export function getPetConfig(type: PetType): PetConfig {

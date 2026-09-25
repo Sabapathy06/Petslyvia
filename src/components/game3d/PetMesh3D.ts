@@ -10,7 +10,7 @@ export interface Pet3DModel {
     isMoving: boolean,
     isVictory: boolean,
     isHurt: boolean,
-    emotion?: 'happy' | 'excited' | 'tired' | 'sleepy' | 'eating' | 'petting' | 'victory' | 'hurt' | 'neutral'
+    emotion?: 'happy' | 'excited' | 'tired' | 'sleepy' | 'eating' | 'petting' | 'victory' | 'hurt' | 'neutral' | string | null
   ) => void;
   playHop: (progress: number) => void;
   resetHop: () => void;
@@ -814,9 +814,16 @@ export function createPet3D(
     isMoving: boolean,
     isVictory: boolean,
     isHurt: boolean,
-    emotion?: 'happy' | 'excited' | 'tired' | 'sleepy' | 'eating' | 'petting' | 'victory' | 'hurt' | 'neutral'
+    emotion?: 'happy' | 'excited' | 'tired' | 'sleepy' | 'eating' | 'petting' | 'victory' | 'hurt' | 'neutral' | string | null
   ) => {
-    activeEmotion = emotion || (isVictory ? 'victory' : isHurt ? 'hurt' : 'neutral');
+    const mappedEmotion =
+      emotion === 'hearts' ? 'happy' :
+      emotion === 'stars' ? 'excited' :
+      emotion === 'tears' ? 'hurt' :
+      emotion === 'zzz' ? 'sleepy' :
+      emotion === 'crumbs' ? 'eating' :
+      (emotion as any);
+    activeEmotion = mappedEmotion || (isVictory ? 'victory' : isHurt ? 'hurt' : 'neutral');
     emotionAnimTime += delta;
 
     // 1. Idle breathing and micro bobs (smooth gentle float, no rapid jitter)

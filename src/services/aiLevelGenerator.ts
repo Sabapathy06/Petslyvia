@@ -349,7 +349,7 @@ export function generateProceduralAILevel(options: AILevelGenerationOptions = {}
     coinReward,
     skillRewards: {
       logic: 30,
-      algorithms: 25,
+      coding: 25,
       debugging: 20
     }
   };
@@ -418,7 +418,7 @@ export const AI_VAULT_LEVELS: MissionDefinition[] = [
     explanation: 'Basic obstacle bypass with dual-coordinate routing.',
     xpReward: 50,
     coinReward: 40,
-    skillRewards: { logic: 20, algorithms: 15 }
+    skillRewards: { logic: 20, coding: 15 }
   },
   {
     id: 'ai_vault_2',
@@ -451,7 +451,7 @@ export const AI_VAULT_LEVELS: MissionDefinition[] = [
     explanation: 'Event-driven logic: triggers and state mutations.',
     xpReward: 80,
     coinReward: 65,
-    skillRewards: { logic: 30, algorithms: 25 }
+    skillRewards: { logic: 30, coding: 25 }
   },
   {
     id: 'ai_vault_3',
@@ -484,7 +484,7 @@ export const AI_VAULT_LEVELS: MissionDefinition[] = [
     explanation: 'Algorithmic iteration on 2D grid arrays.',
     xpReward: 110,
     coinReward: 85,
-    skillRewards: { logic: 35, algorithms: 35 }
+    skillRewards: { logic: 35, coding: 35 }
   },
   {
     id: 'ai_vault_4',
@@ -521,7 +521,7 @@ export const AI_VAULT_LEVELS: MissionDefinition[] = [
     explanation: 'Multi-target waypoint pathfinding.',
     xpReward: 140,
     coinReward: 110,
-    skillRewards: { logic: 40, algorithms: 40 }
+    skillRewards: { logic: 40, coding: 40 }
   },
   {
     id: 'ai_vault_5',
@@ -560,7 +560,7 @@ export const AI_VAULT_LEVELS: MissionDefinition[] = [
     explanation: 'Complex serpentine routing and branch elimination.',
     xpReward: 190,
     coinReward: 150,
-    skillRewards: { logic: 50, algorithms: 45 }
+    skillRewards: { logic: 50, coding: 45 }
   },
   {
     id: 'ai_vault_6',
@@ -605,6 +605,6 @@ export const AI_VAULT_LEVELS: MissionDefinition[] = [
     explanation: 'Master-tier algorithm design with dependency sequencing.',
     xpReward: 300,
     coinReward: 250,
-    skillRewards: { logic: 70, algorithms: 65, debugging: 50 }
+    skillRewards: { logic: 70, coding: 65, debugging: 50 }
   }
 ];

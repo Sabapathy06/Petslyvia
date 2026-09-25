@@ -434,11 +434,11 @@ export function AdventurePage() {
         if (result.success) {
           sound.playVictory();
           completeMission(mission.id, mission.xpReward, mission.coinReward, {
-            algorithms: 25,
+            coding: 25,
             logic: 30,
           });
 
-          if (profile?.role === 'non_coder' || profile?.role === 'explorer') {
+          if ((profile?.role as string) === 'non_coder' || (profile?.role as string) === 'explorer') {
             setTimeout(() => {
               setShowRevealModal(true);
             }, 500);
@@ -461,7 +461,7 @@ export function AdventurePage() {
           petAction: 'idle',
           crystalsCollected: [],
           openGates: [],
-          status: 'idle',
+          status: 'running',
           message: 'Ready to explore',
         };
 

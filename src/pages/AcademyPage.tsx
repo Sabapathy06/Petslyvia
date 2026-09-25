@@ -6,7 +6,7 @@ import {
   Sparkles, Zap, Map, ChevronDown, ChevronRight,
   Terminal, Code2, Bot, Layers, Check, HelpCircle,
   Volume2, VolumeX, Eye, Lightbulb, Trash2, Plus, ArrowRight,
-  ArrowUp, ArrowDown, CornerDownLeft, Award, Lock, BookOpen, Send, Mic
+  ArrowUp, ArrowDown, CornerDownLeft, Award, Lock, BookOpen, Send, Mic, KeyRound
 } from 'lucide-react';
 import {
   PROGRESSIVE_MISSIONS,

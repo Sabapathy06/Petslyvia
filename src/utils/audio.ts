@@ -173,6 +173,16 @@ class SoundEngine {
     }
   }
 
+  // Alias for victory fanfare
+  public playSuccess() {
+    this.playVictory();
+  }
+
+  // Alias for celebration / level complete
+  public playCheer() {
+    this.playVictory();
+  }
+
   // Error / collision / bug detected buzz
   public playError() {
     const ctx = this.getContext();

@@ -495,6 +495,13 @@ export const petslyviaService = {
     return newProblem;
   },
 
+  async createCommunityProblem(problem: CommunityProblem): Promise<CommunityProblem> {
+    const list = await this.getCommunityProblems();
+    list.unshift(problem);
+    setLocal(STORAGE_KEYS.COMMUNITY, list);
+    return problem;
+  },
+
   async getBugExchanges(): Promise<BugExchangeItem[]> {
     return getLocal<BugExchangeItem[]>(STORAGE_KEYS.BUGS, INITIAL_BUG_EXCHANGES);
   },

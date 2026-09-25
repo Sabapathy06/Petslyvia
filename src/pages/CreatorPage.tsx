@@ -202,7 +202,7 @@ export function CreatorPage() {
         ? `Bug Puzzle #${Math.floor(Math.random() * 899 + 100)}`
         : `Custom Level #${Math.floor(Math.random() * 899 + 100)}`);
 
-    const effectiveBlocks =
+    const effectiveBlocks: VisualBlock[] =
       testBlocks.length > 0
         ? testBlocks
         : [

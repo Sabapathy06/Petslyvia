@@ -1,7 +1,7 @@
 import type { PetStage, EquippedAccessories, PlayerSkills } from './game';
 
 export type PetType = 'cat' | 'dog' | 'bunny' | 'fox' | 'panda' | 'koala' | 'hamster' | 'penguin';
-export type PetState = 'energetic' | 'happy' | 'focused' | 'excited' | 'calm' | 'neutral' | 'tired' | 'sleepy' | 'recovering';
+export type PetState = 'energetic' | 'happy' | 'focused' | 'excited' | 'calm' | 'neutral' | 'tired' | 'sleepy' | 'recovering' | 'thinking';
 export type TaskPriority = 'high' | 'medium' | 'low';
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export type SessionType = 'focus' | 'short_break' | 'long_break';
