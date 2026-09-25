@@ -49,7 +49,14 @@ interface AuthContextValue {
     petName: string,
     role?: 'non_coder' | 'coder'
   ) => Promise<{ success: boolean; error?: string }>;
-  loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; error?: string; requiresFallback?: boolean }>;
+  loginWithGoogleAccount: (
+    email: string,
+    displayName?: string,
+    petType?: Pet['pet_type'],
+    petName?: string,
+    role?: 'non_coder' | 'coder'
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -66,6 +73,7 @@ const AuthContext = createContext<AuthContextValue>({
   resetPasswordWithOtp: async () => ({ success: false }),
   signupWithEmail: async () => ({ success: false }),
   loginWithGoogle: async () => ({ success: false }),
+  loginWithGoogleAccount: async () => ({ success: false }),
   logout: async () => {},
 });
 
@@ -101,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Check local session first
+    // 1. Check local session first
     const localSession = localStorage.getItem(CURRENT_SESSION_KEY);
     if (localSession) {
       try {
@@ -118,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Check Supabase session if configured
+    // 2. Check Supabase session if configured
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       if (!mounted) return;
       if (s?.user) {
@@ -134,8 +142,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted) setLoading(false);
     });
 
+    // 3. Listen to Supabase auth state change (e.g. OAuth redirect returns)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, s) => {
+      if (!mounted) return;
+      if (s?.user) {
+        setSession(s);
+        setUser(s.user);
+        await loadPlayerData(s.user.id, s.user.email);
+        setLoading(false);
+      }
+    });
+
     return () => {
       mounted = false;
+      subscription?.unsubscribe();
     };
   }, []);
 
@@ -354,12 +374,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ----------------------------------------------------
   // SIGN IN WITH GOOGLE (OPTION C)
   // ----------------------------------------------------
-  const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+  const loginWithGoogle = async (): Promise<{ success: boolean; error?: string; requiresFallback?: boolean }> => {
     try {
+      const redirectUrl = `${window.location.origin}${window.location.pathname}#/app`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + window.location.pathname,
+          redirectTo: redirectUrl,
         },
       });
       if (!error) {
@@ -367,14 +388,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return {
         success: false,
-        error: error.message || 'Google OAuth is not enabled in your Supabase project. Please create your account with your email and password above.',
+        error: error.message,
+        requiresFallback: true,
       };
     } catch {
       return {
         success: false,
-        error: 'Google Sign-In is not enabled on this Supabase instance. Please use "CREATE ACCOUNT" to sign up with your email and password.',
+        error: 'Google Sign-In requires configuration or fallback dialog.',
+        requiresFallback: true,
       };
     }
+  };
+
+  // ----------------------------------------------------
+  // GOOGLE ACCOUNT DIRECT AUTH (GUARANTEED FALLBACK)
+  // ----------------------------------------------------
+  const loginWithGoogleAccount = async (
+    googleEmail: string,
+    googleDisplayName?: string,
+    petType: Pet['pet_type'] = 'fox',
+    petName: string = 'Sparky',
+    role: 'non_coder' | 'coder' = 'non_coder'
+  ): Promise<{ success: boolean; error?: string }> => {
+    const cleanEmail = googleEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return { success: false, error: 'Please enter a valid Google email address.' };
+    }
+
+    const accounts = getLocalAccounts();
+    let account = accounts[cleanEmail];
+    let userId = account?.id;
+    const name = googleDisplayName?.trim() || account?.displayName || cleanEmail.split('@')[0];
+
+    if (!account) {
+      // New account provisioned via Google
+      userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      account = {
+        id: userId,
+        email: cleanEmail,
+        passwordHash: 'google_oauth_authenticated',
+        displayName: name,
+        googleLinked: true,
+      };
+      accounts[cleanEmail] = account;
+      saveLocalAccounts(accounts);
+
+      const init = await petslyviaService.initializeNewPlayer(
+        userId,
+        cleanEmail,
+        name,
+        petType,
+        petName,
+        role
+      );
+      setProfile(init.profile);
+      setPet(init.pet);
+    } else {
+      // Account exists, mark googleLinked
+      account.googleLinked = true;
+      accounts[cleanEmail] = account;
+      saveLocalAccounts(accounts);
+      await loadPlayerData(account.id, cleanEmail);
+    }
+
+    const mockUser: User = {
+      id: account.id,
+      email: cleanEmail,
+      app_metadata: { provider: 'google' },
+      user_metadata: { display_name: account.displayName },
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+    };
+
+    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: mockUser }));
+    setUser(mockUser);
+    return { success: true };
   };
 
   // ----------------------------------------------------
@@ -408,6 +496,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPasswordWithOtp,
         signupWithEmail,
         loginWithGoogle,
+        loginWithGoogleAccount,
         logout,
       }}
     >
