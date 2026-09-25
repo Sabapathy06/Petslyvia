@@ -21,7 +21,7 @@ import type {
   BlockType
 } from '@/types/game';
 import { runDeterministicSimulation } from '@/services/gameEngine';
-import { compilePython, compileJavaScript } from '@/services/academyCompiler';
+import { compilePython, compileJavaScript, compileC } from '@/services/academyCompiler';
 import { useGameData } from '@/hooks/useGameData';
 import { GameScene3D } from '@/components/game3d/GameScene3D';
 import { PetSVG } from '@/components/PetSVG';
@@ -32,7 +32,7 @@ import type { PetState, PetType } from '@/types/database';
 // Helpers & Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-type WorkspaceTab = 'blocks' | 'python' | 'javascript';
+type WorkspaceTab = 'blocks' | 'python' | 'javascript' | 'c';
 
 const BLOCK_DEFS: { type: BlockType; label: string; icon: string; desc: string }[] = [
   { type: 'move_forward', label: 'Forward', icon: '↑', desc: 'Walk 1 tile forward in facing direction' },
@@ -45,7 +45,22 @@ const BLOCK_DEFS: { type: BlockType; label: string; icon: string; desc: string }
   { type: 'interact',     label: 'Collect', icon: '💎', desc: 'Pick up crystal or activate switch' },
 ];
 
-function getStarterCode(mission: MissionDefinition, lang: 'python' | 'javascript'): string {
+function getStarterCode(mission: MissionDefinition, lang: 'python' | 'javascript' | 'c'): string {
+  if (lang === 'c') {
+    if (mission.conceptSet === 'loops' || mission.id.includes('loop')) {
+      return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    // Set 3 · Loops — C17 Codespace\n    // Objective: ${mission.objective}\n    for (int step = 0; step < 8; step++) {\n        move_right();\n    }\n    return 0;\n}\n`;
+    }
+    if (mission.conceptSet === 'conditions' || mission.id.includes('cond')) {
+      return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    // Set 2 · Conditions — C17 Codespace\n    move_forward();\n    turn_right();\n    for (int i = 0; i < 3; i++) {\n        move_forward();\n    }\n    return 0;\n}\n`;
+    }
+    if (mission.conceptSet === 'variables' || mission.id.includes('var')) {
+      return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    int steps = 4;\n    for (int i = 0; i < steps; i++) {\n        move_right();\n    }\n    return 0;\n}\n`;
+    }
+    if (mission.conceptSet === 'functions') {
+      return `#include <stdio.h>\n#include "petslyvia.h"\n\nvoid navigate_path() {\n    for (int i = 0; i < 4; i++) {\n        move_forward();\n    }\n    turn_right();\n}\n\nint main() {\n    navigate_path();\n    return 0;\n}\n`;
+    }
+    return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    // Objective: ${mission.objective}\n    move_right();\n    move_right();\n    move_right();\n    return 0;\n}\n`;
+  }
   if (lang === 'python') {
     if (mission.conceptSet === 'loops' || mission.id.includes('loop')) {
       return `# Set 3 · Loops — Python 3.12 Codespace\n# Objective: ${mission.objective}\n\nfor step in range(8):\n    pet.move_right()\n`;
@@ -86,7 +101,7 @@ export function AcademyPage() {
   // Concept set filter
   const [activeConceptSet, setActiveConceptSet] = useState<string>(mission.conceptSet || 'sequence');
 
-  // Workspace Mode (Blocks / Python / JavaScript)
+  // Workspace Mode (Blocks / Python / JavaScript / C)
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('blocks');
   const [blocks, setBlocks] = useState<VisualBlock[]>([]);
   const [repeatCount, setRepeatCount] = useState(3);
@@ -94,6 +109,7 @@ export function AcademyPage() {
   // Code editor states
   const [pythonCode, setPythonCode] = useState(() => getStarterCode(mission, 'python'));
   const [jsCode, setJsCode] = useState(() => getStarterCode(mission, 'javascript'));
+  const [cCode, setCCode] = useState(() => getStarterCode(mission, 'c'));
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const [compilerError, setCompilerError] = useState<string | null>(null);
 
@@ -129,6 +145,7 @@ export function AcademyPage() {
     setBlocks(initBlocks);
     setPythonCode(getStarterCode(mission, 'python'));
     setJsCode(getStarterCode(mission, 'javascript'));
+    setCCode(getStarterCode(mission, 'c'));
     setSimResult(null);
     setStepIdx(0);
     setIsPlaying(false);
@@ -214,8 +231,10 @@ export function AcademyPage() {
     sound.playSnap();
     if (activeTab === 'python') {
       setPythonCode((prev) => `${prev.trimEnd()}\n${snippet}\n`);
-    } else {
+    } else if (activeTab === 'javascript') {
       setJsCode((prev) => `${prev.trimEnd()}\n${snippet}\n`);
+    } else {
+      setCCode((prev) => `${prev.trimEnd()}\n        ${snippet}\n`);
     }
   };
 
@@ -250,13 +269,24 @@ export function AcademyPage() {
         return;
       }
       blocksToExecute = compileRes.blocks;
-    } else {
+    } else if (activeTab === 'javascript') {
       const compileRes = compileJavaScript(jsCode);
       setTerminalLogs(compileRes.logs);
 
       if (!compileRes.success || compileRes.blocks.length === 0) {
         sound.playError();
         setCompilerError(compileRes.error || 'JavaScript execution failed.');
+        setPetState('tired');
+        return;
+      }
+      blocksToExecute = compileRes.blocks;
+    } else if (activeTab === 'c') {
+      const compileRes = compileC(cCode);
+      setTerminalLogs(compileRes.logs);
+
+      if (!compileRes.success || compileRes.blocks.length === 0) {
+        sound.playError();
+        setCompilerError(compileRes.error || 'C compilation failed.');
         setPetState('tired');
         return;
       }
@@ -934,7 +964,9 @@ export function AcademyPage() {
                   ? 'MAKE YOUR MOVE'
                   : activeTab === 'python'
                   ? 'PYTHON CODESPACE'
-                  : 'JAVASCRIPT SANDBOX'}
+                  : activeTab === 'javascript'
+                  ? 'JAVASCRIPT SANDBOX'
+                  : 'C LANGUAGE CODESPACE'}
               </span>
 
               {/* Mode switch pills */}
@@ -977,6 +1009,19 @@ export function AcademyPage() {
                   }`}
                 >
                   ⚡ JS
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setActiveTab('c');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'c'
+                      ? 'bg-sky-700 text-white shadow-sm font-black'
+                      : 'text-[#5b7566] hover:text-[#1b382b]'
+                  }`}
+                >
+                  ⚙️ C
                 </button>
               </div>
             </div>
@@ -1229,6 +1274,80 @@ export function AcademyPage() {
               </div>
             )}
 
+            {/* ═════════════════════════════════════════════════════════ */}
+            {/* TAB 4: C LANGUAGE CODESPACE (GCC 14.2 / C17 Runtime)     */}
+            {/* ═════════════════════════════════════════════════════════ */}
+            {activeTab === 'c' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono font-bold text-sky-700 flex items-center gap-1.5">
+                    <Code2 size={13} />
+                    main.c (GCC 14.2 / C17)
+                  </span>
+                  <button
+                    onClick={() => setCCode(getStarterCode(mission, 'c'))}
+                    className="text-[11px] text-[#7a9386] hover:text-[#1b382b] flex items-center gap-1"
+                  >
+                    <RotateCcw size={11} /> Reset template
+                  </button>
+                </div>
+
+                <textarea
+                  rows={9}
+                  value={cCode}
+                  onChange={(e) => setCCode(e.target.value)}
+                  className="w-full bg-[#0a192f] text-sky-200 font-mono text-xs p-3.5 rounded-2xl border border-sky-900 focus:ring-1 focus:ring-sky-500 outline-none leading-relaxed resize-none shadow-inner"
+                  spellCheck={false}
+                />
+
+                {/* Quick C Syntax Snippets */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-[#7a9386] uppercase tracking-wider block">
+                    Quick C Syntax Snippets:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('move_right();')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + move_right();
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('move_forward();')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + move_forward();
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('turn_right();')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + turn_right();
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleInsertSnippet('for (int i = 0; i < 8; i++) {\n        move_right();\n    }')
+                      }
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-sky-700 font-mono text-[10px] border border-[#d8e5dc] font-bold"
+                    >
+                      + for loop (8)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('printf("Pet reached checkpoint!\\n");')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + printf()
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Compiler Output / Diagnostics Console */}
             {compilerError && (
               <div className="mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl flex items-center gap-2">
@@ -1266,7 +1385,9 @@ export function AcademyPage() {
                   ? 'PLAY'
                   : activeTab === 'python'
                   ? 'RUN PYTHON SCRIPT'
-                  : 'RUN JAVASCRIPT'}
+                  : activeTab === 'javascript'
+                  ? 'RUN JAVASCRIPT'
+                  : 'RUN C PROGRAM'}
               </span>
             </button>
           </div>

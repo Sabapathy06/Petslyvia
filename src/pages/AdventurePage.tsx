@@ -18,7 +18,18 @@ import { AILevelGeneratorModal } from '@/components/AILevelGeneratorModal';
 import { sound } from '@/utils/audio';
 
 // Convert VisualBlock array to readable code string
-const blocksToCode = (blockList: VisualBlock[], lang: 'python' | 'javascript'): string => {
+const blocksToCode = (blockList: VisualBlock[], lang: 'python' | 'javascript' | 'c'): string => {
+  if (lang === 'c') {
+    const body = blockList
+      .map((b) => {
+        if (b.type === 'repeat') {
+          return `    for (int i = 0; i < ${b.params?.count || 3}; i++) {\n        move_forward();\n    }`;
+        }
+        return `    ${b.type}();`;
+      })
+      .join('\n');
+    return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n${body}\n    return 0;\n}`;
+  }
   if (lang === 'javascript') {
     return blockList
       .map((b) => {
@@ -80,13 +91,27 @@ const parseCodeToBlocks = (source: string): VisualBlock[] => {
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
+    if (
+      !trimmed ||
+      trimmed.startsWith('#include') ||
+      trimmed.startsWith('int main') ||
+      trimmed.startsWith('return ') ||
+      trimmed.startsWith('printf') ||
+      trimmed.startsWith('#') ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith('/*') ||
+      trimmed.startsWith('*') ||
+      trimmed === '}'
+    ) {
+      continue;
+    }
 
-    // Check for loop header
+    // Check for loop header (Python, JS, C)
     const pyLoop = trimmed.match(/for\s+\w+\s+in\s+range\((\d+)\):/i);
-    const jsLoop = trimmed.match(/for\s*\(.*;\s*\w+\s*<\s*(\d+);\s*.*\)/i);
-    if (pyLoop || jsLoop) {
-      const count = parseInt((pyLoop || jsLoop)![1], 10) || 3;
+    const cJsLoop = trimmed.match(/for\s*\(\s*(?:(?:let|var|int)\s+)?\w+\s*=\s*\d+\s*;\s*\w+\s*<\s*(\d+)\s*;\s*.*\)/i);
+    const loopMatch = pyLoop || cJsLoop;
+    if (loopMatch) {
+      const count = parseInt(loopMatch[1], 10) || 3;
       let bodyFound = false;
       while (i + 1 < lines.length) {
         const nextRaw = lines[i + 1];
@@ -139,7 +164,7 @@ export function AdventurePage() {
   // Active view in workspace: 'visual' or 'code'
   const isCoderMode = profile?.role === 'coder';
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'visual' | 'code'>('visual');
-  const [coderLanguage, setCoderLanguage] = useState<'python' | 'javascript'>('python');
+  const [coderLanguage, setCoderLanguage] = useState<'python' | 'javascript' | 'c'>('python');
   const [rawCodeInput, setRawCodeInput] = useState<string>('');
 
   // AI Prompt bar state ("Do anything")
@@ -837,6 +862,17 @@ export function AdventurePage() {
                   >
                     JS
                   </button>
+                  <button
+                    onClick={() => {
+                      setCoderLanguage('c');
+                      setRawCodeInput(blocksToCode(blocks, 'c'));
+                    }}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      coderLanguage === 'c' ? 'bg-[#1b382b] text-white' : 'text-[#7a9386]'
+                    }`}
+                  >
+                    C
+                  </button>
                 </div>
                 <span className="text-[10px] text-[#2d6a4f] font-bold">
                   ✓ {blocks.length} commands
@@ -849,7 +885,9 @@ export function AdventurePage() {
                 placeholder={
                   coderLanguage === 'python'
                     ? '# Type Python instructions:\nmove_forward()\nturn_left()\nmove_forward()'
-                    : '// Type JS instructions:\nmove_forward();\nturn_left();\nmove_forward();'
+                    : coderLanguage === 'javascript'
+                    ? '// Type JS instructions:\nmove_forward();\nturn_left();\nmove_forward();'
+                    : '// Type C instructions:\n#include <stdio.h>\nint main() {\n  move_forward();\n  turn_left();\n  return 0;\n}'
                 }
                 className="w-full h-36 bg-white text-[#1b382b] font-mono text-xs p-3 rounded-xl border border-[#d8e5dc] outline-none resize-none focus:ring-1 focus:ring-[#2d6a4f] leading-relaxed custom-scrollbar"
                 spellCheck={false}

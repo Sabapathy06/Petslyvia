@@ -12,16 +12,25 @@ import { PetSVG } from '@/components/PetSVG';
 import { GameScene3D } from '@/components/game3d/GameScene3D';
 import { sound } from '@/utils/audio';
 
-const getCodeTemplate = (missionId: string, lang: 'python' | 'javascript') => {
+const getCodeTemplate = (missionId: string, lang: 'python' | 'javascript' | 'c') => {
   if (missionId === 'coding_lab_2') {
+    if (lang === 'c') {
+      return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    // Level 2: Zigzag Algorithm (C17)\n    // Navigate around firewalls to reach (4,4)\n    move_down();\n    move_right();\n    return 0;\n}\n`;
+    }
     return lang === 'python'
       ? `# Level 2: Zigzag Algorithm\n# Navigate around firewalls to reach (4,4)\nmove_down()\nmove_right()\n`
       : `// Level 2: Zigzag Algorithm\n// Navigate around firewalls to reach (4,4)\nmove_down();\nmove_right();\n`;
   }
   if (missionId === 'coding_lab_3') {
+    if (lang === 'c') {
+      return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    // Level 3: Quantum Matrix Perimeter (C17)\n    // Sweep perimeter around central mainframe\n    for (int step = 0; step < 5; step++) {\n        move_forward();\n    }\n    turn_right();\n    for (int step = 0; step < 4; step++) {\n        move_forward();\n    }\n    turn_right();\n    for (int step = 0; step < 5; step++) {\n        move_forward();\n    }\n    return 0;\n}\n`;
+    }
     return lang === 'python'
       ? `# Level 3: Quantum Matrix Perimeter\n# Sweep perimeter around central mainframe\nfor step in range(5):\n    move_forward()\nturn_right()\nfor step in range(4):\n    move_forward()\nturn_right()\nfor step in range(5):\n    move_forward()\n`
       : `// Level 3: Quantum Matrix Perimeter\n// Sweep perimeter around central mainframe\nfor (let step = 0; step < 5; step++) {\n    move_forward();\n}\nturn_right();\nfor (let step = 0; step < 4; step++) {\n    move_forward();\n}\nturn_right();\nfor (let step = 0; step < 5; step++) {\n    move_forward();\n}\n`;
+  }
+  if (lang === 'c') {
+    return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n    // Level 1: Laser Corridor (C17)\n    // Guide your pet across the corridor\n    for (int step = 0; step < 5; step++) {\n        move_forward();\n    }\n    return 0;\n}\n`;
   }
   return lang === 'python'
     ? `# Level 1: Laser Corridor\n# Guide your pet across the corridor\nfor step in range(5):\n    move_forward()\n`
@@ -36,7 +45,7 @@ export function CodingLabPage() {
   const codeMission = codingMissions[selectedLevelIdx] || codingMissions[0];
 
   const [viewMode3D, setViewMode3D] = useState<boolean>(true);
-  const [language, setLanguage] = useState<'python' | 'javascript'>('python');
+  const [language, setLanguage] = useState<'python' | 'javascript' | 'c'>('python');
   const [code, setCode] = useState<string>(() => getCodeTemplate(codingMissions[0]?.id || 'coding_lab_1', 'python'));
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -77,7 +86,7 @@ export function CodingLabPage() {
   };
 
   // Switch programming language and update editor template
-  const handleSelectLanguage = (newLang: 'python' | 'javascript') => {
+  const handleSelectLanguage = (newLang: 'python' | 'javascript' | 'c') => {
     sound.playClick();
     setLanguage(newLang);
     setCode(getCodeTemplate(codeMission.id, newLang));
@@ -91,8 +100,8 @@ export function CodingLabPage() {
     setCode((prev) => `${prev.trimEnd()}\n${snippet}\n`);
   };
 
-  // Robust real code parser for Python and JavaScript
-  const parseCodeToBlocks = (sourceCode: string, lang: 'python' | 'javascript'): VisualBlock[] => {
+  // Robust real code parser for Python, JavaScript, and C
+  const parseCodeToBlocks = (sourceCode: string, lang: 'python' | 'javascript' | 'c'): VisualBlock[] => {
     const blocks: VisualBlock[] = [];
     const lines = sourceCode.split('\n');
 
@@ -119,7 +128,16 @@ export function CodingLabPage() {
       const line = lines[i];
       const trimmed = line.trim();
 
-      if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) {
+      if (
+        !trimmed ||
+        trimmed.startsWith('#') ||
+        trimmed.startsWith('//') ||
+        trimmed.startsWith('/*') ||
+        trimmed.startsWith('*') ||
+        trimmed.startsWith('#include') ||
+        trimmed.startsWith('int main') ||
+        trimmed.startsWith('return ')
+      ) {
         continue;
       }
 
@@ -140,9 +158,9 @@ export function CodingLabPage() {
         continue;
       }
 
-      // Detect JS loops: for (let i = 0; i < N; i++) {
-      const jsLoopMatch = trimmed.match(/for\s*\(.*;\s*\w+\s*<\s*(\d+);\s*.*\)\s*\{?/);
-      if (jsLoopMatch && lang === 'javascript') {
+      // Detect JS/C loops: for (let i = 0; i < N; i++) { or for (int i = 0; i < N; i++) {
+      const loopMatch = trimmed.match(/for\s*\(\s*(?:(?:let|var|int)\s+)?\w+\s*=\s*\d+\s*;\s*\w+\s*<\s*(\d+)\s*;\s*.*\)\s*\{?/);
+      if (loopMatch && (lang === 'javascript' || lang === 'c')) {
         if (inLoop && loopBlocks.length > 0) {
           blocks.push({
             id: `loop_${Date.now()}_${blocks.length}`,
@@ -151,13 +169,13 @@ export function CodingLabPage() {
             nestedBlocks: [...loopBlocks],
           });
         }
-        loopCount = parseInt(jsLoopMatch[1], 10);
+        loopCount = parseInt(loopMatch[1], 10);
         inLoop = true;
         loopBlocks = [];
         continue;
       }
 
-      // Check closing bracket for JS loop
+      // Check closing bracket for JS/C loop
       if (inLoop && trimmed === '}') {
         blocks.push({
           id: `loop_${Date.now()}_${blocks.length}`,
@@ -170,12 +188,17 @@ export function CodingLabPage() {
         continue;
       }
 
+      // If in C and outer function closing bracket, skip
+      if (!inLoop && trimmed === '}' && lang === 'c') {
+        continue;
+      }
+
       // Detect indentation for Python loop body
       const isIndented = line.startsWith('  ') || line.startsWith('\t');
       const action = parseStatement(trimmed);
 
       if (action) {
-        if (inLoop && (lang === 'javascript' || isIndented)) {
+        if (inLoop && (lang === 'javascript' || lang === 'c' || isIndented)) {
           loopBlocks.push(action);
         } else {
           if (inLoop && !isIndented && lang === 'python') {
@@ -213,7 +236,9 @@ export function CodingLabPage() {
     if (parsedBlocks.length === 0) {
       sound.playError();
       setErrorMessage(
-        language === 'javascript'
+        language === 'c'
+          ? 'No executable C commands found! Try: move_forward(); or for (int i = 0; i < 5; i++) { move_forward(); }'
+          : language === 'javascript'
           ? 'No executable JavaScript commands found! Try: move_forward(); or move_right();'
           : 'No executable Python commands found! Try: move_forward() or move_right()'
       );
@@ -308,7 +333,7 @@ export function CodingLabPage() {
             {codeMission.title}
           </h1>
           <p className="text-xs sm:text-sm text-[#5b7566] mt-1 font-medium">
-            Write real Python and JavaScript syntax to guide your companion through code execution!
+            Write real Python, JavaScript, and C syntax to guide your companion through code execution!
           </p>
         </div>
 
@@ -349,6 +374,16 @@ export function CodingLabPage() {
             >
               JavaScript ⚡
             </button>
+            <button
+              onClick={() => handleSelectLanguage('c')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                language === 'c'
+                  ? 'bg-[#2d6a4f] text-white shadow-soft font-black'
+                  : 'text-[#5b7566] hover:text-[#1b382b]'
+              }`}
+            >
+              C ⚙️
+            </button>
           </div>
         </div>
       </div>
@@ -381,7 +416,7 @@ export function CodingLabPage() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-mono text-[#5b7566] flex items-center gap-1.5 font-bold">
                 <Terminal size={14} className="text-[#2d6a4f]" />
-                main.{language === 'python' ? 'py' : 'js'}
+                main.{language === 'python' ? 'py' : language === 'javascript' ? 'js' : 'c'}
               </span>
               <button
                 onClick={handleReset}
@@ -436,7 +471,7 @@ export function CodingLabPage() {
                       + for step in range(3):
                     </button>
                   </>
-                ) : (
+                ) : language === 'javascript' ? (
                   <>
                     <button
                       type="button"
@@ -458,6 +493,37 @@ export function CodingLabPage() {
                       className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#2d6a4f] font-mono text-[11px] border border-[#d8e5dc] transition-colors font-bold"
                     >
                       + for loop(3)
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('move_forward();')}
+                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
+                    >
+                      + move_forward();
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('turn_right();')}
+                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
+                    >
+                      + turn_right();
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('for (int i = 0; i < 3; i++) {\n        move_forward();\n    }')}
+                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#2d6a4f] font-mono text-[11px] border border-[#d8e5dc] transition-colors font-bold"
+                    >
+                      + for (int i = 0; i &lt; 3; i++)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('printf("Pet navigating stage\\n");')}
+                      className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#5b7566] font-mono text-[11px] border border-[#d8e5dc] transition-colors"
+                    >
+                      + printf()
                     </button>
                   </>
                 )}

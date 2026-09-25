@@ -13,9 +13,21 @@ import { PetSVG } from '@/components/PetSVG';
 import { GameScene3D } from '@/components/game3d/GameScene3D';
 import { AIGameMaster } from '@/components/AIGameMaster';
 import { sound } from '@/utils/audio';
+import { REACTION_CONFIGS } from '@/data/reactions';
 
 // Convert VisualBlock array to readable code string
-const blocksToCode = (blockList: VisualBlock[], lang: 'python' | 'javascript'): string => {
+const blocksToCode = (blockList: VisualBlock[], lang: 'python' | 'javascript' | 'c'): string => {
+  if (lang === 'c') {
+    const body = blockList
+      .map((b) => {
+        if (b.type === 'repeat') {
+          return `    for (int i = 0; i < ${b.params?.count || 3}; i++) {\n        move_forward();\n    }`;
+        }
+        return `    ${b.type}();`;
+      })
+      .join('\n');
+    return `#include <stdio.h>\n#include "petslyvia.h"\n\nint main() {\n${body}\n    return 0;\n}`;
+  }
   if (lang === 'javascript') {
     return blockList
       .map((b) => {
@@ -76,13 +88,27 @@ const parseCodeToBlocks = (source: string): VisualBlock[] => {
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
+    if (
+      !trimmed ||
+      trimmed.startsWith('#include') ||
+      trimmed.startsWith('int main') ||
+      trimmed.startsWith('return ') ||
+      trimmed.startsWith('printf') ||
+      trimmed.startsWith('#') ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith('/*') ||
+      trimmed.startsWith('*') ||
+      trimmed === '}'
+    ) {
+      continue;
+    }
 
-    // Check for loop headers
+    // Check for loop headers (Python, JS, C)
     const pyLoop = trimmed.match(/for\s+\w+\s+in\s+range\((\d+)\):/i);
-    const jsLoop = trimmed.match(/for\s*\(.*;\s*\w+\s*<\s*(\d+);\s*.*\)/i);
-    if (pyLoop || jsLoop) {
-      const count = parseInt((pyLoop || jsLoop)![1], 10) || 3;
+    const cJsLoop = trimmed.match(/for\s*\(\s*(?:(?:let|var|int)\s+)?\w+\s*=\s*\d+\s*;\s*\w+\s*<\s*(\d+)\s*;\s*.*\)/i);
+    const loopMatch = pyLoop || cJsLoop;
+    if (loopMatch) {
+      const count = parseInt(loopMatch[1], 10) || 3;
       let bodyFound = false;
       while (i + 1 < lines.length) {
         const nextRaw = lines[i + 1];
@@ -125,7 +151,7 @@ export function BugDungeonPage() {
 
   const [viewMode3D, setViewMode3D] = useState<boolean>(true);
   const [workspaceMode, setWorkspaceMode] = useState<'visual' | 'code'>('visual');
-  const [language, setLanguage] = useState<'python' | 'javascript'>('python');
+  const [language, setLanguage] = useState<'python' | 'javascript' | 'c'>('python');
   const [rawCode, setRawCode] = useState<string>('');
 
   const [blocks, setBlocks] = useState<VisualBlock[]>([]);
@@ -208,7 +234,7 @@ export function BugDungeonPage() {
   };
 
   // Switch programming language
-  const handleSwitchLanguage = (newLang: 'python' | 'javascript') => {
+  const handleSwitchLanguage = (newLang: 'python' | 'javascript' | 'c') => {
     sound.playClick();
     setLanguage(newLang);
     setRawCode(blocksToCode(blocks, newLang));
@@ -360,7 +386,7 @@ export function BugDungeonPage() {
             <PetSVG
               type={pet.pet_type}
               stage={pet.stage}
-              state={showSuccessCard ? 'happy' : isPlaying ? 'thinking' : lastErrorMsg ? 'tired' : 'happy'}
+              state={showSuccessCard ? 'happy' : isPlaying ? 'focused' : lastErrorMsg ? 'tired' : 'happy'}
               equipped={pet.equipped_items}
               size={40}
             />
@@ -482,9 +508,9 @@ export function BugDungeonPage() {
                             size={46}
                             reaction={
                               activeStep.status === 'success'
-                                ? { config: { expression: 'victory', label: 'Fixed!', icon: '🏆', sound: 'victory', duration: 2 }, id: 1 }
+                                ? { config: REACTION_CONFIGS.encourage, id: 1 }
                                 : activeStep.status === 'collision' || activeStep.status === 'failed'
-                                ? { config: { expression: 'hurt', label: 'Bug Hit!', icon: '💥', sound: 'hurt', duration: 2 }, id: 2 }
+                                ? { config: REACTION_CONFIGS.rest, id: 2 }
                                 : null
                             }
                           />
@@ -708,6 +734,16 @@ export function BugDungeonPage() {
                     >
                       JavaScript
                     </button>
+                    <button
+                      onClick={() => handleSwitchLanguage('c')}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                        language === 'c'
+                          ? 'bg-emerald-600 text-white font-black'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      C
+                    </button>
                   </div>
                 </div>
 
@@ -747,13 +783,23 @@ export function BugDungeonPage() {
                     handleInsertSnippet(
                       language === 'python'
                         ? 'for step in range(3):\n    move_forward()'
-                        : 'for (let i = 0; i < 3; i++) {\n  move_forward();\n}'
+                        : language === 'javascript'
+                        ? 'for (let i = 0; i < 3; i++) {\n  move_forward();\n}'
+                        : 'for (int i = 0; i < 3; i++) {\n    move_forward();\n}'
                     )
                   }
                   className="px-2 py-0.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/40 text-amber-300 rounded text-[11px] font-mono cursor-pointer"
                 >
                   + loop(3)
                 </button>
+                {language === 'c' && (
+                  <button
+                    onClick={() => handleInsertSnippet('printf("Debug dungeon grid\\n");')}
+                    className="px-2 py-0.5 bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/40 text-cyan-300 rounded text-[11px] font-mono cursor-pointer"
+                  >
+                    + printf()
+                  </button>
+                )}
               </div>
 
               {/* Code Textarea Editor */}
@@ -764,7 +810,9 @@ export function BugDungeonPage() {
                   placeholder={
                     language === 'python'
                       ? '# Type your commands here:\nmove_forward()\nturn_right()\ninteract()\n'
-                      : '// Type your commands here:\nmove_forward();\nturn_right();\ninteract();\n'
+                      : language === 'javascript'
+                      ? '// Type your commands here:\nmove_forward();\nturn_right();\ninteract();\n'
+                      : '// Type your C commands here:\n#include <stdio.h>\nint main() {\n  move_forward();\n  turn_right();\n  return 0;\n}\n'
                   }
                   className="w-full h-48 bg-slate-950 text-slate-100 font-mono text-xs p-3.5 outline-none resize-none focus:ring-1 focus:ring-rose-500 leading-relaxed custom-scrollbar"
                   spellCheck={false}

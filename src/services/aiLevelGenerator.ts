@@ -342,7 +342,7 @@ export function generateProceduralAILevel(options: AILevelGenerationOptions = {}
     hints: [
       'Observe the obstacles and count the grid tiles before inputting your code.',
       crystals.length > 0 ? 'Pick up all glowing crystals along your route!' : 'Avoid water and wall barriers.',
-      'You can use both Python/JavaScript code typing or visual blocks.'
+      'You can use Python, JavaScript, or C code typing or visual blocks.'
     ],
     explanation: `This stage was dynamically synthesized by the AI Level Architect to test your ${focus} and 3D spatial routing skills.`,
     xpReward,

@@ -577,7 +577,7 @@ export function SignupPage() {
                 )}
               </div>
               <p className="text-[10px] text-slate-400 leading-tight">
-                Code Pioneer. Unlock direct Python & JavaScript editors and syntax challenges.
+                Code Pioneer. Unlock direct Python, JavaScript & C editors and syntax challenges.
               </p>
             </button>
           </div>

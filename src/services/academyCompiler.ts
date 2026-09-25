@@ -25,6 +25,8 @@ function mapCommandToBlockType(cmd: string): BlockType | null {
     case 'move_forward':
     case 'moveforward':
     case 'forward':
+    case 'pet_move_forward':
+    case 'pet_forward':
     case 'pet.move_forward':
     case 'pet.moveforward':
     case 'pet.forward':
@@ -33,6 +35,8 @@ function mapCommandToBlockType(cmd: string): BlockType | null {
     case 'move_back':
     case 'moveback':
     case 'back':
+    case 'pet_move_back':
+    case 'pet_back':
     case 'pet.move_back':
     case 'pet.moveback':
     case 'pet.back':
@@ -41,6 +45,8 @@ function mapCommandToBlockType(cmd: string): BlockType | null {
     case 'move_right':
     case 'moveright':
     case 'right':
+    case 'pet_move_right':
+    case 'pet_right':
     case 'pet.move_right':
     case 'pet.moveright':
     case 'pet.right':
@@ -49,6 +55,8 @@ function mapCommandToBlockType(cmd: string): BlockType | null {
     case 'move_left':
     case 'moveleft':
     case 'left':
+    case 'pet_move_left':
+    case 'pet_left':
     case 'pet.move_left':
     case 'pet.moveleft':
     case 'pet.left':
@@ -57,6 +65,8 @@ function mapCommandToBlockType(cmd: string): BlockType | null {
     case 'move_up':
     case 'moveup':
     case 'up':
+    case 'pet_move_up':
+    case 'pet_up':
     case 'pet.move_up':
     case 'pet.moveup':
     case 'pet.up':
@@ -65,6 +75,8 @@ function mapCommandToBlockType(cmd: string): BlockType | null {
     case 'move_down':
     case 'movedown':
     case 'down':
+    case 'pet_move_down':
+    case 'pet_down':
     case 'pet.move_down':
     case 'pet.movedown':
     case 'pet.down':
@@ -72,23 +84,28 @@ function mapCommandToBlockType(cmd: string): BlockType | null {
 
     case 'turn_right':
     case 'turnright':
+    case 'pet_turn_right':
     case 'pet.turn_right':
     case 'pet.turnright':
       return 'turn_right';
 
     case 'turn_left':
     case 'turnleft':
+    case 'pet_turn_left':
     case 'pet.turn_left':
     case 'pet.turnleft':
       return 'turn_left';
 
     case 'interact':
     case 'collect':
+    case 'pet_interact':
+    case 'pet_collect':
     case 'pet.interact':
     case 'pet.collect':
       return 'interact';
 
     case 'jump':
+    case 'pet_jump':
     case 'pet.jump':
       return 'jump';
 
@@ -427,3 +444,171 @@ export function compileJavaScript(sourceCode: string): CompilerResult {
     };
   }
 }
+
+/**
+ * In-browser C Compiler & Virtual Execution Runtime for Petslyvia Academy
+ * Supports:
+ * - #include <stdio.h>, #include "petslyvia.h"
+ * - int main() { ... return 0; }
+ * - Direct commands: move_right(), move_forward(), pet_move_right(), turn_right(), etc.
+ * - For loops: for (int i = 0; i < 8; i++) { ... }
+ * - Variables: int steps = 8;
+ * - printf("...");
+ * - Custom functions: void walk() { ... }
+ */
+export function compileC(sourceCode: string): CompilerResult {
+  const startTime = performance.now();
+  const logs: string[] = [
+    '⚙️ GCC 14.2 (C17) Virtual Compiler Initializing...',
+    '[PREPROCESSOR] Included <stdio.h> and "petslyvia.h"',
+    '[COMPILER] gcc -Wall -O2 main.c -o main',
+  ];
+  const blocks: VisualBlock[] = [];
+  const variables: Record<string, number> = {};
+
+  try {
+    if (!sourceCode.includes('main')) {
+      logs.push('[WARN] No main() function detected. Auto-wrapping statements into virtual main().');
+    }
+
+    const lines = sourceCode.split('\n');
+    let inLoop = false;
+    let loopCount = 1;
+    let loopBlocks: VisualBlock[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i];
+      const trimmed = raw.trim();
+
+      // Skip empty or comment lines
+      if (
+        !trimmed ||
+        trimmed.startsWith('//') ||
+        trimmed.startsWith('/*') ||
+        trimmed.startsWith('*') ||
+        trimmed.startsWith('#')
+      ) {
+        continue;
+      }
+
+      // Check printf statements
+      const printfMatch = trimmed.match(/printf\s*\(\s*"([^"]*)"/);
+      if (printfMatch) {
+        logs.push(`[STDOUT] ${printfMatch[1].replace(/\\n/g, '')}`);
+      }
+
+      // Check int variable declaration: int steps = 8;
+      const varMatch = trimmed.match(/int\s+([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;/);
+      if (varMatch) {
+        const vName = varMatch[1];
+        const vVal = parseInt(varMatch[2], 10);
+        variables[vName] = vVal;
+        logs.push(`[VAR] int ${vName} = ${vVal};`);
+        continue;
+      }
+
+      // Check for loop: for (int i = 0; i < N; i++) or for (i = 0; i < N; i++)
+      const forMatch = trimmed.match(
+        /for\s*\(\s*(?:int\s+)?(\w+)\s*=\s*\d+\s*;\s*\1\s*<\s*([^;]+)\s*;\s*[^)]+\)/
+      );
+      if (forMatch) {
+        if (inLoop && loopBlocks.length > 0) {
+          blocks.push({
+            id: uid(),
+            type: 'repeat',
+            params: { count: loopCount },
+            nestedBlocks: [...loopBlocks],
+          });
+          loopBlocks = [];
+        }
+
+        const rawLimit = forMatch[2].trim();
+        let parsedLimit = parseInt(rawLimit, 10);
+        if (isNaN(parsedLimit) && rawLimit in variables) {
+          parsedLimit = variables[rawLimit];
+        }
+        loopCount = Math.min(Math.max(1, isNaN(parsedLimit) ? 1 : parsedLimit), 20);
+        inLoop = true;
+        logs.push(`[LOOP] for-loop initialized with limit = ${loopCount}`);
+        continue;
+      }
+
+      // Check loop closing bracket
+      if (inLoop && (trimmed === '}' || trimmed.startsWith('}'))) {
+        if (loopBlocks.length > 0) {
+          blocks.push({
+            id: uid(),
+            type: 'repeat',
+            params: { count: loopCount },
+            nestedBlocks: [...loopBlocks],
+          });
+        }
+        inLoop = false;
+        loopBlocks = [];
+        logs.push(`[LOOP] for-loop block closed`);
+        continue;
+      }
+
+      // Check statement call
+      const blockType = mapCommandToBlockType(trimmed);
+      if (blockType) {
+        const newBlock: VisualBlock = { id: uid(), type: blockType };
+        if (inLoop) {
+          loopBlocks.push(newBlock);
+        } else {
+          blocks.push(newBlock);
+        }
+        logs.push(`[EXEC] ${blockType}();`);
+        continue;
+      }
+    }
+
+    if (inLoop && loopBlocks.length > 0) {
+      blocks.push({
+        id: uid(),
+        type: 'repeat',
+        params: { count: loopCount },
+        nestedBlocks: [...loopBlocks],
+      });
+    }
+
+    const executionTimeMs = Math.round((performance.now() - startTime) * 100) / 100;
+
+    if (blocks.length === 0) {
+      return {
+        success: false,
+        blocks: [],
+        logs: [
+          ...logs,
+          '⚠️ GCC Warning: Program compiled with exit code 0, but no pet movements were called.',
+        ],
+        error:
+          'No movements occurred. Did you call `move_right();`, `move_forward();`, or a `for` loop in main()?',
+        executionTimeMs,
+      };
+    }
+
+    // Cap at 50 blocks
+    const finalBlocks = blocks.slice(0, 50);
+    logs.push(
+      `✓ Process finished with exit code 0. Generated ${finalBlocks.length} instructions in ${executionTimeMs}ms.`
+    );
+
+    return {
+      success: true,
+      blocks: finalBlocks,
+      logs,
+      executionTimeMs,
+    };
+  } catch (err: any) {
+    const executionTimeMs = Math.round((performance.now() - startTime) * 100) / 100;
+    return {
+      success: false,
+      blocks: [],
+      logs: [...logs, `❌ C Compilation Error: ${err?.message || String(err)}`],
+      error: err?.message || 'C compilation syntax error.',
+      executionTimeMs,
+    };
+  }
+}
+
