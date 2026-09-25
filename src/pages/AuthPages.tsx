@@ -144,32 +144,44 @@ export function LoginPage() {
               <div className="space-y-2">
                 <ErrorBanner message={error} />
                 <div className="flex flex-wrap gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError('');
-                      setPassword('');
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-300 hover:bg-slate-700 font-semibold"
-                  >
-                    Try Again
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError('');
-                      setMode('otp_request');
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-900/60 text-indigo-200 hover:bg-indigo-800 font-semibold"
-                  >
-                    Login with OTP
-                  </button>
-                  <Link
-                    to="/reset"
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 font-semibold"
-                  >
-                    Forgot Password?
-                  </Link>
+                  {error.toLowerCase().includes('email not confirmed') ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRequestOtp()}
+                      className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <KeyRound size={15} /> Send OTP & Enter with 6-Digit Code ➔
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError('');
+                          setPassword('');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-300 hover:bg-slate-700 font-semibold cursor-pointer"
+                      >
+                        Try Again
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError('');
+                          setMode('otp_request');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-900/60 text-indigo-200 hover:bg-indigo-800 font-semibold cursor-pointer"
+                      >
+                        Login with OTP
+                      </button>
+                      <Link
+                        to="/reset"
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 font-semibold"
+                      >
+                        Forgot Password?
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             )}

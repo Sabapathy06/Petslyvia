@@ -200,9 +200,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.warn('Supabase signInWithPassword:', error.message);
-        // If error indicates invalid credentials, check local fallback before failing
         const accounts = getLocalAccounts();
         const localAcc = accounts[cleanEmail];
+
+        // If email not confirmed, give clear actionable instruction or check local match
+        if (error.message?.toLowerCase().includes('email not confirmed')) {
+          if (localAcc && localAcc.passwordHash === pass) {
+            // Allow local login while email confirmation is pending
+            const mockUser: User = {
+              id: localAcc.id,
+              email: localAcc.email,
+              app_metadata: { provider: 'email' },
+              user_metadata: { display_name: localAcc.displayName },
+              aud: 'authenticated',
+              created_at: new Date().toISOString(),
+            };
+            localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: mockUser }));
+            setUser(mockUser);
+            await loadPlayerData(mockUser.id, mockUser.email);
+            return { success: true };
+          }
+          return {
+            success: false,
+            error: 'Email not confirmed yet. Click "Login with OTP" below to enter directly using a 6-digit code!',
+          };
+        }
+
         if (!localAcc) {
           return { success: false, error: error.message || 'Invalid email or password.' };
         }
@@ -271,7 +294,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     accounts[cleanEmail] = account;
     saveLocalAccounts(accounts);
 
-    // If Supabase is connected, trigger passwordless / reset OTP email
+    // If Supabase is connected, trigger passwordless / reset OTP email or resend confirmation
     try {
       await supabase.auth.signInWithOtp({ email: cleanEmail });
     } catch {
@@ -291,18 +314,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyOtpAndLogin = async (email: string, code: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Try Supabase OTP verification
+    // 1. Try Supabase OTP verification (type: 'email' or 'signup')
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
+      let result = await supabase.auth.verifyOtp({
         email: cleanEmail,
         token: code.trim(),
         type: 'email',
       });
-      if (!error && data?.user) {
-        setUser(data.user);
-        setSession(data.session);
-        localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: data.user }));
-        await loadPlayerData(data.user.id, cleanEmail);
+
+      if (result.error) {
+        // Try signup confirmation type
+        result = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: code.trim(),
+          type: 'signup',
+        });
+      }
+
+      if (!result.error && result.data?.user) {
+        setUser(result.data.user);
+        setSession(result.data.session);
+        localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: result.data.user }));
+        await loadPlayerData(result.data.user.id, cleanEmail);
         return { success: true };
       }
     } catch {
