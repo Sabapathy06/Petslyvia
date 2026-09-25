@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, User, Mail, ShieldCheck, Heart, Compass } from 'lucide-react';
+import { X, Sparkles, User, Mail, Heart } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { sound } from '@/utils/audio';
-import type { PetType } from '@/types/game';
+import type { PetType } from '@/types/database';
+import { PET_LIST } from '@/data/pets';
 
 interface GoogleAuthModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [selectedPet, setSelectedPet] = useState<PetType>('fox');
+  const [petName, setPetName] = useState('Sparky');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,11 +37,14 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
     setLoading(true);
     sound.playClick();
 
+    const effectiveName = displayName.trim() || cleanEmail.split('@')[0];
+    const effectivePetName = petName.trim() || `${effectiveName}'s Companion`;
+
     const res = await loginWithGoogleAccount(
       cleanEmail,
-      displayName || cleanEmail.split('@')[0],
+      effectiveName,
       selectedPet,
-      'Sparky'
+      effectivePetName
     );
 
     setLoading(false);
@@ -177,49 +182,63 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  Your Display Name (Optional)
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-2.5 text-slate-500" size={16} />
-                  <input
-                    type="text"
-                    placeholder="e.g. Alex"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Your Nickname
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <input
+                      type="text"
+                      placeholder="e.g. Alex"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Pet Name
+                  </label>
+                  <div className="relative">
+                    <Heart className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <input
+                      type="text"
+                      placeholder="e.g. Sparky"
+                      value={petName}
+                      onChange={(e) => setPetName(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Starter Companion Choice */}
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span>Companion Choice (If new account):</span>
+                  <span>Companion Species (If new account):</span>
                   <span className="text-[10px] text-amber-400 capitalize">{selectedPet}</span>
                 </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { type: 'fox', label: 'Fox 🦊' },
-                    { type: 'cat', label: 'Cat 🐱' },
-                    { type: 'dog', label: 'Dog 🐶' },
-                    { type: 'dragon', label: 'Dragon 🐲' },
-                  ].map((p) => (
+                <div className="grid grid-cols-4 gap-1.5">
+                  {PET_LIST.map((p) => (
                     <button
                       key={p.type}
                       type="button"
                       onClick={() => {
-                        setSelectedPet(p.type as PetType);
+                        setSelectedPet(p.type);
                         sound.playSnap();
                       }}
-                      className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                      className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                         selectedPet === p.type
                           ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black'
                           : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
                       }`}
                     >
-                      {p.label}
+                      <span>{p.emoji}</span>
+                      <span className="capitalize text-[10px]">{p.type}</span>
                     </button>
                   ))}
                 </div>

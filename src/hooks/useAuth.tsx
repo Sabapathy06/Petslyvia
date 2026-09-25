@@ -1,8 +1,8 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Pet } from '@/types/database';
-import { petslyviaService } from '@/services/petslyviaService';
+import { petslyviaService, generateUUID } from '@/services/petslyviaService';
 
 interface LocalAuthAccount {
   id: string;
@@ -95,22 +95,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Avoid race conditions when signup is in progress
+  const isSigningUpRef = useRef(false);
+
   // Load profile and 1:1 primary pet across any device by UID or Email
-  const loadPlayerData = async (uid: string, userEmail?: string) => {
+  const loadPlayerData = async (uid: string, userEmail?: string, currentUserObj?: User | null) => {
     let p = await petslyviaService.getProfile(uid, userEmail);
-    // If profile was found under a persistent cloud ID (e.g. from previous device), use that ID
     const actualUid = p?.id || uid;
     let petData = await petslyviaService.getPet(actualUid, uid);
 
-    // If profile doesn't exist yet anywhere in the cloud, initialize exactly 1 profile & 1 infant pet
+    // If profile or pet doesn't exist yet anywhere in the cloud or local cache, initialize cleanly
     if (!p || !petData) {
-      const emailName = userEmail ? userEmail.split('@')[0] : 'Explorer';
+      const cleanEmail = userEmail?.toLowerCase() || '';
+      const localAcc = getLocalAccounts()[cleanEmail];
+      const displayName =
+        localAcc?.displayName ||
+        p?.display_name ||
+        currentUserObj?.user_metadata?.display_name ||
+        (userEmail ? userEmail.split('@')[0] : 'Explorer');
+
+      const metaPetType: Pet['pet_type'] =
+        (currentUserObj?.user_metadata?.pet_type as Pet['pet_type']) || 'cat';
+      const metaPetName =
+        currentUserObj?.user_metadata?.pet_name || `${displayName}'s Companion`;
+
       const init = await petslyviaService.initializeNewPlayer(
         actualUid,
         userEmail || 'player@petslyvia.world',
-        emailName,
-        'fox',
-        'Sparky'
+        displayName,
+        metaPetType,
+        metaPetName
       );
       p = init.profile;
       petData = init.pet;
@@ -118,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setProfile(p);
     setPet(petData);
+    return { profile: p, pet: petData };
   };
 
   useEffect(() => {
@@ -130,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const sessionObj = JSON.parse(localSession);
         if (sessionObj?.user?.id) {
           setUser(sessionObj.user);
-          loadPlayerData(sessionObj.user.id, sessionObj.user.email).finally(() => {
+          loadPlayerData(sessionObj.user.id, sessionObj.user.email, sessionObj.user).finally(() => {
             if (mounted) setLoading(false);
           });
           return;
@@ -146,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s?.user) {
         setSession(s);
         setUser(s.user);
-        loadPlayerData(s.user.id, s.user.email).finally(() => {
+        loadPlayerData(s.user.id, s.user.email, s.user).finally(() => {
           if (mounted) setLoading(false);
         });
       } else {
@@ -159,10 +174,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 3. Listen to Supabase auth state change (e.g. OAuth redirect returns)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, s) => {
       if (!mounted) return;
+      if (isSigningUpRef.current) return; // Prevent signup race condition from overriding custom pet
       if (s?.user) {
         setSession(s);
         setUser(s.user);
-        await loadPlayerData(s.user.id, s.user.email);
+        await loadPlayerData(s.user.id, s.user.email, s.user);
         setLoading(false);
       }
     });
@@ -175,12 +191,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user?.id) {
-      await loadPlayerData(user.id, user.email);
+      await loadPlayerData(user.id, user.email, user);
     }
   };
 
   // ----------------------------------------------------
-  // LOGIN WITH PASSWORD (OPTION A)
+  // LOGIN WITH PASSWORD
   // ----------------------------------------------------
   const loginWithPassword = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
@@ -196,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
         setSession(data.session);
         localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: data.user }));
-        await loadPlayerData(data.user.id, cleanEmail);
+        await loadPlayerData(data.user.id, cleanEmail, data.user);
         return { success: true };
       }
 
@@ -205,10 +221,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const accounts = getLocalAccounts();
         const localAcc = accounts[cleanEmail];
 
-        // If Supabase rejected due to unconfirmed email, DO NOT BLOCK the user!
-        // Seamlessly log them in immediately with their account data.
+        // If Supabase rejected due to unconfirmed email, log them in immediately with their account data
         if (error.message?.toLowerCase().includes('email not confirmed')) {
-          const userId = localAcc?.id || `user_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const userId = localAcc?.id || generateUUID();
           const displayName = localAcc?.displayName || cleanEmail.split('@')[0];
 
           accounts[cleanEmail] = {
@@ -230,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: mockUser }));
           setUser(mockUser);
-          await loadPlayerData(userId, cleanEmail);
+          await loadPlayerData(userId, cleanEmail, mockUser);
           return { success: true };
         }
       }
@@ -243,7 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let account = accounts[cleanEmail];
 
     if (!account) {
-      const userId = `user_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const userId = generateUUID();
       account = {
         id: userId,
         email: cleanEmail,
@@ -270,7 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: mockUser }));
     setUser(mockUser);
-    await loadPlayerData(mockUser.id, mockUser.email);
+    await loadPlayerData(mockUser.id, mockUser.email, mockUser);
     return { success: true };
   };
 
@@ -283,7 +298,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let account = accounts[cleanEmail];
 
     if (!account) {
-      const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      const userId = generateUUID();
       account = {
         id: userId,
         email: cleanEmail,
@@ -341,7 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(result.data.user);
         setSession(result.data.session);
         localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: result.data.user }));
-        await loadPlayerData(result.data.user.id, cleanEmail);
+        await loadPlayerData(result.data.user.id, cleanEmail, result.data.user);
         return { success: true };
       }
     } catch {
@@ -378,7 +393,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: mockUser }));
     setUser(mockUser);
-    await loadPlayerData(mockUser.id, mockUser.email);
+    await loadPlayerData(mockUser.id, mockUser.email, mockUser);
     return { success: true };
   };
 
@@ -435,84 +450,98 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    let userId = '';
-    let authUser: User | null = null;
-    let authSession: Session | null = null;
+    // Lock authState listener so it doesn't race and overwrite the chosen pet
+    isSigningUpRef.current = true;
 
-    // 1. Register with Supabase Backend Auth
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: pass,
-        options: {
-          data: {
-            display_name: displayName || cleanEmail.split('@')[0],
+      let userId = generateUUID();
+      let authUser: User | null = null;
+      let authSession: Session | null = null;
+
+      const effectiveDisplayName = displayName.trim() || cleanEmail.split('@')[0] || 'Player';
+      const effectivePetName = petName.trim() || 'Buddy';
+
+      // 1. Register with Supabase Backend Auth
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: pass,
+          options: {
+            data: {
+              display_name: effectiveDisplayName,
+              pet_type: petType,
+              pet_name: effectivePetName,
+            },
           },
-        },
-      });
+        });
 
-      if (error) {
-        if (
-          error.message?.toLowerCase().includes('already registered') ||
-          error.message?.toLowerCase().includes('already exists')
-        ) {
-          return {
-            success: false,
-            error: 'This email is already registered. Please log in instead.',
-          };
+        if (error) {
+          if (
+            error.message?.toLowerCase().includes('already registered') ||
+            error.message?.toLowerCase().includes('already exists')
+          ) {
+            return {
+              success: false,
+              error: 'This email is already registered. Please log in instead.',
+            };
+          }
+          console.warn('Supabase signUp notice:', error.message);
         }
-        console.warn('Supabase signUp notice:', error.message);
+
+        if (data?.user) {
+          userId = data.user.id;
+          authUser = data.user;
+          authSession = data.session;
+        }
+      } catch (err: any) {
+        console.warn('Supabase signUp network fallback:', err?.message);
       }
 
-      if (data?.user) {
-        userId = data.user.id;
-        authUser = data.user;
-        authSession = data.session;
-      }
-    } catch (err: any) {
-      console.warn('Supabase signUp network fallback:', err?.message);
+      // 2. Save local account cache for offline/fast login
+      accounts[cleanEmail] = {
+        id: userId,
+        email: cleanEmail,
+        passwordHash: pass,
+        displayName: effectiveDisplayName,
+      };
+      saveLocalAccounts(accounts);
+
+      // 3. Initialize Profile and Infant Pet in Supabase database & local store with chosen pet
+      const init = await petslyviaService.initializeNewPlayer(
+        userId,
+        cleanEmail,
+        effectiveDisplayName,
+        petType,
+        effectivePetName,
+        role,
+        true // forceOverwritePet so the chosen pet is saved deterministically
+      );
+
+      const currentUser: User = authUser || {
+        id: userId,
+        email: cleanEmail,
+        app_metadata: {},
+        user_metadata: {
+          display_name: effectiveDisplayName,
+          pet_type: petType,
+          pet_name: effectivePetName,
+        },
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+      };
+
+      localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: currentUser }));
+      setUser(currentUser);
+      setSession(authSession);
+      setProfile(init.profile);
+      setPet(init.pet);
+
+      return { success: true };
+    } finally {
+      setTimeout(() => {
+        isSigningUpRef.current = false;
+      }, 1200);
     }
-
-    // Fallback ID if Supabase was offline or non-responsive
-    if (!userId) {
-      userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    }
-
-    // 2. Save local account cache for offline/fast login
-    accounts[cleanEmail] = {
-      id: userId,
-      email: cleanEmail,
-      passwordHash: pass,
-      displayName: displayName || cleanEmail.split('@')[0] || 'Player',
-    };
-    saveLocalAccounts(accounts);
-
-    // 3. Initialize Profile and Infant Pet in Supabase database & local store
-    const init = await petslyviaService.initializeNewPlayer(
-      userId,
-      cleanEmail,
-      displayName || cleanEmail.split('@')[0] || 'Player',
-      petType,
-      petName || 'Buddy',
-      role
-    );
-
-    const currentUser: User = authUser || {
-      id: userId,
-      email: cleanEmail,
-      app_metadata: {},
-      user_metadata: { display_name: displayName },
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-    };
-
-    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: currentUser }));
-    setUser(currentUser);
-    setSession(authSession);
-    setProfile(init.profile);
-    setPet(init.pet);
-
-    return { success: true };
   };
 
   // ----------------------------------------------------
@@ -550,8 +579,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogleAccount = async (
     googleEmail: string,
     googleDisplayName?: string,
-    petType: Pet['pet_type'] = 'fox',
-    petName: string = 'Sparky',
+    petType: Pet['pet_type'] = 'cat',
+    petName?: string,
     role: 'non_coder' | 'coder' = 'non_coder'
   ): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = googleEmail.trim().toLowerCase();
@@ -564,10 +593,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let userId = account?.id;
     const name =
       googleDisplayName?.trim() || account?.displayName || cleanEmail.split('@')[0] || 'Explorer';
+    const effectivePetName = petName?.trim() || `${name}'s Companion`;
 
     if (!account) {
-      // Try to create in Supabase or generate user ID
-      userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      userId = generateUUID();
       account = {
         id: userId,
         email: cleanEmail,
@@ -583,8 +612,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cleanEmail,
         name,
         petType,
-        petName,
-        role
+        effectivePetName,
+        role,
+        true
       );
       setProfile(init.profile);
       setPet(init.pet);

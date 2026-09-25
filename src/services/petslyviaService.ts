@@ -4,6 +4,17 @@ import type { EquippedAccessories, BugExchangeItem, CommunityProblem, PetStage }
 import { ACCESSORIES_CATALOG } from '@/data/accessories';
 import { INITIAL_BUG_EXCHANGES, INITIAL_COMMUNITY_PROBLEMS, INITIAL_CONTACTS } from '@/data/communitySeed';
 
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 const STORAGE_KEYS = {
   PROFILES: 'petslyvia_profiles',
   PETS: 'petslyvia_pets',
@@ -13,7 +24,7 @@ const STORAGE_KEYS = {
   BUGS: 'petslyvia_bug_exchanges',
   CONTACTS: 'petslyvia_contacts',
   CURRENT_USER_ID: 'petslyvia_current_user_id',
-  AUTH_USERS: 'petslyvia_auth_users', // For offline local auth simulation: email -> { passwordHash, otp }
+  AUTH_USERS: 'petslyvia_auth_users',
 };
 
 // Check if Supabase credentials are configured
@@ -68,7 +79,7 @@ export const petslyviaService = {
           return profile;
         }
       } catch (err) {
-        console.warn('Supabase getProfile:', err);
+        console.warn('Supabase getProfile error:', err);
       }
     }
     const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
@@ -78,6 +89,7 @@ export const petslyviaService = {
   async saveProfile(profile: Profile): Promise<Profile> {
     const updatedProfile: Profile = {
       ...profile,
+      id: profile.id || generateUUID(),
       email: profile.email ? profile.email.toLowerCase() : undefined,
       updated_at: new Date().toISOString(),
     };
@@ -111,12 +123,13 @@ export const petslyviaService = {
           const saved = data as Profile;
           const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
           profiles[saved.id] = saved;
+          profiles[updatedProfile.id] = saved;
           if (saved.email) profiles[saved.email.toLowerCase()] = saved;
           setLocal(STORAGE_KEYS.PROFILES, profiles);
           return saved;
         }
       } catch (err) {
-        console.warn('Supabase saveProfile:', err);
+        console.warn('Supabase saveProfile error:', err);
       }
     }
     const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
@@ -149,7 +162,7 @@ export const petslyviaService = {
           return pet;
         }
       } catch (err) {
-        console.warn('Supabase getPet:', err);
+        console.warn('Supabase getPet error:', err);
       }
     }
     const pets = getLocal<Record<string, Pet>>(STORAGE_KEYS.PETS, {});
@@ -162,6 +175,7 @@ export const petslyviaService = {
       pet.level >= 7 ? 'adult' : pet.level >= 5 ? 'teen' : pet.level >= 3 ? 'child' : 'infant';
     const updatedPet: Pet = {
       ...pet,
+      id: pet.id || generateUUID(),
       stage,
       updated_at: new Date().toISOString(),
     };
@@ -185,14 +199,36 @@ export const petslyviaService = {
           updated_at: updatedPet.updated_at,
         };
 
-        // If updatedPet.id is a valid UUID, include it
-        if (updatedPet.id && !updatedPet.id.startsWith('pet_') && updatedPet.id.length === 36) {
-          petPayload.id = updatedPet.id;
+        // Check if pet already exists in Supabase for this user_id
+        const { data: existingPet } = await supabase
+          .from('pets')
+          .select('id')
+          .eq('user_id', updatedPet.user_id)
+          .maybeSingle();
+
+        let saved: Pet | null = null;
+        if (existingPet?.id) {
+          const { data, error } = await supabase
+            .from('pets')
+            .update(petPayload)
+            .eq('id', existingPet.id)
+            .select()
+            .maybeSingle();
+          if (data && !error) saved = data as Pet;
+        } else {
+          // If updatedPet.id is a valid UUID, include it
+          if (updatedPet.id && updatedPet.id.length === 36 && !updatedPet.id.startsWith('pet_')) {
+            petPayload.id = updatedPet.id;
+          }
+          const { data, error } = await supabase
+            .from('pets')
+            .insert(petPayload)
+            .select()
+            .maybeSingle();
+          if (data && !error) saved = data as Pet;
         }
 
-        const { data, error } = await supabase.from('pets').upsert(petPayload).select().maybeSingle();
-        if (data && !error) {
-          const saved = data as Pet;
+        if (saved) {
           const pets = getLocal<Record<string, Pet>>(STORAGE_KEYS.PETS, {});
           pets[pet.user_id] = saved;
           if (saved.user_id) pets[saved.user_id] = saved;
@@ -200,7 +236,7 @@ export const petslyviaService = {
           return saved;
         }
       } catch (err) {
-        console.warn('Supabase savePet:', err);
+        console.warn('Supabase savePet error:', err);
       }
     }
     const pets = getLocal<Record<string, Pet>>(STORAGE_KEYS.PETS, {});
@@ -218,58 +254,64 @@ export const petslyviaService = {
     displayName: string,
     petType: Pet['pet_type'],
     petName: string,
-    role: 'non_coder' | 'coder' = 'non_coder'
+    role: 'non_coder' | 'coder' = 'non_coder',
+    forceOverwritePet = false
   ): Promise<{ profile: Profile; pet: Pet }> {
-    // Verify user does not already exist
-    const existingProfile = await this.getProfile(userId);
+    // If not forcing overwrite, verify if pet and profile already exist
+    const existingProfile = await this.getProfile(userId, email);
     const existingPet = await this.getPet(userId);
-    if (existingProfile && existingPet) {
+
+    if (!forceOverwritePet && existingProfile && existingPet) {
       return { profile: existingProfile, pet: existingPet };
     }
 
-    const newProfile: Profile = {
-      id: userId,
-      email,
-      username: displayName.toLowerCase().replace(/\s+/g, '_') || 'player',
-      display_name: displayName || 'Player',
-      avatar_url: null,
-      role: role,
-      coins: 100, // Starter coins
-      total_xp: 50, // Starter XP
-      current_level: 1,
-      skills: {
-        logic: 15,
-        debugging: 10,
-        creativity: 15,
-        coding: role === 'coder' ? 20 : 0,
-        collaboration: 10,
-      },
-      unlocked_areas: ['pet_home', 'logic_forest', 'shop'],
-      coding_mode_unlocked: role === 'coder',
-      bugs_created: 0,
-      bugs_solved: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    const newProfile: Profile = existingProfile
+      ? { ...existingProfile, display_name: displayName || existingProfile.display_name, role: role || existingProfile.role }
+      : {
+          id: userId,
+          email: email.toLowerCase(),
+          username: displayName.toLowerCase().replace(/\s+/g, '_') || 'player',
+          display_name: displayName || 'Player',
+          avatar_url: null,
+          role: role,
+          coins: 100, // Starter coins
+          total_xp: 50, // Starter XP
+          current_level: 1,
+          skills: {
+            logic: 15,
+            debugging: 10,
+            creativity: 15,
+            coding: role === 'coder' ? 20 : 0,
+            collaboration: 10,
+          },
+          unlocked_areas: ['pet_home', 'logic_forest', 'shop'],
+          coding_mode_unlocked: role === 'coder',
+          bugs_created: 0,
+          bugs_solved: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
 
-    const newPet: Pet = {
-      id: userId,
-      user_id: userId,
-      pet_type: petType,
-      pet_name: petName,
-      personality: 'Curious, cheerful, and eager to explore logic puzzles!',
-      stage: 'infant',
-      level: 1,
-      xp: 50,
-      happiness: 100,
-      energy: 100,
-      productivity_state: 'happy',
-      unlocked_abilities: ['runner'],
-      equipped_items: {},
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    const newPet: Pet = (existingPet && !forceOverwritePet)
+      ? existingPet
+      : {
+          id: existingPet?.id || generateUUID(),
+          user_id: userId,
+          pet_type: petType,
+          pet_name: petName || 'Buddy',
+          personality: 'Curious, cheerful, and eager to explore logic puzzles!',
+          stage: 'infant',
+          level: 1,
+          xp: 50,
+          happiness: 100,
+          energy: 100,
+          productivity_state: 'happy',
+          unlocked_abilities: ['runner'],
+          equipped_items: {},
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
 
     const savedProfile = await this.saveProfile(newProfile);
     const savedPet = await this.savePet(newPet);
@@ -307,7 +349,7 @@ export const petslyviaService = {
     await this.saveProfile(profile);
 
     const newItem: UserInventoryItem = {
-      id: `inv_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      id: generateUUID(),
       user_id: userId,
       item_id: accessoryId,
       equipped: false,
@@ -367,7 +409,7 @@ export const petslyviaService = {
 
     const existingProg = allProgress[userId][missionId];
     const newProg: MissionProgress = {
-      id: existingProg?.id || `prog_${missionId}_${Date.now()}`,
+      id: existingProg?.id || generateUUID(),
       user_id: userId,
       mission_id: missionId,
       completed: true,
@@ -505,9 +547,9 @@ export const petslyviaService = {
   async addContact(userId: string, friendName: string): Promise<Contact> {
     const contacts = getLocal<Contact[]>(STORAGE_KEYS.CONTACTS, INITIAL_CONTACTS);
     const newContact: Contact = {
-      id: `contact_${Date.now()}`,
+      id: generateUUID(),
       user_id: userId,
-      friend_user_id: `user_${friendName.toLowerCase()}`,
+      friend_user_id: generateUUID(),
       friend_name: friendName,
       friend_pet_type: 'fox',
       friend_pet_stage: 'child',
@@ -625,4 +667,3 @@ export const petslyviaService = {
     };
   },
 };
-

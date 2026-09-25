@@ -372,6 +372,17 @@ export function LoginPage() {
   );
 }
 
+const DEFAULT_PET_NAMES: Record<PetType, string> = {
+  fox: 'Sparky',
+  cat: 'Whiskers',
+  dog: 'Buddy',
+  bunny: 'Hoppy',
+  panda: 'Bamboo',
+  koala: 'Koko',
+  hamster: 'Nibbles',
+  penguin: 'Pippin',
+};
+
 // ----------------------------------------------------
 // SIGN UP PAGE (ONE EMAIL = ONE ACCOUNT)
 // ----------------------------------------------------
@@ -385,6 +396,7 @@ export function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedPetType, setSelectedPetType] = useState<PetType>('fox');
   const [petName, setPetName] = useState('Sparky');
+  const [hasCustomPetName, setHasCustomPetName] = useState(false);
   const [role, setRole] = useState<'non_coder' | 'coder'>('non_coder');
   const [showGoogleModal, setShowGoogleModal] = useState(false);
 
@@ -456,8 +468,11 @@ export function SignupPage() {
               type="text"
               required
               value={petName}
-              onChange={(e) => setPetName(e.target.value)}
-              placeholder="e.g. Sparky"
+              onChange={(e) => {
+                setPetName(e.target.value);
+                setHasCustomPetName(true);
+              }}
+              placeholder={`e.g. ${DEFAULT_PET_NAMES[selectedPetType] || 'Buddy'}`}
               className="w-full pl-9 pr-3 py-2.5 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 outline-none text-xs"
             />
           </Field>
@@ -477,6 +492,9 @@ export function SignupPage() {
                   type="button"
                   onClick={() => {
                     setSelectedPetType(p.type);
+                    if (!hasCustomPetName) {
+                      setPetName(DEFAULT_PET_NAMES[p.type] || p.name);
+                    }
                     sound.playStep();
                   }}
                   className={`flex flex-col items-center p-2 rounded-xl border transition-all ${

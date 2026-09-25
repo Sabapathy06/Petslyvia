@@ -17,10 +17,18 @@ export function SettingsPage() {
 
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedUid, setCopiedUid] = useState(false);
-  const [displayName, setDisplayName] = useState(profile?.display_name || 'Explorer');
-  const [petName, setPetName] = useState(pet?.pet_name || 'Pixel');
+  const [displayName, setDisplayName] = useState(profile?.display_name || '');
+  const [petName, setPetName] = useState(pet?.pet_name || '');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [petSaveStatus, setPetSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  React.useEffect(() => {
+    if (profile?.display_name) setDisplayName(profile.display_name);
+  }, [profile?.display_name]);
+
+  React.useEffect(() => {
+    if (pet?.pet_name) setPetName(pet.pet_name);
+  }, [pet?.pet_name]);
 
   const userEmail = user?.email || profile?.email || 'player@petslyvia.world';
   const userId = user?.id || profile?.id || 'uid_unknown';
