@@ -261,10 +261,25 @@ export function PetSanctuary3D({
     return () => {
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
-      petModel.cleanup();
-      renderer.dispose();
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
+      try {
+        petModel.cleanup();
+        scene.traverse((obj) => {
+          if (obj instanceof THREE.Mesh || obj instanceof THREE.Points || obj instanceof THREE.Line) {
+            obj.geometry?.dispose?.();
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach((m) => m?.dispose?.());
+            } else if (obj.material) {
+              obj.material.dispose?.();
+            }
+          }
+        });
+        renderer.dispose();
+        renderer.forceContextLoss?.();
+        if (renderer.domElement && renderer.domElement.parentNode === container) {
+          container.removeChild(renderer.domElement);
+        }
+      } catch (err) {
+        console.warn('PetSanctuary3D cleanup caught error:', err);
       }
     };
   }, [type, stage, JSON.stringify(equipped)]);

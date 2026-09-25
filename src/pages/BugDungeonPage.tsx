@@ -132,6 +132,18 @@ export function BugDungeonPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Safely cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (simIntervalRef.current) {
+        clearInterval(simIntervalRef.current);
+        simIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   const [showAiHelper, setShowAiHelper] = useState(false);
   const [showSuccessCard, setShowSuccessCard] = useState(false);
   const [lastErrorMsg, setLastErrorMsg] = useState<string | undefined>();
@@ -204,6 +216,10 @@ export function BugDungeonPage() {
 
   // Reset back to initial bug state
   const handleResetBug = () => {
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
     sound.playClick();
     const initial = breakFixMission.initialBlocks
       ? JSON.parse(JSON.stringify(breakFixMission.initialBlocks))
@@ -214,6 +230,7 @@ export function BugDungeonPage() {
     setCurrentStepIndex(0);
     setLastErrorMsg(undefined);
     setShowSuccessCard(false);
+    setIsPlaying(false);
   };
 
   const handleTestDebug = () => {
@@ -221,6 +238,11 @@ export function BugDungeonPage() {
       sound.playError();
       setLastErrorMsg('No instructions found! Add visual blocks or type code to guide the pet.');
       return;
+    }
+
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
     }
 
     sound.playClick();
@@ -241,13 +263,16 @@ export function BugDungeonPage() {
     setCurrentStepIndex(0);
 
     let step = 0;
-    const interval = setInterval(() => {
+    simIntervalRef.current = setInterval(() => {
       step++;
       if (step < result.steps.length) {
         setCurrentStepIndex(step);
         sound.playStep();
       } else {
-        clearInterval(interval);
+        if (simIntervalRef.current) {
+          clearInterval(simIntervalRef.current);
+          simIntervalRef.current = null;
+        }
         setIsPlaying(false);
 
         if (result.success) {

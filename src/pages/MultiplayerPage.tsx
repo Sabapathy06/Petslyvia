@@ -49,6 +49,21 @@ export function MultiplayerPage() {
   const [playerSimulationSteps, setPlayerSimulationSteps] = useState<SimulationStep[]>([]);
   const [duelResult, setDuelResult] = useState<{ winner: 'player' | 'opponent' | null; message: string } | null>(null);
   const raceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const bugSolveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Safely cleanup all intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (raceIntervalRef.current) {
+        clearInterval(raceIntervalRef.current);
+        raceIntervalRef.current = null;
+      }
+      if (bugSolveIntervalRef.current) {
+        clearInterval(bugSolveIntervalRef.current);
+        bugSolveIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Close duel modal and safely cleanup racing interval
   const handleCloseDuel = () => {
@@ -146,17 +161,25 @@ export function MultiplayerPage() {
       bugBlocks
     );
 
+    if (bugSolveIntervalRef.current) {
+      clearInterval(bugSolveIntervalRef.current);
+      bugSolveIntervalRef.current = null;
+    }
+
     setBugSimSteps(result.steps);
     setBugSimStepIndex(0);
 
     let step = 0;
-    const interval = setInterval(async () => {
+    bugSolveIntervalRef.current = setInterval(async () => {
       step++;
       if (step < result.steps.length) {
         setBugSimStepIndex(step);
         sound.playStep();
       } else {
-        clearInterval(interval);
+        if (bugSolveIntervalRef.current) {
+          clearInterval(bugSolveIntervalRef.current);
+          bugSolveIntervalRef.current = null;
+        }
         setSolving(false);
         if (result.success) {
           sound.playVictory();

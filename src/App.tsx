@@ -48,43 +48,47 @@ function PublicOnlyRoute({ children }: { children: JSX.Element }) {
   return children;
 }
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/signup" element={<PublicOnlyRoute><SignupPage /></PublicOnlyRoute>} />
-      <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
-      <Route path="/reset" element={<ResetPasswordPage />} />
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/signup" element={<PublicOnlyRoute><SignupPage /></PublicOnlyRoute>} />
+        <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
+        <Route path="/reset" element={<ResetPasswordPage />} />
 
-      {/* Main Authenticated Petslyvia Adventure World */}
-      <Route
-        path="/app"
-        element={
-          <ProtectedRoute>
-            <GameDataProvider>
-              <GameLayout />
-            </GameDataProvider>
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<WorldMapPage />} />
-        <Route path="sanctuary" element={<PetHomePage />} />
-        <Route path="forest" element={<AdventurePage />} />
-        <Route path="dungeon" element={<BugDungeonPage />} />
-        <Route path="city" element={<SmartCityPage />} />
-        <Route path="shop" element={<ShopPage />} />
-        <Route path="creator" element={<CreatorPage />} />
-        <Route path="multiplayer" element={<MultiplayerPage />} />
-        <Route path="lab" element={<CodingLabPage />} />
-        <Route path="quantum" element={<CodingLabPage />} />
-        <Route path="quantum-lab" element={<CodingLabPage />} />
-        <Route path="quantumlab" element={<CodingLabPage />} />
-        <Route path="skills" element={<AchievementsSkillsPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-      </Route>
+        {/* Main Authenticated Petslyvia Adventure World */}
+        <Route
+          path="/app"
+          element={
+            <ProtectedRoute>
+              <GameDataProvider>
+                <GameLayout />
+              </GameDataProvider>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<ErrorBoundary><WorldMapPage /></ErrorBoundary>} />
+          <Route path="sanctuary" element={<ErrorBoundary><PetHomePage /></ErrorBoundary>} />
+          <Route path="forest" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
+          <Route path="dungeon" element={<ErrorBoundary><BugDungeonPage /></ErrorBoundary>} />
+          <Route path="city" element={<ErrorBoundary><SmartCityPage /></ErrorBoundary>} />
+          <Route path="shop" element={<ErrorBoundary><ShopPage /></ErrorBoundary>} />
+          <Route path="creator" element={<ErrorBoundary><CreatorPage /></ErrorBoundary>} />
+          <Route path="multiplayer" element={<ErrorBoundary><MultiplayerPage /></ErrorBoundary>} />
+          <Route path="lab" element={<ErrorBoundary><CodingLabPage /></ErrorBoundary>} />
+          <Route path="quantum" element={<ErrorBoundary><CodingLabPage /></ErrorBoundary>} />
+          <Route path="quantum-lab" element={<ErrorBoundary><CodingLabPage /></ErrorBoundary>} />
+          <Route path="quantumlab" element={<ErrorBoundary><CodingLabPage /></ErrorBoundary>} />
+          <Route path="skills" element={<ErrorBoundary><AchievementsSkillsPage /></ErrorBoundary>} />
+          <Route path="settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ErrorBoundary>
   );
 }
 

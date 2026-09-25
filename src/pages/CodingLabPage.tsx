@@ -42,12 +42,28 @@ export function CodingLabPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (simIntervalRef.current) {
+        clearInterval(simIntervalRef.current);
+        simIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   const [successBanner, setSuccessBanner] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
 
   // Switch level
   const handleSelectLevel = (idx: number) => {
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
     sound.playClick();
     setSelectedLevelIdx(idx);
     const nextMission = codingMissions[idx] || codingMissions[0];
@@ -57,6 +73,7 @@ export function CodingLabPage() {
     setCurrentStepIndex(0);
     setSuccessBanner(false);
     setShowHint(false);
+    setIsPlaying(false);
   };
 
   // Switch programming language and update editor template
@@ -214,18 +231,26 @@ export function CodingLabPage() {
       parsedBlocks
     );
 
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
+
     setSimulationResult(result);
     setIsPlaying(true);
     setCurrentStepIndex(0);
 
     let step = 0;
-    const interval = setInterval(() => {
+    simIntervalRef.current = setInterval(() => {
       step++;
       if (step < result.steps.length) {
         setCurrentStepIndex(step);
         sound.playStep();
       } else {
-        clearInterval(interval);
+        if (simIntervalRef.current) {
+          clearInterval(simIntervalRef.current);
+          simIntervalRef.current = null;
+        }
         setIsPlaying(false);
 
         if (result.success) {
@@ -244,12 +269,17 @@ export function CodingLabPage() {
   };
 
   const handleReset = () => {
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
     sound.playClick();
     setCode(getCodeTemplate(codeMission.id, language));
     setSimulationResult(null);
     setCurrentStepIndex(0);
     setErrorMessage(null);
     setSuccessBanner(false);
+    setIsPlaying(false);
   };
 
   const activeStep: SimulationStep =

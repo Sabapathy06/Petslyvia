@@ -48,6 +48,18 @@ export function CreatorPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (simIntervalRef.current) {
+        clearInterval(simIntervalRef.current);
+        simIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   const [testFeedback, setTestFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [publishedToast, setPublishedToast] = useState<string | null>(null);
   const [publishedModalData, setPublishedModalData] = useState<{
@@ -136,18 +148,26 @@ export function CreatorPage() {
       testBlocks
     );
 
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
+
     setSimulationResult(result);
     setIsPlaying(true);
     setCurrentStepIndex(0);
 
     let step = 0;
-    const interval = setInterval(() => {
+    simIntervalRef.current = setInterval(() => {
       step++;
       if (step < result.steps.length) {
         setCurrentStepIndex(step);
         sound.playStep();
       } else {
-        clearInterval(interval);
+        if (simIntervalRef.current) {
+          clearInterval(simIntervalRef.current);
+          simIntervalRef.current = null;
+        }
         setIsPlaying(false);
 
         if (result.success) {

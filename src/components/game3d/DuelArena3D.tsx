@@ -371,11 +371,26 @@ export function DuelArena3D({
     return () => {
       cancelAnimationFrame(animId);
       resizeObserver.disconnect();
-      playerModel.cleanup();
-      oppModel.cleanup();
-      renderer.dispose();
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
+      try {
+        playerModel.cleanup();
+        oppModel.cleanup();
+        scene.traverse((obj) => {
+          if (obj instanceof THREE.Mesh || obj instanceof THREE.Points || obj instanceof THREE.Line) {
+            obj.geometry?.dispose?.();
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach((m) => m?.dispose?.());
+            } else if (obj.material) {
+              obj.material.dispose?.();
+            }
+          }
+        });
+        renderer.dispose();
+        renderer.forceContextLoss?.();
+        if (renderer.domElement && renderer.domElement.parentNode === container) {
+          container.removeChild(renderer.domElement);
+        }
+      } catch (err) {
+        console.warn('DuelArena3D cleanup caught error:', err);
       }
     };
   }, [

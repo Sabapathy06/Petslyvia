@@ -31,6 +31,18 @@ export function SmartCityPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Safely cleanup running interval on unmount
+  useEffect(() => {
+    return () => {
+      if (simIntervalRef.current) {
+        clearInterval(simIntervalRef.current);
+        simIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   const [showAiHelper, setShowAiHelper] = useState(false);
   const [showHintPanel, setShowHintPanel] = useState(false);
   const [successBanner, setSuccessBanner] = useState(false);
@@ -38,12 +50,17 @@ export function SmartCityPage() {
 
   // Reset workspace when mission level changes
   useEffect(() => {
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
     setBlocks([{ id: `start_${Date.now()}`, type: 'move_forward' }]);
     setSimulationResult(null);
     setCurrentStepIndex(0);
     setLastError(undefined);
     setSuccessBanner(false);
     setShowHintPanel(false);
+    setIsPlaying(false);
   }, [cityMission.id]);
 
   const handleAddBlock = (type: VisualBlock['type']) => {
@@ -60,11 +77,16 @@ export function SmartCityPage() {
   };
 
   const handleClear = () => {
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
     sound.playClick();
     setBlocks([]);
     setSimulationResult(null);
     setCurrentStepIndex(0);
     setLastError(undefined);
+    setIsPlaying(false);
   };
 
   const handleRunTrafficTest = () => {
@@ -72,6 +94,11 @@ export function SmartCityPage() {
       sound.playError();
       setLastError('Workspace is empty! Add instructions to guide the vehicle.');
       return;
+    }
+
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
     }
 
     sound.playClick();
@@ -92,13 +119,16 @@ export function SmartCityPage() {
     setCurrentStepIndex(0);
 
     let step = 0;
-    const interval = setInterval(() => {
+    simIntervalRef.current = setInterval(() => {
       step++;
       if (step < result.steps.length) {
         setCurrentStepIndex(step);
         sound.playStep();
       } else {
-        clearInterval(interval);
+        if (simIntervalRef.current) {
+          clearInterval(simIntervalRef.current);
+          simIntervalRef.current = null;
+        }
         setIsPlaying(false);
 
         if (result.success) {

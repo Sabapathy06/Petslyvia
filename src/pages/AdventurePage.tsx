@@ -150,6 +150,17 @@ export function AdventurePage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const simulationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Safely cleanup running simulation intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (simulationIntervalRef.current) {
+        clearInterval(simulationIntervalRef.current);
+        simulationIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Modals
   const [showRevealModal, setShowRevealModal] = useState(false);
@@ -266,12 +277,17 @@ export function AdventurePage() {
 
   // Clear workspace
   const handleClearWorkspace = () => {
+    if (simulationIntervalRef.current) {
+      clearInterval(simulationIntervalRef.current);
+      simulationIntervalRef.current = null;
+    }
     sound.playClick();
     setBlocks([]);
     setRawCodeInput('');
     setSimulationResult(null);
     setCurrentStepIndex(0);
     setLastErrorMsg(undefined);
+    setIsPlaying(false);
   };
 
   // Handle Natural Language / AI Prompt Bar Submission
@@ -367,18 +383,26 @@ export function AdventurePage() {
       blocks
     );
 
+    if (simulationIntervalRef.current) {
+      clearInterval(simulationIntervalRef.current);
+      simulationIntervalRef.current = null;
+    }
+
     setSimulationResult(result);
     setIsPlaying(true);
     setCurrentStepIndex(0);
 
     let step = 0;
-    const interval = setInterval(() => {
+    simulationIntervalRef.current = setInterval(() => {
       step++;
       if (step < result.steps.length) {
         setCurrentStepIndex(step);
         sound.playStep();
       } else {
-        clearInterval(interval);
+        if (simulationIntervalRef.current) {
+          clearInterval(simulationIntervalRef.current);
+          simulationIntervalRef.current = null;
+        }
         setIsPlaying(false);
 
         if (result.success) {
