@@ -3,6 +3,7 @@ import type { Profile, Pet, MissionProgress, Contact, UserInventoryItem } from '
 import type { EquippedAccessories, BugExchangeItem, CommunityProblem, PetStage } from '@/types/game';
 import { ACCESSORIES_CATALOG } from '@/data/accessories';
 import { INITIAL_BUG_EXCHANGES, INITIAL_COMMUNITY_PROBLEMS, INITIAL_CONTACTS } from '@/data/communitySeed';
+import { generateFriendId } from '@/services/friendService';
 
 export function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -71,6 +72,18 @@ export const petslyviaService = {
         const { data, error } = await query.maybeSingle();
         if (data && !error) {
           const profile = data as Profile;
+          const skills = (profile.skills as Record<string, any>) || {};
+          if (!profile.friend_id) {
+            profile.friend_id = skills.friend_id || generateFriendId(profile.id || userId);
+            // Save in skills
+            const updatedSkills = { ...skills, friend_id: profile.friend_id };
+            supabase.from('profiles').update({ skills: updatedSkills }).eq('id', profile.id).then();
+            try {
+              supabase.from('profiles').update({ friend_id: profile.friend_id }).eq('id', profile.id).then();
+            } catch {
+              // ignore
+            }
+          }
           const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
           profiles[userId] = profile;
           if (profile.id) profiles[profile.id] = profile;
@@ -83,13 +96,28 @@ export const petslyviaService = {
       }
     }
     const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
-    return profiles[userId] || (cleanEmail ? profiles[cleanEmail] : null) || null;
+    let localProf = profiles[userId] || (cleanEmail ? profiles[cleanEmail] : null) || null;
+    if (localProf && !localProf.friend_id) {
+      localProf.friend_id = generateFriendId(userId);
+      profiles[userId] = localProf;
+      if (localProf.id) profiles[localProf.id] = localProf;
+      if (localProf.email) profiles[localProf.email.toLowerCase()] = localProf;
+      setLocal(STORAGE_KEYS.PROFILES, profiles);
+    }
+    return localProf;
   },
 
   async saveProfile(profile: Profile): Promise<Profile> {
+    const resolvedId = profile.id || generateUUID();
+    const resolvedFriendId = profile.friend_id || generateFriendId(resolvedId);
+    const existingSkills = typeof profile.skills === 'object' && profile.skills ? profile.skills : { logic: 15, debugging: 10, creativity: 15, coding: 0, collaboration: 10 };
+    const mergedSkills = { ...existingSkills, friend_id: resolvedFriendId };
+
     const updatedProfile: Profile = {
       ...profile,
-      id: profile.id || generateUUID(),
+      id: resolvedId,
+      friend_id: resolvedFriendId,
+      skills: mergedSkills,
       email: profile.email ? profile.email.toLowerCase() : undefined,
       updated_at: new Date().toISOString(),
     };
@@ -98,6 +126,7 @@ export const petslyviaService = {
       try {
         const payload: Record<string, any> = {
           id: updatedProfile.id,
+          friend_id: updatedProfile.friend_id,
           username: updatedProfile.username || updatedProfile.display_name?.toLowerCase().replace(/\s+/g, '_') || 'player',
           display_name: updatedProfile.display_name || 'Player',
           avatar_url: updatedProfile.avatar_url || null,
@@ -105,7 +134,7 @@ export const petslyviaService = {
           coins: updatedProfile.coins ?? 100,
           total_xp: updatedProfile.total_xp ?? 50,
           current_level: updatedProfile.current_level ?? 1,
-          skills: updatedProfile.skills || { logic: 15, debugging: 10, creativity: 15, coding: 0, collaboration: 10 },
+          skills: mergedSkills,
           unlocked_areas: updatedProfile.unlocked_areas || ['pet_home', 'logic_forest', 'shop'],
           coding_mode_unlocked: updatedProfile.coding_mode_unlocked ?? false,
           bugs_created: updatedProfile.bugs_created ?? 0,
@@ -117,10 +146,18 @@ export const petslyviaService = {
           payload.email = updatedProfile.email;
         }
 
-        const { data, error } = await supabase.from('profiles').upsert(payload).select().maybeSingle();
+        let { data, error } = await supabase.from('profiles').upsert(payload).select().maybeSingle();
+
+        // If friend_id column does not exist in remote table, omit it and retry
+        if (error && (error.code === '42703' || error.message?.includes('friend_id'))) {
+          delete payload.friend_id;
+          const retryRes = await supabase.from('profiles').upsert(payload).select().maybeSingle();
+          data = retryRes.data;
+          error = retryRes.error;
+        }
 
         if (data && !error) {
-          const saved = data as Profile;
+          const saved = { ...data, friend_id: resolvedFriendId } as Profile;
           const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
           profiles[saved.id] = saved;
           profiles[updatedProfile.id] = saved;
@@ -266,9 +303,10 @@ export const petslyviaService = {
     }
 
     const newProfile: Profile = existingProfile
-      ? { ...existingProfile, display_name: displayName || existingProfile.display_name, role: role || existingProfile.role }
+      ? { ...existingProfile, friend_id: existingProfile.friend_id || generateFriendId(userId), display_name: displayName || existingProfile.display_name, role: role || existingProfile.role }
       : {
           id: userId,
+          friend_id: generateFriendId(userId),
           email: email.toLowerCase(),
           username: displayName.toLowerCase().replace(/\s+/g, '_') || 'player',
           display_name: displayName || 'Player',

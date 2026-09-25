@@ -13,6 +13,7 @@ export interface Profile {
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  friend_id?: string | null;
   role?: 'non_coder' | 'coder';
   coins: number;
   total_xp: number;

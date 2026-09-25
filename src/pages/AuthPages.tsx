@@ -100,6 +100,15 @@ export function LoginPage() {
   const handleGoogleLogin = async () => {
     setError('');
     sound.playClick();
+    setLoading(true);
+
+    const res = await loginWithGoogle();
+    setLoading(false);
+
+    if (res.success) {
+      return;
+    }
+
     setShowGoogleModal(true);
   };
 
@@ -388,7 +397,7 @@ const DEFAULT_PET_NAMES: Record<PetType, string> = {
 // ----------------------------------------------------
 export function SignupPage() {
   const navigate = useNavigate();
-  const { signupWithEmail } = useAuth();
+  const { signupWithEmail, loginWithGoogle, loginWithGoogleAccount } = useAuth();
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -442,6 +451,15 @@ export function SignupPage() {
   const handleGoogleSignup = async () => {
     setError('');
     sound.playClick();
+    setLoading(true);
+
+    const res = await loginWithGoogle();
+    setLoading(false);
+
+    if (res.success) {
+      return;
+    }
+
     setShowGoogleModal(true);
   };
 

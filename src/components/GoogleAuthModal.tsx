@@ -59,21 +59,6 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
     }
   };
 
-  const handleQuickSelect = async (quickEmail: string, quickName: string) => {
-    setLoading(true);
-    sound.playClick();
-    const res = await loginWithGoogleAccount(quickEmail, quickName, selectedPet, 'Sparky');
-    setLoading(false);
-    if (res.success) {
-      sound.playVictory();
-      onSuccess();
-      onClose();
-    } else {
-      sound.playError();
-      setError(res.error || 'Failed to sign in.');
-    }
-  };
-
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -123,48 +108,11 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
               </div>
             )}
 
-            {/* Quick 1-Click Select Cards */}
-            <div className="space-y-2">
-              <span className="text-[11px] font-bold text-[#5b7566] uppercase tracking-wider">
-                Instant Demo Access
-              </span>
-
-              {/* Demo Google Explorer */}
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('demo.player@gmail.com', 'Demo Explorer')}
-                disabled={loading}
-                className="w-full p-3 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#e2ece5] hover:border-[#2d6a4f] rounded-2xl flex items-center justify-between transition-all cursor-pointer group text-left shadow-soft"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#2d6a4f] flex items-center justify-center font-bold text-white text-xs">
-                    G
-                  </div>
-                  <div>
-                    <div className="text-xs font-black text-[#1b382b] group-hover:text-[#2d6a4f] transition-colors">
-                      Demo Explorer
-                    </div>
-                    <div className="text-[10px] text-[#5b7566] font-mono">
-                      demo.player@gmail.com
-                    </div>
-                  </div>
-                </div>
-                <span className="text-xs font-bold text-[#2d6a4f] group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
-                  Try Demo ➔
-                </span>
-              </button>
-            </div>
-
-            <div className="relative flex py-1 items-center">
-              <div className="flex-grow border-t border-[#e2ece5]"></div>
-              <span className="flex-shrink mx-3 text-[10px] text-[#7a9386] uppercase font-mono font-bold">
-                or enter your google email
-              </span>
-              <div className="flex-grow border-t border-[#e2ece5]"></div>
-            </div>
-
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-3.5">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="p-3 bg-[#eaf2ec] border border-[#d8e5dc] rounded-2xl text-xs text-[#2d6a4f] font-medium leading-relaxed">
+                Connect your Google account directly. Enter your Google email address below to sign in or create your player profile.
+              </div>
               <div>
                 <label className="block text-xs font-bold text-[#1b382b] mb-1">
                   Google Email Address

@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useGameData } from '@/hooks/useGameData';
 import { PetSVG } from '@/components/PetSVG';
 import { sound } from '@/utils/audio';
+import { generateFriendId } from '@/services/friendService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -16,14 +17,61 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, changePassword } = useAuth();
   const { profile, pet, soundEnabled, toggleSound, setPlayerRole, updateProfile } = useGameData();
 
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedFriendId, setCopiedFriendId] = useState(false);
   const [copiedUid, setCopiedUid] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  // Password change state
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters long.');
+      sound.playError();
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.');
+      sound.playError();
+      return;
+    }
+
+    setPasswordLoading(true);
+    sound.playClick();
+
+    const res = await changePassword(newPassword);
+    setPasswordLoading(false);
+
+    if (res.success) {
+      setPasswordSuccess('Password successfully updated!');
+      setNewPassword('');
+      setConfirmPassword('');
+      sound.playVictory();
+      setTimeout(() => {
+        setPasswordSuccess('');
+        setShowPasswordChange(false);
+      }, 3000);
+    } else {
+      setPasswordError(res.error || 'Failed to update password.');
+      sound.playError();
+    }
+  };
 
   React.useEffect(() => {
     if (profile?.display_name) setDisplayName(profile.display_name);
@@ -34,12 +82,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const userEmail = user?.email || profile?.email || 'player@petslyvia.world';
   const userId = user?.id || profile?.id || 'uid_unknown';
   const authProvider = user?.app_metadata?.provider || 'email';
+  const publicFriendId = profile?.friend_id || ((profile?.skills as any)?.friend_id) || generateFriendId(userId);
 
   const handleCopyEmail = () => {
     sound.playSnap();
     navigator.clipboard.writeText(userEmail);
     setCopiedEmail(true);
     setTimeout(() => setCopiedEmail(false), 2000);
+  };
+
+  const handleCopyFriendId = () => {
+    sound.playSnap();
+    navigator.clipboard.writeText(publicFriendId);
+    setCopiedFriendId(true);
+    setTimeout(() => setCopiedFriendId(false), 2000);
   };
 
   const handleCopyUid = () => {
@@ -173,6 +229,32 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               {copiedEmail ? <Check size={14} className="text-[#2d6a4f]" /> : <Copy size={14} />}
             </button>
           </div>
+
+          {/* Public User ID / Friend ID with Copy */}
+          <div className="flex items-center justify-between bg-gradient-to-r from-[#f0f8f4] to-white p-3 rounded-xl border border-[#b7dfcb] shadow-sm">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-[#2d6a4f] text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Sparkles size={14} />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-[#2d6a4f] block uppercase tracking-wider">
+                  Public User ID / Friend ID
+                </span>
+                <span className="text-sm font-mono font-black text-[#1b382b] tracking-wider block">
+                  {publicFriendId}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleCopyFriendId}
+              className="px-3 py-1.5 rounded-lg bg-[#2d6a4f] hover:bg-[#23533e] text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-soft"
+              title="Copy User ID / Friend ID"
+            >
+              {copiedFriendId ? <Check size={13} /> : <Copy size={13} />}
+              <span>{copiedFriendId ? 'Copied!' : 'Copy ID'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Section 2: Audio & Exploration Mode Preferences */}
@@ -220,7 +302,75 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
         </div>
 
-        {/* Section 3: Sign Out Button */}
+        {/* Section 3: Security & Password */}
+        <div className="p-4 bg-[#f8faf8] border border-[#d8e5dc] rounded-2xl space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider bg-[#eaf2ec] border border-[#d5e3da] px-2 py-0.5 rounded-full flex items-center gap-1">
+              <KeyRound size={12} /> Security & Password
+            </span>
+            <button
+              onClick={() => {
+                setShowPasswordChange(!showPasswordChange);
+                sound.playClick();
+              }}
+              className="text-xs text-[#2d6a4f] hover:underline font-bold cursor-pointer"
+            >
+              {showPasswordChange ? 'Cancel' : 'Change Password'}
+            </button>
+          </div>
+
+          {showPasswordChange && (
+            <form onSubmit={handleChangePassword} className="space-y-2.5 pt-1">
+              <div>
+                <label className="text-[11px] font-bold text-[#5b7566] block mb-1">New Password (min 6 chars):</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-white border border-[#e2ece5] rounded-xl px-3 py-1.5 text-xs text-[#1b382b] font-medium outline-none focus:border-[#2d6a4f]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-[#5b7566] block mb-1">Confirm New Password:</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-white border border-[#e2ece5] rounded-xl px-3 py-1.5 text-xs text-[#1b382b] font-medium outline-none focus:border-[#2d6a4f]"
+                />
+              </div>
+
+              {passwordError && (
+                <div className="p-2 bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold rounded-lg">
+                  ⚠️ {passwordError}
+                </div>
+              )}
+
+              {passwordSuccess && (
+                <div className="p-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold rounded-lg flex items-center gap-1">
+                  <Check size={12} className="text-emerald-600" /> {passwordSuccess}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={passwordLoading || !newPassword}
+                className="w-full py-2 bg-[#2d6a4f] hover:bg-[#245840] disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-soft transition-all cursor-pointer"
+              >
+                {passwordLoading ? 'Updating Password...' : 'Update Password'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Section 4: Sign Out Button */}
         <div className="pt-1">
           <button
             onClick={handleLogout}

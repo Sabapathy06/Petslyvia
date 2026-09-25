@@ -44,6 +44,7 @@ interface AuthContextValue {
   requestOtp: (email: string) => Promise<{ success: boolean; message: string; testOtpCode?: string; error?: string }>;
   verifyOtpAndLogin: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
   resetPasswordWithOtp: (email: string, code: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (newPass: string) => Promise<{ success: boolean; error?: string }>;
   signupWithEmail: (
     email: string,
     pass: string,
@@ -74,6 +75,7 @@ const AuthContext = createContext<AuthContextValue>({
   requestOtp: async () => ({ success: false, message: '' }),
   verifyOtpAndLogin: async () => ({ success: false }),
   resetPasswordWithOtp: async () => ({ success: false }),
+  changePassword: async () => ({ success: false }),
   signupWithEmail: async () => ({ success: false }),
   loginWithGoogle: async () => ({ success: false }),
   loginWithGoogleAccount: async () => ({ success: false }),
@@ -421,6 +423,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // ----------------------------------------------------
+  // CHANGE PASSWORD (AUTHENTICATED)
+  // ----------------------------------------------------
+  const changePassword = async (newPass: string): Promise<{ success: boolean; error?: string }> => {
+    if (!newPass || newPass.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters long.' };
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPass });
+      if (error) {
+        console.warn('Supabase updateUser password notice:', error.message);
+      }
+    } catch (err: any) {
+      console.warn('Supabase updateUser network notice:', err?.message);
+    }
+
+    const email = user?.email || profile?.email;
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
+      const accounts = getLocalAccounts();
+      if (accounts[cleanEmail]) {
+        accounts[cleanEmail].passwordHash = newPass;
+        saveLocalAccounts(accounts);
+      }
+    }
+
+    return { success: true };
+  };
+
+  // ----------------------------------------------------
   // SIGN UP (STORE IN SUPABASE BACKEND + LOCAL CACHE)
   // ----------------------------------------------------
   const signupWithEmail = async (
@@ -661,6 +693,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         requestOtp,
         verifyOtpAndLogin,
         resetPasswordWithOtp,
+        changePassword,
         signupWithEmail,
         loginWithGoogle,
         loginWithGoogleAccount,

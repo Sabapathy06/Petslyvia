@@ -12,6 +12,7 @@ import { PetSVG } from '@/components/PetSVG';
 import { Taskbar } from '@/components/Taskbar';
 import { SettingsModal } from '@/components/SettingsModal';
 import { sound } from '@/utils/audio';
+import { generateFriendId } from '@/services/friendService';
 
 interface JourneyStep {
   id: string;
@@ -157,7 +158,23 @@ export function GameLayout() {
               }`}
             >
               <Bug size={16} className="text-[#5b7566]" />
-              <span>Bug exchange</span>
+              <span>Multiplayer Arena</span>
+            </Link>
+
+            <Link
+              to="/app/friends"
+              onClick={() => {
+                sound.playClick();
+                setMobileOpen(false);
+              }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                location.pathname.includes('/friends')
+                  ? 'bg-[#eaf2ec] text-[#1e3a2b] font-bold'
+                  : 'text-[#5b7566] hover:text-[#1e3a2b] hover:bg-[#f4f8f5]'
+              }`}
+            >
+              <Users size={16} className="text-[#5b7566]" />
+              <span>Friends & Social</span>
             </Link>
 
             <Link
@@ -288,8 +305,12 @@ export function GameLayout() {
                 <p className="font-bold text-xs text-[#1e3a2b] truncate group-hover:text-[#2d6a4f] transition-colors">
                   {pet?.pet_name || 'Maple'} & you
                 </p>
-                <p className="text-[10px] text-[#7a9386] truncate font-medium">
-                  Level {pet?.level || 1} {profile?.role === 'coder' ? 'coder' : 'explorer'}
+                <p className="text-[10px] text-[#7a9386] truncate font-medium flex items-center gap-1.5">
+                  <span>Lv {pet?.level || 1} {profile?.role === 'coder' ? 'coder' : 'explorer'}</span>
+                  <span>•</span>
+                  <span className="font-mono text-[#2d6a4f] font-bold">
+                    {profile?.friend_id || ((profile?.skills as any)?.friend_id) || (profile?.id ? generateFriendId(profile.id) : '')}
+                  </span>
                 </p>
               </div>
             </div>

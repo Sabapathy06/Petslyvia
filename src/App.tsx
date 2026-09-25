@@ -12,6 +12,7 @@ import { SmartCityPage } from '@/pages/SmartCityPage';
 import { ShopPage } from '@/pages/ShopPage';
 import { CreatorPage } from '@/pages/CreatorPage';
 import { MultiplayerPage } from '@/pages/MultiplayerPage';
+import { FriendsPage } from '@/pages/FriendsPage';
 import { CodingLabPage } from '@/pages/CodingLabPage';
 import { AchievementsSkillsPage } from '@/pages/AchievementsSkillsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -87,6 +88,8 @@ function AppRoutes() {
           <Route path="shop" element={<ErrorBoundary><ShopPage /></ErrorBoundary>} />
           <Route path="creator" element={<ErrorBoundary><CreatorPage /></ErrorBoundary>} />
           <Route path="multiplayer" element={<ErrorBoundary><MultiplayerPage /></ErrorBoundary>} />
+          <Route path="friends" element={<ErrorBoundary><FriendsPage /></ErrorBoundary>} />
+          <Route path="social" element={<ErrorBoundary><FriendsPage /></ErrorBoundary>} />
           <Route path="lab" element={<ErrorBoundary><CodingLabPage /></ErrorBoundary>} />
           <Route path="quantum" element={<ErrorBoundary><CodingLabPage /></ErrorBoundary>} />
           <Route path="quantum-lab" element={<ErrorBoundary><CodingLabPage /></ErrorBoundary>} />
