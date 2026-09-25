@@ -73,6 +73,12 @@ function AppRoutes() {
           <Route index element={<ErrorBoundary><WorldMapPage /></ErrorBoundary>} />
           <Route path="sanctuary" element={<ErrorBoundary><PetHomePage /></ErrorBoundary>} />
           <Route path="forest" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
+          <Route path="logic" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
+          <Route path="logic-forest" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
+          <Route path="logic_forest" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
+          <Route path="forest-of-logic" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
+          <Route path="forest_of_logic" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
+          <Route path="adventure" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
           <Route path="dungeon" element={<ErrorBoundary><BugDungeonPage /></ErrorBoundary>} />
           <Route path="city" element={<ErrorBoundary><SmartCityPage /></ErrorBoundary>} />
           <Route path="shop" element={<ErrorBoundary><ShopPage /></ErrorBoundary>} />

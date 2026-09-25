@@ -453,15 +453,15 @@ export function AdventurePage() {
           {/* Main Title & Stage Badge */}
           <div className="flex items-center gap-3">
             <h1 className="text-2xl md:text-3xl font-black text-[#1b382b] tracking-tight">
-              First steps
+              Forest of Logic
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-[#e2ece5] text-[#2d6a4f] text-[11px] font-bold border border-[#d5e3da]">
-              Stage 1
+              Stage 1: Whispering Woods
             </span>
           </div>
 
           <p className="text-xs text-[#5b7566] font-medium mt-1">
-            Small moves. Big adventures. Your pet is ready when you are.
+            Guide your pet through crystal glades, discover secret code, and master Repeat loops.
           </p>
         </div>
 

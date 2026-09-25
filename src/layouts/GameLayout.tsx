@@ -24,7 +24,7 @@ interface JourneyStep {
 const JOURNEY_STEPS: JourneyStep[] = [
   { id: 'step_1', stepNumber: 1, label: 'First steps', to: '/app/forest', areaKey: 'logic_forest' },
   { id: 'step_2', stepNumber: 2, label: 'Hidden magic', to: '/app/sanctuary', areaKey: 'pet_home' },
-  { id: 'step_3', stepNumber: 3, label: 'Forest of logic', to: '/app/skills', areaKey: 'all' },
+  { id: 'step_3', stepNumber: 3, label: 'Forest of logic', to: '/app/forest', areaKey: 'logic_forest' },
   { id: 'step_4', stepNumber: 4, label: 'Bug dungeon', to: '/app/dungeon', areaKey: 'bug_dungeon' },
   { id: 'step_5', stepNumber: 5, label: 'Smart city', to: '/app/city', areaKey: 'smart_city' },
   { id: 'step_6', stepNumber: 6, label: 'Quantum lab', to: '/app/lab', areaKey: 'all' },
@@ -48,7 +48,7 @@ export function GameLayout() {
   // Determine active breadcrumb based on current path
   const getBreadcrumbTitle = () => {
     const p = location.pathname;
-    if (p.includes('/forest')) return 'Adventure';
+    if (p.includes('/forest') || p.includes('/logic') || p.includes('/adventure')) return 'Forest of Logic';
     if (p.includes('/sanctuary')) return 'Pet Sanctuary';
     if (p.includes('/dungeon')) return 'Bug Dungeon';
     if (p.includes('/city')) return 'Smart City';
