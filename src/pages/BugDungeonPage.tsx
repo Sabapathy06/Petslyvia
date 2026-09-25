@@ -279,6 +279,14 @@ export function BugDungeonPage() {
           message: 'Ready to run diagnosis',
         };
 
+  // Dynamic empathetic companion guidance quote
+  const getCompanionDungeonQuote = () => {
+    if (isPlaying) return "Running your debug sequence... let's see how our pet navigates! 🔍";
+    if (showSuccessCard) return "Yahoo! That bug is officially squashed! Great job debugging together! 🎉";
+    if (lastErrorMsg) return "Don't worry! Bugs are just puzzles waiting to be solved. Let's tweak our steps and test again! 💪";
+    return "Check out the suspect commands! Swap the glitchy block or rewrite the code to clear the path! 🐾";
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Header */}
@@ -315,6 +323,45 @@ export function BugDungeonPage() {
           ))}
         </div>
       </div>
+
+      {/* Humanized Companion Coach Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-4 rounded-3xl bg-slate-900/90 border border-rose-500/30 shadow-xl flex items-center gap-3.5"
+      >
+        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-500/20 to-indigo-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+          {pet && (
+            <PetSVG
+              type={pet.pet_type}
+              stage={pet.stage}
+              state={showSuccessCard ? 'happy' : isPlaying ? 'thinking' : lastErrorMsg ? 'tired' : 'happy'}
+              equipped={pet.equipped_items}
+              size={40}
+            />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-white">{pet?.pet_name || 'Your Pet'} Co-Pilot</span>
+            <span className="text-[10px] bg-rose-500/20 text-rose-300 font-bold px-2 py-0.2 rounded-full">
+              Bug Detective Mode
+            </span>
+          </div>
+          <p className="text-xs text-rose-200 italic mt-0.5">
+            "{getCompanionDungeonQuote()}"
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            sound.playClick();
+            setShowAiHelper(true);
+          }}
+          className="px-3.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-white border border-rose-500/40 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+        >
+          <Bot size={14} /> AI Hint
+        </button>
+      </motion.div>
 
       {/* Main Grid: Left Stage (3D/2D) & Right Interactive Stack / Code Editor */}
       <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">

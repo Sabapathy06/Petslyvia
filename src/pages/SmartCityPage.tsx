@@ -130,6 +130,14 @@ export function SmartCityPage() {
           message: 'Signal automation standing by',
         };
 
+  // Dynamic empathetic city guidance quote
+  const getCompanionCityQuote = () => {
+    if (isPlaying) return "Testing traffic grid flow... routing vehicle through the intersection! 🚦";
+    if (successBanner) return "Traffic flows seamlessly! City grid efficiency is at 100%! Fantastic engineering! 🏙️";
+    if (lastError) return "Hold on! The route was blocked or a switch was missed. Let's adjust our navigation sequence! 💡";
+    return "Ready to engineer the city grid! Let's arrange our route blocks and automate the pathways! 🚗";
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Header Banner */}
@@ -162,6 +170,36 @@ export function SmartCityPage() {
           </button>
         </div>
       </div>
+
+      {/* Humanized Companion Coach Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-4 rounded-3xl bg-slate-900/90 border border-sky-500/30 shadow-xl flex items-center gap-3.5"
+      >
+        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-500/40 flex items-center justify-center shrink-0">
+          {pet && (
+            <PetSVG
+              type={pet.pet_type}
+              stage={pet.stage}
+              state={successBanner ? 'excited' : isPlaying ? 'thinking' : lastError ? 'tired' : 'happy'}
+              equipped={pet.equipped_items}
+              size={40}
+            />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-white">{pet?.pet_name || 'Your Pet'} Transit Partner</span>
+            <span className="text-[10px] bg-sky-500/20 text-sky-300 font-bold px-2 py-0.2 rounded-full">
+              City Navigator
+            </span>
+          </div>
+          <p className="text-xs text-sky-200 italic mt-0.5">
+            "{getCompanionCityQuote()}"
+          </p>
+        </div>
+      </motion.div>
 
       {/* Level Selection Tabs */}
       <div className="flex flex-wrap bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 gap-2">

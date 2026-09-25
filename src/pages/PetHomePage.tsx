@@ -70,26 +70,38 @@ export function PetHomePage() {
 
   const currentStageInfo = STAGE_REQUIREMENTS[pet.stage || 'infant'];
 
+  // Time of day greeting
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  const petQuotes = [
+    `I love exploring new coding puzzles with you, ${profile?.display_name || 'friend'}! ✨`,
+    `You're doing fantastic! Let's conquer another 3D level today! 🚀`,
+    `Remember to take little breaks and drink some water! 💧`,
+    `Every line of code makes me stronger and smarter! 🐾`,
+  ];
+  const [randomQuote] = useState(() => petQuotes[Math.floor(Math.random() * petQuotes.length)]);
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-6xl mx-auto w-full">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 bg-slate-900/90 rounded-3xl border border-slate-800 shadow-xl">
-        <div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-slate-900 via-slate-850 to-indigo-950 rounded-3xl border border-slate-800 shadow-xl relative overflow-hidden">
+        <div className="relative z-10">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-xs font-bold text-amber-300 mb-2">
-            <Sparkles size={13} /> Pet Sanctuary & Wardrobe
+            <Sparkles size={13} /> {timeGreeting}, {profile?.display_name || 'Player'}! 🏡
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">
             {pet.pet_name}'s Cozy Grove
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Life Stage: <strong className="capitalize text-amber-300">{pet.stage}</strong> · Level {pet.level} Companion
+          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
+            {pet.pet_name} is an adorable <strong className="capitalize text-amber-300">{pet.stage} {pet.pet_type}</strong> (Level {pet.level}). Care for your companion and dress them in unique cosmetic styles!
           </p>
         </div>
 
         <Link
           to="/app/shop"
           onClick={() => sound.playClick()}
-          className="px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-pink-600/20 flex items-center gap-2 transition-all"
+          className="relative z-10 px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-pink-600/20 flex items-center gap-2 transition-all cursor-pointer shrink-0"
         >
           <ShoppingBag size={16} /> Visit Bazaar Shop
         </Link>
@@ -103,13 +115,17 @@ export function PetHomePage() {
           <div className="w-full flex items-center justify-between z-20">
             {actionFeedback ? (
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md"
               >
-                {actionFeedback}
+                <span>✨</span> {actionFeedback}
               </motion.div>
-            ) : <div />}
+            ) : (
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800">
+                🏡 Cozy Haven Active
+              </span>
+            )}
 
             <button
               onClick={() => {
@@ -126,6 +142,24 @@ export function PetHomePage() {
               {viewMode3D ? '3D Playground' : '2D Avatar'}
             </button>
           </div>
+
+          {/* Humanized Companion Speech Bubble in Grove */}
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full p-3 rounded-2xl bg-amber-500/10 border border-amber-400/30 flex items-center gap-2.5 text-xs text-amber-200 shadow-sm"
+          >
+            <span className="text-xl shrink-0">💬</span>
+            <p className="italic font-medium leading-tight">
+              {activeActionTrigger === 'feed'
+                ? `\"Yum yum! That was super delicious, thank you so much! ❤️\"`
+                : activeActionTrigger === 'pet'
+                ? `\"*Purrs happily* You're the best coding buddy ever! ✨\"`
+                : activeActionTrigger === 'rest'
+                ? `\"Zzz... recharging my energy for our next adventure! 🌙\"`
+                : `\"${randomQuote}\"`}
+            </p>
+          </motion.div>
 
           {/* 3D Sanctuary Playground or 2D SVG Avatar */}
           {viewMode3D ? (

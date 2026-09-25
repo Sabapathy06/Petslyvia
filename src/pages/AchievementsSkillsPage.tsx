@@ -27,6 +27,11 @@ export function AchievementsSkillsPage() {
     { key: 'collaboration', name: 'Multiplayer Teamwork', icon: Users, color: 'from-emerald-500 to-teal-500', val: skills.collaboration },
   ];
 
+  // Calculate unlocked achievements count
+  const unlockedAchievementsCount = ACHIEVEMENTS_LIST.filter(
+    (ach) => (profile?.total_xp ?? 0) >= ach.xp_reward
+  ).length;
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Header Banner */}
@@ -51,6 +56,36 @@ export function AchievementsSkillsPage() {
           <span className="text-emerald-300">Level {profile?.current_level ?? 1}</span>
         </div>
       </div>
+
+      {/* Humanized Companion Mentor Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-4 rounded-3xl bg-slate-900/90 border border-amber-500/30 shadow-xl flex items-center gap-3.5"
+      >
+        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+          {pet && (
+            <PetSVG
+              type={pet.pet_type}
+              stage={pet.stage}
+              state="happy"
+              equipped={pet.equipped_items}
+              size={40}
+            />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-white">{pet?.pet_name || 'Your Pet'} Pride & Growth</span>
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.2 rounded-full">
+              {unlockedAchievementsCount} / {ACHIEVEMENTS_LIST.length} Trophies Unlocked
+            </span>
+          </div>
+          <p className="text-xs text-amber-200 italic mt-0.5">
+            "Every puzzle you solve and level you build makes us stronger! Look how far we've journeyed together! 🌟"
+          </p>
+        </div>
+      </motion.div>
 
       {/* Main Grid: Skills (Left) + Achievements Badges (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

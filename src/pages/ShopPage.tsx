@@ -201,7 +201,7 @@ export function ShopPage() {
         </div>
 
         {/* Right: Live Pet Dressing Room & Wardrobe Mirror */}
-        <div className="lg:col-span-4 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 flex flex-col items-center justify-between shadow-2xl">
+        <div className="lg:col-span-4 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 flex flex-col items-center justify-between shadow-2xl space-y-4">
           <div className="text-center w-full">
             <span className="text-[10px] uppercase font-black tracking-widest text-fuchsia-400">
               Live Dressing Room
@@ -211,7 +211,28 @@ export function ShopPage() {
             </h3>
           </div>
 
-          <div className="my-6 relative flex items-center justify-center">
+          {/* Humanized Companion Dressing Dialogue Bubble */}
+          <motion.div
+            key={JSON.stringify(previewEquipped)}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full p-3 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-400/30 text-xs text-fuchsia-200 flex items-center gap-2"
+          >
+            <span className="text-base">💬</span>
+            <p className="italic font-medium leading-tight">
+              {previewEquipped.head
+                ? "\"Ooh, does this headpiece make me look like a mystical coding wizard? ✨\""
+                : previewEquipped.eyes
+                ? "\"Check out these stylish shades! Ready to hack the mainframe! 😎\""
+                : previewEquipped.body
+                ? "\"This outfit is super cozy! I feel unstoppable! 🛡️\""
+                : previewEquipped.back
+                ? "\"Whoa, do these wings let me fly through cyber space? 🚀\""
+                : "\"Pick anything from the emporium! Let's find my signature style! 🐾\""}
+            </p>
+          </motion.div>
+
+          <div className="my-2 relative flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-500/20 via-pink-500/10 to-indigo-500/20 rounded-full blur-2xl" />
             {pet && (
               <PetSVG
@@ -219,7 +240,7 @@ export function ShopPage() {
                 stage={pet.stage}
                 state="happy"
                 equipped={previewEquipped}
-                size={220}
+                size={210}
               />
             )}
           </div>
@@ -227,18 +248,22 @@ export function ShopPage() {
           <div className="w-full bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
             <p className="font-extrabold text-slate-300">Equipped In Dressing Room:</p>
             <div className="flex flex-wrap gap-1.5">
-              {Object.entries(previewEquipped).map(([cat, val]) => {
-                if (!val) return null;
-                const acc = ACCESSORIES_CATALOG.find((a) => a.id === val);
-                return (
-                  <span
-                    key={cat}
-                    className="px-2 py-1 bg-fuchsia-500/20 border border-fuchsia-500/40 text-fuchsia-200 rounded-lg text-[10px] font-bold"
-                  >
-                    {acc?.name || val}
-                  </span>
-                );
-              })}
+              {Object.entries(previewEquipped).filter(([_, val]) => Boolean(val)).length === 0 ? (
+                <span className="text-slate-500 text-[11px] italic">No accessories equipped yet</span>
+              ) : (
+                Object.entries(previewEquipped).map(([cat, val]) => {
+                  if (!val) return null;
+                  const acc = ACCESSORIES_CATALOG.find((a) => a.id === val);
+                  return (
+                    <span
+                      key={cat}
+                      className="px-2 py-1 bg-fuchsia-500/20 border border-fuchsia-500/40 text-fuchsia-200 rounded-lg text-[10px] font-bold"
+                    >
+                      {acc?.name || val}
+                    </span>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

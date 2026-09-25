@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, Plus, Sparkles, Zap, Heart, Coins, Award,
-  ChevronUp, ChevronDown, Trash2, Check, AlertTriangle, Coffee, Filter, Smile
+  ChevronUp, ChevronDown, Trash2, Check, AlertTriangle, Coffee, Filter, Smile,
+  Timer, Play, Pause, RotateCcw
 } from 'lucide-react';
 import { useGameData, type TaskCategory } from '@/hooks/useGameData';
 import { PetSVG } from '@/components/PetSVG';
@@ -94,9 +95,19 @@ const DEFAULT_PRESET_TASKS: TaskItem[] = [
 
 const LOCAL_STORAGE_KEY = 'petslyvia_productivity_tasks_v2';
 
+const COMPANION_CHEERS = [
+  "You're doing incredible! One step at a time! 🐾",
+  "Don't forget to take a deep breath & stretch! 💧",
+  "Working with you is the best part of my day! ✨",
+  "Small wins every day build big legends! 🚀",
+  "I'm keeping watch while you focus! Let's do this! 🛡️",
+];
+
 export function Taskbar() {
-  const { pet, completeProductivityTask } = useGameData();
+  const { pet, completeProductivityTask, profile } = useGameData();
   const [isOpen, setIsOpen] = useState(false);
+  const [currentTab, setCurrentTab] = useState<'tasks' | 'focus'>('tasks');
+
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -123,6 +134,14 @@ export function Taskbar() {
     id: number;
   } | null>(null);
 
+  // Companion encouragement quote
+  const [currentCheerIdx, setCurrentCheerIdx] = useState(0);
+
+  // Focus / Pomodoro Timer State
+  const [timerSeconds, setTimerSeconds] = useState(25 * 60);
+  const [timerActive, setTimerActive] = useState(false);
+  const [timerType, setTimerType] = useState<'work' | 'break'>('work');
+
   // Persist tasks to localStorage
   useEffect(() => {
     try {
@@ -131,6 +150,38 @@ export function Taskbar() {
       console.error('Failed to save tasks', e);
     }
   }, [tasks]);
+
+  // Pomodoro Countdown Timer
+  useEffect(() => {
+    let interval: any = null;
+    if (timerActive && timerSeconds > 0) {
+      interval = setInterval(() => {
+        setTimerSeconds((prev) => prev - 1);
+      }, 1000);
+    } else if (timerSeconds === 0 && timerActive) {
+      setTimerActive(false);
+      sound.playVictory();
+      if (timerType === 'work') {
+        setRewardToast({
+          show: true,
+          text: '🎉 Focus Session Completed!',
+          subtext: 'Amazing work! Take a 5-minute breather to refresh your mind! ☕',
+        });
+        setTimerType('break');
+        setTimerSeconds(5 * 60);
+      } else {
+        setRewardToast({
+          show: true,
+          text: '✨ Break Complete!',
+          subtext: 'Feeling recharged? Let’s conquer the next milestone! 🚀',
+        });
+        setTimerType('work');
+        setTimerSeconds(25 * 60);
+      }
+      setTimeout(() => setRewardToast(null), 5000);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timerSeconds, timerType]);
 
   const energy = pet?.energy ?? 100;
   const happiness = pet?.happiness ?? 100;
@@ -162,20 +213,21 @@ export function Taskbar() {
     moodIcon = '🤔';
   }
 
-  // Interactive pet click
+  // Interactive pet cuddle / cheer click
   const handlePetClick = () => {
     sound.playCheer();
+    setCurrentCheerIdx((prev) => (prev + 1) % COMPANION_CHEERS.length);
     setPetReaction({
       config: {
         expression: 'heart',
-        label: 'Pet loves you! 💖',
+        label: `Pet loves you, ${profile?.display_name || 'friend'}! 💖`,
         icon: '💖',
         sound: 'cheer',
-        duration: 2.2,
+        duration: 2.5,
       },
       id: Date.now(),
     });
-    setTimeout(() => setPetReaction(null), 2200);
+    setTimeout(() => setPetReaction(null), 2500);
   };
 
   const handleToggleComplete = async (taskId: string) => {
@@ -243,7 +295,7 @@ export function Taskbar() {
 
       setRewardToast({
         show: true,
-        text: `✨ Task Completed: ${task.title}`,
+        text: `✨ Great Job! Task Completed: ${task.title}`,
         subtext: `⚡ -${res.energyCost} Energy | 💖 +${res.happinessGain} Happiness | 🌟 +${res.xpGain} XP | 🪙 +${res.coinsGain} Coins`,
       });
       setTimeout(() => setRewardToast(null), 4500);
@@ -290,6 +342,12 @@ export function Taskbar() {
   const completedCount = tasks.filter((t) => t.completed).length;
   const pendingCount = tasks.filter((t) => !t.completed).length;
 
+  const formatTimer = (secs: number) => {
+    const mins = Math.floor(secs / 60);
+    const remainder = secs % 60;
+    return `${mins.toString().padStart(2, '0')}:${remainder.toString().padStart(2, '0')}`;
+  };
+
   return (
     <>
       {/* Floating Reward / Energy Warning Toast */}
@@ -328,7 +386,7 @@ export function Taskbar() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 30 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="w-84 sm:w-96 max-h-[80vh] bg-slate-900/95 backdrop-blur-2xl border border-slate-700/80 rounded-3xl shadow-2xl shadow-black/80 flex flex-col overflow-hidden mb-3"
+              className="w-84 sm:w-96 max-h-[82vh] bg-slate-900/95 backdrop-blur-2xl border border-slate-700/80 rounded-3xl shadow-2xl shadow-black/80 flex flex-col overflow-hidden mb-3"
             >
               {/* Header */}
               <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border-b border-slate-800 flex items-center justify-between">
@@ -338,35 +396,63 @@ export function Taskbar() {
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-100 tracking-wider">
-                      PRODUCTIVITY TASKBAR
+                      COMPANION DOCK
                     </h3>
                     <p className="text-[10px] text-slate-400">
-                      Work in real life ➔ Fuel your Pet&apos;s happiness!
+                      Productivity Tasks & Focus Partner
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => {
-                      setIsAdding(!isAdding);
-                      sound.playClick();
-                    }}
-                    className={`p-1.5 rounded-xl border transition-colors ${
-                      isAdding
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
-                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
-                    }`}
-                    title="Add Custom Task"
-                  >
-                    <Plus size={16} />
-                  </button>
+                  {/* Tab Switcher: Tasks vs Focus Timer */}
+                  <div className="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800">
+                    <button
+                      onClick={() => {
+                        setCurrentTab('tasks');
+                        sound.playClick();
+                      }}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                        currentTab === 'tasks' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Tasks
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCurrentTab('focus');
+                        sound.playClick();
+                      }}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        currentTab === 'focus' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Timer size={11} /> Timer
+                    </button>
+                  </div>
+
+                  {currentTab === 'tasks' && (
+                    <button
+                      onClick={() => {
+                        setIsAdding(!isAdding);
+                        sound.playClick();
+                      }}
+                      className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
+                        isAdding
+                          ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
+                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
+                      }`}
+                      title="Add Custom Task"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setIsOpen(false);
                       sound.playClick();
                     }}
-                    className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700"
+                    className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700 cursor-pointer"
                   >
                     <ChevronDown size={16} />
                   </button>
@@ -379,7 +465,7 @@ export function Taskbar() {
                 <div
                   onClick={handlePetClick}
                   className="flex items-center gap-2.5 cursor-pointer group select-none"
-                  title="Click to interact & cheer up your pet!"
+                  title="Click to cuddle & high-five your pet!"
                 >
                   <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-indigo-500/20 border border-amber-500/40 flex items-center justify-center shadow-lg group-hover:scale-105 group-hover:border-amber-400 transition-all shrink-0">
                     {pet && (
@@ -397,7 +483,7 @@ export function Taskbar() {
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-black text-slate-100 tracking-wide">
-                        {pet?.name || 'Your Pet'}
+                        {pet?.pet_name || 'Your Pet'}
                       </span>
                       <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-amber-300 font-extrabold border border-slate-700 flex items-center gap-1">
                         <span>{moodIcon}</span> {moodLabel}
@@ -439,170 +525,234 @@ export function Taskbar() {
                 </div>
               </div>
 
-              {/* Add Custom Task Form */}
-              <AnimatePresence>
-                {isAdding && (
-                  <motion.form
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    onSubmit={handleAddTask}
-                    className="p-3 bg-slate-950/80 border-b border-slate-800 space-y-2.5 overflow-hidden"
-                  >
-                    <input
-                      type="text"
-                      placeholder="e.g., Code API endpoint, stretch, read..."
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400"
-                      autoFocus
-                    />
+              {/* Empathetic Companion Bubble */}
+              <div
+                onClick={handlePetClick}
+                className="px-3 py-2 bg-indigo-950/40 border-b border-slate-800/80 flex items-center justify-between text-[11px] text-indigo-200 cursor-pointer hover:bg-indigo-900/30 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs">💬</span>
+                  <span className="truncate italic">
+                    "{COMPANION_CHEERS[currentCheerIdx]}"
+                  </span>
+                </div>
+                <span className="text-[9px] text-indigo-400 font-bold shrink-0">Tap to cheer!</span>
+              </div>
 
-                    <div className="flex items-center justify-between gap-1.5">
-                      <div className="flex items-center gap-1">
-                        {(['easy', 'medium', 'hard', 'complex'] as TaskCategory[]).map((cat) => {
-                          const cfg = CATEGORY_CONFIG[cat];
-                          const isSelected = newTaskCategory === cat;
-                          return (
-                            <button
-                              key={cat}
-                              type="button"
-                              onClick={() => setNewTaskCategory(cat)}
-                              className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                                isSelected
-                                  ? `${cfg.badge} border-amber-400 font-black shadow`
-                                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
-                              }`}
-                            >
-                              {cfg.icon} {cfg.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={!newTaskTitle.trim()}
-                        className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs rounded-xl transition-all disabled:opacity-40 cursor-pointer shadow-md"
+              {/* Tab 1: Tasks List */}
+              {currentTab === 'tasks' ? (
+                <>
+                  {/* Add Custom Task Form */}
+                  <AnimatePresence>
+                    {isAdding && (
+                      <motion.form
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        onSubmit={handleAddTask}
+                        className="p-3 bg-slate-950/80 border-b border-slate-800 space-y-2.5 overflow-hidden"
                       >
-                        Add
-                      </button>
-                    </div>
-                  </motion.form>
-                )}
-              </AnimatePresence>
+                        <input
+                          type="text"
+                          placeholder="e.g., Code API endpoint, stretch, read..."
+                          value={newTaskTitle}
+                          onChange={(e) => setNewTaskTitle(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                          autoFocus
+                        />
 
-              {/* Category Filter Chips */}
-              <div className="px-3 py-2 bg-slate-900/60 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
-                <button
-                  onClick={() => {
-                    setActiveFilter('all');
-                    sound.playClick();
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold whitespace-nowrap transition-all cursor-pointer ${
-                    activeFilter === 'all'
-                      ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  All ({tasks.length})
-                </button>
-                {(['easy', 'medium', 'hard', 'complex'] as TaskCategory[]).map((cat) => {
-                  const count = tasks.filter((t) => t.category === cat).length;
-                  const cfg = CATEGORY_CONFIG[cat];
-                  return (
+                        <div className="flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1">
+                            {(['easy', 'medium', 'hard', 'complex'] as TaskCategory[]).map((cat) => {
+                              const cfg = CATEGORY_CONFIG[cat];
+                              const isSelected = newTaskCategory === cat;
+                              return (
+                                <button
+                                  key={cat}
+                                  type="button"
+                                  onClick={() => setNewTaskCategory(cat)}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                                    isSelected
+                                      ? `${cfg.badge} border-amber-400 font-black shadow`
+                                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
+                                  }`}
+                                >
+                                  {cfg.icon} {cfg.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={!newTaskTitle.trim()}
+                            className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs rounded-xl transition-all disabled:opacity-40 cursor-pointer shadow-md"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </motion.form>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Category Filter Chips */}
+                  <div className="px-3 py-2 bg-slate-900/60 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
                     <button
-                      key={cat}
                       onClick={() => {
-                        setActiveFilter(cat);
+                        setActiveFilter('all');
                         sound.playClick();
                       }}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all border cursor-pointer ${
-                        activeFilter === cat
-                          ? `${cfg.badge} border-amber-400 shadow-md`
-                          : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-slate-200'
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold whitespace-nowrap transition-all cursor-pointer ${
+                        activeFilter === 'all'
+                          ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                          : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      {cfg.icon} {cfg.label} ({count})
+                      All ({tasks.length})
                     </button>
-                  );
-                })}
-              </div>
-
-              {/* Task List */}
-              <div className="flex-1 overflow-y-auto max-h-[380px] p-3 space-y-2 custom-scrollbar">
-                {filteredTasks.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500 text-xs">
-                    <Coffee className="mx-auto mb-2 opacity-40" size={24} />
-                    No tasks in this category. Click + to add one!
-                  </div>
-                ) : (
-                  filteredTasks.map((t) => {
-                    const cfg = CATEGORY_CONFIG[t.category];
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => handleToggleComplete(t.id)}
-                        className={`group p-3 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
-                          t.completed
-                            ? 'bg-slate-950/50 border-slate-800/80 opacity-60'
-                            : `${cfg.bg} ${cfg.border} hover:border-slate-500 shadow-sm`
-                        }`}
-                      >
-                        {/* Checkbox Icon */}
-                        <div
-                          className={`w-5 h-5 rounded-lg flex items-center justify-center mt-0.5 transition-all ${
-                            t.completed
-                              ? 'bg-emerald-500 text-slate-950 font-black'
-                              : 'border-2 border-slate-600 group-hover:border-amber-400'
+                    {(['easy', 'medium', 'hard', 'complex'] as TaskCategory[]).map((cat) => {
+                      const count = tasks.filter((t) => t.category === cat).length;
+                      const cfg = CATEGORY_CONFIG[cat];
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setActiveFilter(cat);
+                            sound.playClick();
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all border cursor-pointer ${
+                            activeFilter === cat
+                              ? `${cfg.badge} border-amber-400 font-extrabold`
+                              : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
                           }`}
                         >
-                          {t.completed && <Check size={13} strokeWidth={3} />}
-                        </div>
+                          {cfg.icon} {cfg.label} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                        {/* Task Title & Tags */}
-                        <div className="flex-1 min-w-0">
+                  {/* Tasks List */}
+                  <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[300px] custom-scrollbar">
+                    {filteredTasks.length === 0 ? (
+                      <div className="text-center py-6 text-slate-500 text-xs">
+                        No tasks in this category. Click + to add one!
+                      </div>
+                    ) : (
+                      filteredTasks.map((t) => {
+                        const cfg = CATEGORY_CONFIG[t.category];
+                        return (
                           <div
-                            className={`text-xs font-bold leading-tight ${
-                              t.completed ? 'line-through text-slate-500' : 'text-slate-200'
+                            key={t.id}
+                            onClick={() => handleToggleComplete(t.id)}
+                            className={`p-2.5 rounded-2xl border flex items-start gap-2.5 transition-all cursor-pointer group ${
+                              t.completed
+                                ? 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                                : `${cfg.bg} ${cfg.border} hover:border-amber-400/50 shadow-sm`
                             }`}
                           >
-                            {t.title}
-                          </div>
-
-                          {/* Stat Cost/Reward Indicators */}
-                          <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] font-mono">
-                            <span
-                              className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${cfg.badge}`}
+                            {/* Checkbox Icon */}
+                            <div
+                              className={`w-5 h-5 rounded-lg flex items-center justify-center mt-0.5 transition-all ${
+                                t.completed
+                                  ? 'bg-emerald-500 text-slate-950 font-black'
+                                  : 'border-2 border-slate-600 group-hover:border-amber-400'
+                              }`}
                             >
-                              {cfg.icon} {cfg.label}
-                            </span>
-                            <span className="text-amber-400 font-semibold">
-                              ⚡ -{cfg.energyCost}%
-                            </span>
-                            <span className="text-rose-400 font-semibold">
-                              💖 +{cfg.happinessGain}%
-                            </span>
-                            <span className="text-indigo-300">🌟 +{cfg.xpGain} XP</span>
-                            <span className="text-amber-300">🪙 +{cfg.coinsGain}</span>
-                          </div>
-                        </div>
+                              {t.completed && <Check size={13} strokeWidth={3} />}
+                            </div>
 
-                        {/* Delete Custom Task button */}
-                        {t.isCustom && (
-                          <button
-                            onClick={(e) => handleDeleteTask(t.id, e)}
-                            className="text-slate-500 hover:text-rose-400 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Delete task"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+                            {/* Task Title & Tags */}
+                            <div className="flex-1 min-w-0">
+                              <div
+                                className={`text-xs font-bold leading-tight ${
+                                  t.completed ? 'line-through text-slate-500' : 'text-slate-200'
+                                }`}
+                              >
+                                {t.title}
+                              </div>
+
+                              {/* Stat Cost/Reward Indicators */}
+                              <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] font-mono">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${cfg.badge}`}
+                                >
+                                  {cfg.icon} {cfg.label}
+                                </span>
+                                <span className="text-amber-400 font-semibold">
+                                  ⚡ -{cfg.energyCost}%
+                                </span>
+                                <span className="text-rose-400 font-semibold">
+                                  💖 +{cfg.happinessGain}%
+                                </span>
+                                <span className="text-indigo-300">🌟 +{cfg.xpGain} XP</span>
+                                <span className="text-amber-300">🪙 +{cfg.coinsGain}</span>
+                              </div>
+                            </div>
+
+                            {/* Delete Custom Task button */}
+                            {t.isCustom && (
+                              <button
+                                onClick={(e) => handleDeleteTask(t.id, e)}
+                                className="text-slate-500 hover:text-rose-400 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Delete task"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Tab 2: Companion Focus / Pomodoro Timer */
+                <div className="p-4 space-y-4 text-center">
+                  <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">
+                      {timerType === 'work' ? '🎯 Focus Session' : '☕ Refreshing Break'}
+                    </span>
+                    <div className="text-4xl font-mono font-black text-white my-2 tracking-wider">
+                      {formatTimer(timerSeconds)}
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      {timerType === 'work'
+                        ? `${pet?.pet_name || 'Your Pet'} is focusing silently alongside you!`
+                        : 'Take a sip of water, relax your eyes and stretch! 💧'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => {
+                        sound.playClick();
+                        setTimerActive(!timerActive);
+                      }}
+                      className={`px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 shadow-lg transition-all cursor-pointer ${
+                        timerActive
+                          ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/20'
+                          : 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-emerald-500/20'
+                      }`}
+                    >
+                      {timerActive ? <Pause size={15} /> : <Play size={15} className="fill-current" />}
+                      {timerActive ? 'Pause' : 'Start Focus'}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        sound.playClick();
+                        setTimerActive(false);
+                        setTimerSeconds(timerType === 'work' ? 25 * 60 : 5 * 60);
+                      }}
+                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700 cursor-pointer"
+                      title="Reset Timer"
+                    >
+                      <RotateCcw size={15} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Taskbar Bottom Summary Footer */}
               <div className="p-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
@@ -612,7 +762,7 @@ export function Taskbar() {
                   <span>{pendingCount} Remaining</span>
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
-                  Keep your pet active & happy!
+                  Real world work ➔ In-game happiness
                 </div>
               </div>
             </motion.div>

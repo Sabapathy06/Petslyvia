@@ -422,7 +422,7 @@ export function AdventurePage() {
         <div className="lg:col-span-7 bg-slate-900/90 rounded-3xl p-5 border border-slate-800 shadow-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs text-slate-300 font-medium">
-              🎯 <strong>Goal:</strong> {mission.objective}
+              🎯 <strong>Mission Goal:</strong> {mission.objective}
             </div>
 
             <div className="flex items-center gap-2">
@@ -454,6 +454,39 @@ export function AdventurePage() {
               </button>
             </div>
           </div>
+
+          {/* Humanized Companion Speech Bubble */}
+          {pet && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-3 p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border border-amber-400/30 flex items-center gap-3 shadow-inner"
+            >
+              <div className="w-9 h-9 rounded-xl bg-slate-950 border border-amber-400/40 flex items-center justify-center shrink-0 shadow-sm">
+                <PetSVG
+                  type={pet.pet_type}
+                  stage={pet.stage}
+                  state={isPlaying ? 'excited' : simulationResult?.success ? 'celebrating' : lastErrorMsg ? 'thinking' : 'happy'}
+                  equipped={pet.equipped_items}
+                  size={38}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold text-amber-300 flex items-center gap-1">
+                  🐾 {pet.pet_name} whispers:
+                </span>
+                <p className="text-xs text-slate-100 font-medium italic mt-0.5">
+                  {isPlaying
+                    ? `Running our code step by step... cheering you on! ⚡`
+                    : simulationResult?.success
+                    ? `Woohoo! We did it, ${profile?.display_name || 'friend'}! That was brilliant! 🌟`
+                    : lastErrorMsg
+                    ? `Don't worry! Mistakes help us learn. Let's tweak our path and try again! 💪`
+                    : `Ready when you are! Tap arrow buttons or write code to guide me! 🚀`}
+                </p>
+              </div>
+            </motion.div>
+          )}
 
           {/* 3D vs 2D Engine Rendering */}
           {viewMode3D ? (

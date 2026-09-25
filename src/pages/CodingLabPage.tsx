@@ -312,6 +312,42 @@ export function CodingLabPage() {
         </div>
       </div>
 
+      {/* Humanized Companion Code Co-Pilot Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-4 rounded-3xl bg-slate-900/90 border border-indigo-500/30 shadow-xl flex items-center gap-3.5"
+      >
+        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0">
+          {pet && (
+            <PetSVG
+              type={pet.pet_type}
+              stage={pet.stage}
+              state={successBanner ? 'excited' : isPlaying ? 'thinking' : errorMessage ? 'tired' : 'happy'}
+              equipped={pet.equipped_items}
+              size={40}
+            />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-white">{pet?.pet_name || 'Your Pet'} Co-Coder</span>
+            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-bold px-2 py-0.2 rounded-full">
+              Real Syntax Runtime
+            </span>
+          </div>
+          <p className="text-xs text-indigo-200 italic mt-0.5">
+            "{successBanner
+              ? "Flawless code execution! That algorithm was super clean and optimized! 🚀"
+              : errorMessage
+              ? "Almost! Let's check our indentation, turn commands, or loop limits! We got this! 💪"
+              : isPlaying
+              ? "Running simulation of your script... stepping line-by-line! 🐾"
+              : "Ready to run real syntax! Type your script or insert commands, then click Run Script! 💻"}"
+          </p>
+        </div>
+      </motion.div>
+
       {/* Level Selection Tabs */}
       <div className="flex flex-wrap items-center gap-2 bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800">
         <span className="text-xs font-bold text-slate-400 px-2 flex items-center gap-1">

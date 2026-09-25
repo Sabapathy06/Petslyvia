@@ -122,6 +122,8 @@ const WORLD_REGIONS: WorldRegion[] = [
   },
 ];
 
+import { PetSVG } from '@/components/PetSVG';
+
 export function WorldMapPage() {
   const { profile, pet } = useGameData();
   const navigate = useNavigate();
@@ -138,19 +140,37 @@ export function WorldMapPage() {
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* World Map Hero Header */}
-      <div className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-slate-900 via-slate-850 to-indigo-950 border border-slate-800 overflow-hidden shadow-2xl">
+      <div className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-slate-900 via-slate-850 to-indigo-950 border border-slate-800 overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 max-w-2xl">
+
+        <div className="relative z-10 max-w-xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-xs font-bold text-amber-300 mb-3">
-            <Star size={13} className="fill-amber-400" /> Virtual Adventure Map
+            <Star size={13} className="fill-amber-400" /> Welcome back, {profile?.display_name || 'Adventurer'}!
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight">
             The Realm of <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-300 to-rose-400">PETSLYVIA</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
-            Welcome, <strong className="text-white">{profile?.display_name || 'Player'}</strong>! Explore the diverse regions to develop your logic instincts, rescue glitched sectors, and evolve your companion <strong className="text-amber-300">{pet?.pet_name || 'Pet'}</strong> from an Infant into a Master.
+            Explore diverse logic sectors, unlock real code superpowers, and raise <strong className="text-amber-300">{pet?.pet_name || 'your pet'}</strong> from an Infant to a Grandmaster!
           </p>
         </div>
+
+        {/* Pet Companion Greeting Card */}
+        {pet && (
+          <div className="relative z-10 bg-slate-950/70 p-3.5 rounded-2xl border border-amber-400/30 flex items-center gap-3.5 shadow-lg shrink-0 max-w-sm">
+            <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0">
+              <PetSVG type={pet.pet_type} stage={pet.stage} state="happy" equipped={pet.equipped_items} size={50} />
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider block">
+                🐾 {pet.pet_name} says:
+              </span>
+              <p className="text-xs text-slate-200 italic mt-0.5">
+                \"Where should we explore today? I'm ready to learn!\"
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* AI Infinite Stage Architect Portal Card */}

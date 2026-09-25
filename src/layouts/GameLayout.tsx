@@ -124,8 +124,12 @@ export function GameLayout() {
         {/* Pet Mini HUD Status Card */}
         {pet && (
           <div className="mx-3 my-3 p-3 rounded-2xl bg-slate-950/80 border border-slate-800 relative overflow-hidden space-y-2.5">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden relative">
+            <div
+              onClick={() => sound.playPet()}
+              className="flex items-center gap-3 cursor-pointer group select-none"
+              title="Click pet to cuddle & hear a cheerful sound!"
+            >
+              <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden relative group-hover:scale-105 transition-transform group-hover:border-amber-400">
                 <PetSVG
                   type={pet.pet_type}
                   stage={pet.stage}
@@ -136,7 +140,9 @@ export function GameLayout() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
-                  <p className="font-bold text-xs text-white truncate">{pet.pet_name}</p>
+                  <p className="font-bold text-xs text-white truncate group-hover:text-amber-300 transition-colors">
+                    {pet.pet_name}
+                  </p>
                   <span
                     className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded-full bg-gradient-to-r ${stageBadgeStyle}`}
                   >
