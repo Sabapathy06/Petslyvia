@@ -37,6 +37,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
 function PublicOnlyRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -46,7 +47,11 @@ function PublicOnlyRoute({ children }: { children: JSX.Element }) {
     );
   }
 
-  if (user) return <Navigate to="/app" replace />;
+  // If user is logged in but specifically opens login/signup, allow them to view it to switch accounts or change email
+  const isSwitching = new URLSearchParams(location.search).get('switch') === 'true';
+  if (user && !isSwitching && location.pathname !== '/login' && location.pathname !== '/signup') {
+    return <Navigate to="/app" replace />;
+  }
   return children;
 }
 

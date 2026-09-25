@@ -17,7 +17,7 @@ import { GoogleAuthModal } from '@/components/GoogleAuthModal';
 // ----------------------------------------------------
 export function LoginPage() {
   const navigate = useNavigate();
-  const { loginWithPassword, requestOtp, verifyOtpAndLogin, loginWithGoogle, loginWithGoogleAccount } = useAuth();
+  const { user, logout, loginWithPassword, requestOtp, verifyOtpAndLogin, loginWithGoogleAccount } = useAuth();
 
   const [mode, setMode] = useState<'password' | 'otp_request' | 'otp_verify'>('password');
   const [email, setEmail] = useState('');
@@ -96,19 +96,10 @@ export function LoginPage() {
     }
   };
 
-  // Google Sign-In
+  // Google Sign-In — Always prompts the user to enter or select their Google email address!
   const handleGoogleLogin = async () => {
     setError('');
     sound.playClick();
-    setLoading(true);
-
-    const res = await loginWithGoogle();
-    setLoading(false);
-
-    if (res.success) {
-      return;
-    }
-
     setShowGoogleModal(true);
   };
 
@@ -117,6 +108,36 @@ export function LoginPage() {
       title="Welcome Back, Player!"
       subtitle="Enter Petslyvia to explore, raise your companion, and solve logic puzzles."
     >
+      {user && (
+        <div className="mb-5 p-4 bg-[#eaf2ec] border border-[#d8e5dc] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div>
+            <span className="text-[#5b7566] block text-[10px] font-bold uppercase tracking-wider">Currently Logged In</span>
+            <span className="font-black text-[#1b382b] text-sm">{user.email}</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/app')}
+              className="px-3.5 py-2 bg-[#2d6a4f] hover:bg-[#23533e] text-white rounded-xl font-black text-xs cursor-pointer shadow-soft"
+            >
+              Continue to App →
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                sound.playClick();
+                await logout();
+                setEmail('');
+                setPassword('');
+              }}
+              className="px-3.5 py-2 bg-white hover:bg-rose-50 text-rose-700 border border-[#d8e5dc] rounded-xl font-bold text-xs cursor-pointer shadow-soft"
+            >
+              Switch Email
+            </button>
+          </div>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         {mode === 'password' && (
           <motion.form
@@ -397,7 +418,7 @@ const DEFAULT_PET_NAMES: Record<PetType, string> = {
 // ----------------------------------------------------
 export function SignupPage() {
   const navigate = useNavigate();
-  const { signupWithEmail, loginWithGoogle, loginWithGoogleAccount } = useAuth();
+  const { user, logout, signupWithEmail, loginWithGoogleAccount } = useAuth();
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -448,18 +469,10 @@ export function SignupPage() {
     }
   };
 
+  // Google Sign-Up — Always prompts user to enter or choose their Google email address!
   const handleGoogleSignup = async () => {
     setError('');
     sound.playClick();
-    setLoading(true);
-
-    const res = await loginWithGoogle();
-    setLoading(false);
-
-    if (res.success) {
-      return;
-    }
-
     setShowGoogleModal(true);
   };
 
@@ -468,6 +481,35 @@ export function SignupPage() {
       title="Create Your Player Account"
       subtitle="One email = One account = One companion pet. Begin your logic journey!"
     >
+      {user && (
+        <div className="mb-5 p-4 bg-[#eaf2ec] border border-[#d8e5dc] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div>
+            <span className="text-[#5b7566] block text-[10px] font-bold uppercase tracking-wider">Currently Logged In</span>
+            <span className="font-black text-[#1b382b] text-sm">{user.email}</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/app')}
+              className="px-3.5 py-2 bg-[#2d6a4f] hover:bg-[#23533e] text-white rounded-xl font-black text-xs cursor-pointer shadow-soft"
+            >
+              Continue to App →
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                sound.playClick();
+                await logout();
+                setEmail('');
+                setPassword('');
+              }}
+              className="px-3.5 py-2 bg-white hover:bg-rose-50 text-rose-700 border border-[#d8e5dc] rounded-xl font-bold text-xs cursor-pointer shadow-soft"
+            >
+              Switch Email
+            </button>
+          </div>
+        </div>
+      )}
       <form onSubmit={handleSignup} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Player Nickname" icon={<Compass size={16} />}>
