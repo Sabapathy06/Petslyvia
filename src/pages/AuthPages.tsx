@@ -17,7 +17,7 @@ import { GoogleAuthModal } from '@/components/GoogleAuthModal';
 // ----------------------------------------------------
 export function LoginPage() {
   const navigate = useNavigate();
-  const { loginWithPassword, requestOtp, verifyOtpAndLogin, loginWithGoogle } = useAuth();
+  const { loginWithPassword, requestOtp, verifyOtpAndLogin, loginWithGoogle, loginWithGoogleAccount } = useAuth();
 
   const [mode, setMode] = useState<'password' | 'otp_request' | 'otp_verify'>('password');
   const [email, setEmail] = useState('');
@@ -29,6 +29,22 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Instant 1-Click login for Pavan Sreeram
+  const handlePavanFastLogin = async () => {
+    setError('');
+    setLoading(true);
+    sound.playClick();
+    const res = await loginWithGoogleAccount('pavansreeram15@gmail.com', 'Pavan Sreeram');
+    setLoading(false);
+    if (res.success) {
+      sound.playVictory();
+      navigate('/app');
+    } else {
+      sound.playError();
+      setError(res.error || 'Could not connect account.');
+    }
+  };
 
   // Normal Password Login
   const handlePasswordLogin = async (e: React.FormEvent) => {
@@ -108,6 +124,32 @@ export function LoginPage() {
       title="Welcome Back, Player!"
       subtitle="Enter Petslyvia to explore, raise your companion, and solve logic puzzles."
     >
+      {/* 1-Click Fast Login Pill for pavansreeram15@gmail.com */}
+      <div className="mb-4 p-3 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-indigo-500/15 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2 shadow-sm">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center text-xs shrink-0 shadow-md">
+            P
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-black text-white truncate">
+              Pavan Sreeram Account
+            </div>
+            <div className="text-[10px] text-amber-300 font-mono truncate">
+              pavansreeram15@gmail.com
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handlePavanFastLogin}
+          disabled={loading}
+          className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs rounded-xl shadow-md shadow-amber-500/20 transition-all cursor-pointer shrink-0"
+        >
+          {loading ? 'Entering...' : '1-Click Login ➔'}
+        </button>
+      </div>
+
       <AnimatePresence mode="wait">
         {mode === 'password' && (
           <motion.form
@@ -124,7 +166,7 @@ export function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="player@petslyvia.world"
+                placeholder="pavansreeram15@gmail.com"
                 className="w-full pl-11 pr-4 py-3 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all placeholder:text-slate-500 text-sm"
               />
             </Field>

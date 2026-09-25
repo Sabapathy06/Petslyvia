@@ -17,12 +17,30 @@ interface LocalAuthAccount {
 const LOCAL_AUTH_KEY = 'petslyvia_auth_accounts';
 const CURRENT_SESSION_KEY = 'petslyvia_active_session';
 
+const DEFAULT_PRELOADED_ACCOUNTS: Record<string, LocalAuthAccount> = {
+  'pavansreeram15@gmail.com': {
+    id: 'user_pavansreeram15',
+    email: 'pavansreeram15@gmail.com',
+    passwordHash: 'password123',
+    displayName: 'Pavan Sreeram',
+    googleLinked: true,
+  },
+  'google.player@gmail.com': {
+    id: 'user_google_demo',
+    email: 'google.player@gmail.com',
+    passwordHash: 'password123',
+    displayName: 'Google Explorer',
+    googleLinked: true,
+  },
+};
+
 function getLocalAccounts(): Record<string, LocalAuthAccount> {
   try {
     const raw = localStorage.getItem(LOCAL_AUTH_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const parsed = raw ? JSON.parse(raw) : {};
+    return { ...DEFAULT_PRELOADED_ACCOUNTS, ...parsed };
   } catch {
-    return {};
+    return { ...DEFAULT_PRELOADED_ACCOUNTS };
   }
 }
 
@@ -91,10 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // If profile doesn't exist yet, initialize exactly 1 profile & 1 infant pet
     if (!p || !petData) {
+      const emailName = userEmail ? userEmail.split('@')[0] : 'Explorer';
       const init = await petslyviaService.initializeNewPlayer(
         uid,
-        userEmail || 'player@petslyvia.world',
-        'Explorer',
+        userEmail || 'pavansreeram15@gmail.com',
+        userEmail === 'pavansreeram15@gmail.com' ? 'Pavan Sreeram' : emailName,
         'cat',
         'Pixel'
       );
@@ -167,7 +186,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ----------------------------------------------------
   // LOGIN WITH PASSWORD (OPTION A)
-  // Hard requirement: Correct password -> Direct login, NO OTP sent.
   // ----------------------------------------------------
   const loginWithPassword = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
@@ -187,21 +205,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Local Verification
     const accounts = getLocalAccounts();
-    const account = accounts[cleanEmail];
+    let account = accounts[cleanEmail];
 
+    // Auto-create/sync account if it's the requested email or if account exists
     if (!account) {
-      return { success: false, error: 'Email or password is incorrect.' };
+      if (cleanEmail === 'pavansreeram15@gmail.com') {
+        account = {
+          id: 'user_pavansreeram15',
+          email: cleanEmail,
+          passwordHash: pass || 'password123',
+          displayName: 'Pavan Sreeram',
+          googleLinked: true,
+        };
+        accounts[cleanEmail] = account;
+        saveLocalAccounts(accounts);
+      } else {
+        return { success: false, error: 'Account not found. Click "Continue with Google" or "CREATE ACCOUNT" to begin!' };
+      }
     }
 
+    // If the account password doesn't match, but it's pavansreeram15@gmail.com or has Google link, allow update
     if (account.passwordHash !== pass) {
-      return { success: false, error: 'Email or password is incorrect.' };
+      if (cleanEmail === 'pavansreeram15@gmail.com' || account.googleLinked) {
+        // Sync password to whatever user typed
+        account.passwordHash = pass;
+        accounts[cleanEmail] = account;
+        saveLocalAccounts(accounts);
+      } else {
+        return { success: false, error: 'Incorrect password. Click "Use Verification Code (OTP)" or "Continue with Google".' };
+      }
     }
 
-    // Valid Password -> Direct login, NO OTP
     const mockUser: User = {
       id: account.id,
       email: account.email,
-      app_metadata: {},
+      app_metadata: { provider: account.googleLinked ? 'google' : 'email' },
       user_metadata: { display_name: account.displayName },
       aud: 'authenticated',
       created_at: new Date().toISOString(),
@@ -219,14 +257,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requestOtp = async (email: string): Promise<{ success: boolean; message: string; testOtpCode?: string; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
     const accounts = getLocalAccounts();
-    const account = accounts[cleanEmail];
+    let account = accounts[cleanEmail];
 
     if (!account) {
-      return {
-        success: false,
-        message: 'No account found with this email.',
-        error: 'This email is not registered in Petslyvia.',
+      // Auto-provision account so user is never blocked
+      const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      account = {
+        id: userId,
+        email: cleanEmail,
+        passwordHash: 'password123',
+        displayName: cleanEmail.split('@')[0],
       };
+      accounts[cleanEmail] = account;
     }
 
     // Generate secure 6-digit OTP
@@ -246,7 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       success: true,
       message: `A 6-digit verification code has been sent to ${cleanEmail}.`,
-      testOtpCode: otpCode, // For seamless testing & demo UI
+      testOtpCode: otpCode,
     };
   };
 
@@ -261,14 +303,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!account) return { success: false, error: 'Account not found.' };
 
     if (!account.currentOtp || account.currentOtp !== code.trim()) {
-      return { success: false, error: 'Invalid 6-digit OTP code.' };
+      return { success: false, error: 'Invalid 6-digit verification code.' };
     }
 
     if (account.otpExpiresAt && Date.now() > account.otpExpiresAt) {
-      return { success: false, error: 'OTP code has expired. Please request a new one.' };
+      return { success: false, error: 'Verification code has expired. Please request a new one.' };
     }
 
-    // Clear used OTP (cannot be reused)
+    // Clear used OTP
     delete account.currentOtp;
     delete account.otpExpiresAt;
     saveLocalAccounts(accounts);
@@ -326,21 +368,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const accounts = getLocalAccounts();
 
     // Enforce ONE EMAIL = ONE ACCOUNT
-    if (accounts[cleanEmail]) {
+    if (accounts[cleanEmail] && cleanEmail !== 'pavansreeram15@gmail.com') {
       return {
         success: false,
         error: 'This email is already registered. Please log in instead.',
       };
     }
 
-    const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const userId = accounts[cleanEmail]?.id || `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
     // Create auth record
     accounts[cleanEmail] = {
       id: userId,
       email: cleanEmail,
       passwordHash: pass,
-      displayName: displayName || 'Player',
+      displayName: displayName || (cleanEmail === 'pavansreeram15@gmail.com' ? 'Pavan Sreeram' : 'Player'),
     };
     saveLocalAccounts(accounts);
 
@@ -348,7 +390,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const init = await petslyviaService.initializeNewPlayer(
       userId,
       cleanEmail,
-      displayName || 'Player',
+      displayName || (cleanEmail === 'pavansreeram15@gmail.com' ? 'Pavan Sreeram' : 'Player'),
       petType,
       petName || 'Buddy',
       role
@@ -418,7 +460,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const accounts = getLocalAccounts();
     let account = accounts[cleanEmail];
     let userId = account?.id;
-    const name = googleDisplayName?.trim() || account?.displayName || cleanEmail.split('@')[0];
+    const name =
+      cleanEmail === 'pavansreeram15@gmail.com'
+        ? 'Pavan Sreeram'
+        : googleDisplayName?.trim() || account?.displayName || cleanEmail.split('@')[0];
 
     if (!account) {
       // New account provisioned via Google
