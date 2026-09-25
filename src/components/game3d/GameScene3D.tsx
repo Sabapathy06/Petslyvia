@@ -45,6 +45,7 @@ export interface GameScene3DProps {
     name?: string;
   } | null;
   cameraPreset?: 'iso' | 'perspective' | 'top' | 'follow';
+  onCameraPresetChange?: (preset: 'iso' | 'perspective' | 'top' | 'follow') => void;
   showControls?: boolean;
   height?: string | number;
   className?: string;
@@ -65,14 +66,15 @@ export function GameScene3D({
   interactive = false,
   onTileClick,
   opponentPet = null,
-  cameraPreset: initialPreset = 'iso',
+  cameraPreset = 'iso',
+  onCameraPresetChange,
   showControls = true,
   height = '420px',
   className = '',
   emotion = null,
 }: GameScene3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [cameraMode, setCameraMode] = useState<'iso' | 'perspective' | 'top' | 'follow'>(initialPreset);
+  const [cameraMode, setCameraMode] = useState<'iso' | 'perspective' | 'top' | 'follow'>(cameraPreset);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // References for Three.js state
@@ -142,6 +144,7 @@ export function GameScene3D({
   // Switch Camera Presets
   const setCameraPreset = (mode: 'iso' | 'perspective' | 'top' | 'follow') => {
     setCameraMode(mode);
+    onCameraPresetChange?.(mode);
     const maxDim = Math.max(gridSize.width, gridSize.height);
     const orbit = cameraOrbitRef.current;
 
@@ -158,14 +161,30 @@ export function GameScene3D({
     } else if (mode === 'top') {
       orbit.radius = maxDim * 1.6 + 2.5;
       orbit.theta = 0.001;
-      orbit.phi = 0.1; // Overhead top-down view looking down onto the board
+      orbit.phi = 0.08; // Overhead top-down view looking down onto the board
       orbit.target.set(0, 0, 0);
     } else if (mode === 'follow') {
       orbit.radius = 4.5;
       orbit.phi = Math.PI / 3.5;
       // Target tracks the pet in update loop
     }
+
+    // Instantly update camera if initialized
+    if (cameraRef.current && mode !== 'follow') {
+      const camX = orbit.target.x + orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta);
+      const camY = orbit.target.y + orbit.radius * Math.cos(orbit.phi);
+      const camZ = orbit.target.z + orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta);
+      cameraRef.current.position.set(camX, camY, camZ);
+      cameraRef.current.lookAt(orbit.target);
+    }
   };
+
+  // Synchronize cameraPreset prop changes from parent component
+  useEffect(() => {
+    if (cameraPreset) {
+      setCameraPreset(cameraPreset);
+    }
+  }, [cameraPreset, gridSize.width, gridSize.height]);
 
   // Zoom controls
   const handleZoom = (delta: number) => {

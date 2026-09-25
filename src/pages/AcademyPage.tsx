@@ -99,7 +99,7 @@ export function AcademyPage() {
 
   // 3D Viewport Controls
   const [viewMode3D, setViewMode3D] = useState(true);
-  const [cameraMode, setCameraMode] = useState<'iso' | 'perspective' | 'top'>('iso');
+  const [cameraMode, setCameraMode] = useState<'iso' | 'perspective' | 'top' | 'follow'>('iso');
   const [showCameraDropdown, setShowCameraDropdown] = useState(false);
 
   // Simulation execution state
@@ -528,79 +528,102 @@ export function AcademyPage() {
 
             {/* Viewport Action Controls */}
             <div className="flex items-center gap-2">
-              {/* Camera Preset Dropdown */}
-              <div className="relative">
+              {/* 3D / 2D Segmented Switch */}
+              <div className="flex items-center bg-[#f4f8f5] p-0.5 rounded-xl border border-[#d8e5dc]">
                 <button
-                  onClick={() => setShowCameraDropdown(!showCameraDropdown)}
-                  className="px-3 py-1 bg-[#f4f8f5] border border-[#d8e5dc] hover:bg-[#eaf2ec] rounded-xl text-xs font-bold text-[#1b382b] flex items-center gap-1.5 transition-all cursor-pointer"
+                  onClick={() => {
+                    sound.playClick();
+                    setViewMode3D(true);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    viewMode3D
+                      ? 'bg-white text-[#1b382b] shadow-xs font-black'
+                      : 'text-[#7a9386] hover:text-[#1b382b]'
+                  }`}
                 >
-                  <Box size={13} className="text-[#5b7566]" />
-                  <span>
-                    {cameraMode === 'iso'
-                      ? 'Iso 3D'
-                      : cameraMode === 'perspective'
-                      ? 'Perspective'
-                      : 'Top View'}
-                  </span>
-                  <ChevronDown size={12} className="text-[#7a9386]" />
+                  3D Engine
                 </button>
-
-                {showCameraDropdown && (
-                  <div className="absolute right-0 top-full mt-1.5 bg-white border border-[#e2ece5] rounded-2xl p-1.5 shadow-lg z-30 min-w-[130px] space-y-1">
-                    <button
-                      onClick={() => {
-                        setCameraMode('iso');
-                        setShowCameraDropdown(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
-                        cameraMode === 'iso'
-                          ? 'bg-[#eaf2ec] text-[#1b382b] font-bold'
-                          : 'text-[#5b7566] hover:bg-[#f4f8f5]'
-                      }`}
-                    >
-                      Iso 3D
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCameraMode('perspective');
-                        setShowCameraDropdown(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
-                        cameraMode === 'perspective'
-                          ? 'bg-[#eaf2ec] text-[#1b382b] font-bold'
-                          : 'text-[#5b7566] hover:bg-[#f4f8f5]'
-                      }`}
-                    >
-                      Perspective
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCameraMode('top');
-                        setShowCameraDropdown(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
-                        cameraMode === 'top'
-                          ? 'bg-[#eaf2ec] text-[#1b382b] font-bold'
-                          : 'text-[#5b7566] hover:bg-[#f4f8f5]'
-                      }`}
-                    >
-                      Top View
-                    </button>
-                  </div>
-                )}
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setViewMode3D(false);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    !viewMode3D
+                      ? 'bg-[#2d6a4f] text-white shadow-xs font-black'
+                      : 'text-[#7a9386] hover:text-[#1b382b]'
+                  }`}
+                >
+                  2D Grid
+                </button>
               </div>
 
-              {/* 3D / 2D Toggle */}
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setViewMode3D(!viewMode3D);
-                }}
-                className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] rounded-xl text-xs font-bold text-[#5b7566] hover:text-[#1b382b] transition-all"
-                title="Toggle between 3D Diorama and 2D Grid"
-              >
-                {viewMode3D ? '2D View' : '3D Engine'}
-              </button>
+              {/* Camera Preset Dropdown (Available in 3D Mode) */}
+              {viewMode3D && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowCameraDropdown(!showCameraDropdown)}
+                    className="px-2.5 py-1 bg-[#f4f8f5] border border-[#d8e5dc] hover:bg-[#eaf2ec] rounded-xl text-xs font-bold text-[#1b382b] flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Box size={13} className="text-[#5b7566]" />
+                    <span>
+                      {cameraMode === 'iso'
+                        ? 'Iso 3D'
+                        : cameraMode === 'perspective'
+                        ? 'Perspective'
+                        : 'Top View'}
+                    </span>
+                    <ChevronDown size={12} className="text-[#7a9386]" />
+                  </button>
+
+                  {showCameraDropdown && (
+                    <div className="absolute right-0 top-full mt-1.5 bg-white border border-[#e2ece5] rounded-2xl p-1.5 shadow-lg z-30 min-w-[130px] space-y-1">
+                      <button
+                        onClick={() => {
+                          setCameraMode('iso');
+                          setViewMode3D(true);
+                          setShowCameraDropdown(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                          cameraMode === 'iso'
+                            ? 'bg-[#eaf2ec] text-[#1b382b] font-bold'
+                            : 'text-[#5b7566] hover:bg-[#f4f8f5]'
+                        }`}
+                      >
+                        Iso 3D
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCameraMode('perspective');
+                          setViewMode3D(true);
+                          setShowCameraDropdown(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                          cameraMode === 'perspective'
+                            ? 'bg-[#eaf2ec] text-[#1b382b] font-bold'
+                            : 'text-[#5b7566] hover:bg-[#f4f8f5]'
+                        }`}
+                      >
+                        Perspective
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCameraMode('top');
+                          setViewMode3D(true);
+                          setShowCameraDropdown(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                          cameraMode === 'top'
+                            ? 'bg-[#eaf2ec] text-[#1b382b] font-bold'
+                            : 'text-[#5b7566] hover:bg-[#f4f8f5]'
+                        }`}
+                      >
+                        Top View
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Reset simulation */}
               <button
@@ -613,7 +636,7 @@ export function AcademyPage() {
             </div>
           </div>
 
-          {/* 3D Animated Canvas Viewport */}
+          {/* Canvas Viewport (3D or 2D) */}
           <div className="rounded-2xl overflow-hidden relative border border-[#d8e5dc] bg-[#dce8e0] min-h-[440px] flex items-center justify-center shadow-inner">
             {/* Top Left Floating Status Badge (Matches Image 2) */}
             <div className="absolute top-3.5 left-3.5 z-20 pointer-events-none">
@@ -653,7 +676,7 @@ export function AcademyPage() {
               </div>
             </div>
 
-            {/* The 3D Scene */}
+            {/* 3D Diorama View or 2D Grid with Live Animated Pet */}
             {viewMode3D ? (
               <GameScene3D
                 gridSize={mission.gridSize}
@@ -667,13 +690,27 @@ export function AcademyPage() {
                 equipped={pet?.equipped_items}
                 theme="forest"
                 cameraPreset={cameraMode}
+                onCameraPresetChange={setCameraMode}
+                showControls={false}
                 height="440px"
               />
             ) : (
-              /* Fallback 2D Grid */
-              <div className="p-8 flex flex-col items-center justify-center">
+              /* Rich 2D Interactive Board with Live Pet Companion */
+              <div className="w-full h-full min-h-[440px] bg-[#0c1f15] p-4 sm:p-6 flex flex-col items-center justify-center relative overflow-hidden">
+                {/* 2D Board Header Info */}
+                <div className="mb-3 flex items-center gap-3 text-xs text-white/70">
+                  <div className="flex items-center gap-1.5 bg-black/30 px-3 py-1 rounded-full border border-white/10">
+                    <span className="text-amber-400 font-bold">{petName}</span>
+                    <span className="text-white/40">·</span>
+                    <span>Facing: <strong className="text-white uppercase">{activeStep.petDir}</strong></span>
+                    <span className="text-white/40">·</span>
+                    <span>Pos: <strong className="text-white">({activeStep.petPos.x}, {activeStep.petPos.y})</strong></span>
+                  </div>
+                </div>
+
+                {/* 2D Grid Board */}
                 <div
-                  className="grid gap-1.5 bg-[#0f281b] p-4 rounded-2xl border-2 border-[#1e4b34] shadow-2xl"
+                  className="grid gap-2 p-3 sm:p-4 rounded-3xl bg-[#08150e]/90 border-2 border-[#1a422b] shadow-2xl backdrop-blur-md max-w-full overflow-x-auto custom-scrollbar"
                   style={{
                     gridTemplateColumns: `repeat(${mission.gridSize.width}, minmax(0, 1fr))`,
                   }}
@@ -682,18 +719,131 @@ export function AcademyPage() {
                     Array.from({ length: mission.gridSize.width }).map((_, x) => {
                       const isPet = activeStep.petPos.x === x && activeStep.petPos.y === y;
                       const isGoal = mission.goalPos.x === x && mission.goalPos.y === y;
+                      const isStart = mission.startPos.x === x && mission.startPos.y === y;
                       const hasObstacle = mission.obstacles.some((o) => o.x === x && o.y === y);
+                      const crystalDef = mission.crystals.find((c) => c.x === x && c.y === y);
+                      const isCollected = crystalDef && activeStep.crystalsCollected?.some((c) => c.x === x && c.y === y);
+
+                      // Responsive cell sizing
+                      const width = mission.gridSize.width;
+                      const cellClass =
+                        width >= 10
+                          ? 'w-11 h-11 sm:w-12 sm:h-12'
+                          : width >= 7
+                          ? 'w-13 h-13 sm:w-14 sm:h-14'
+                          : 'w-14 h-14 sm:w-16 sm:h-16';
+
+                      const petIconSize = width >= 10 ? 34 : width >= 7 ? 42 : 48;
 
                       return (
                         <div
                           key={`${x}-${y}`}
-                          className="w-10 h-10 rounded-xl bg-[#143725] border border-white/10 flex items-center justify-center text-sm font-bold"
+                          className={`${cellClass} rounded-2xl relative flex items-center justify-center transition-all ${
+                            isPet
+                              ? 'bg-[#18482d] border-2 border-emerald-400 ring-2 ring-emerald-500/30 shadow-lg'
+                              : isGoal
+                              ? 'bg-[#143e2b] border-2 border-teal-400/80 shadow-md'
+                              : hasObstacle
+                              ? 'bg-[#2b1814] border-2 border-rose-900/60 shadow-inner'
+                              : 'bg-[#122b1e] border border-white/5 hover:border-white/20'
+                          }`}
                         >
-                          {isPet ? '🐾' : isGoal ? '🌀' : hasObstacle ? '🧱' : ''}
+                          {/* Tile coordinates */}
+                          <span className="absolute top-1 left-1.5 text-[8px] font-mono text-white/20 pointer-events-none">
+                            {x},{y}
+                          </span>
+
+                          {/* 1. Pet on Tile with Live PetSVG */}
+                          {isPet && (
+                            <motion.div
+                              layout
+                              initial={{ scale: 0.8 }}
+                              animate={{ scale: 1 }}
+                              transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                              className="relative flex flex-col items-center justify-center z-10"
+                            >
+                              <PetSVG
+                                type={petType}
+                                state={petState}
+                                stage={(pet as any)?.stage || 'infant'}
+                                size={petIconSize}
+                                equipped={pet?.equipped_items}
+                              />
+
+                              {/* Direction Indicator Badge */}
+                              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#08150e] text-emerald-400 border border-emerald-400/60 flex items-center justify-center text-[10px] font-black shadow-sm">
+                                {activeStep.petDir === 'right'
+                                  ? '→'
+                                  : activeStep.petDir === 'left'
+                                  ? '←'
+                                  : activeStep.petDir === 'up'
+                                  ? '↑'
+                                  : '↓'}
+                              </div>
+
+                              {/* Pet Speech Bubble */}
+                              {petState === 'excited' && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -4 }}
+                                  animate={{ opacity: 1, y: -16 }}
+                                  className="absolute whitespace-nowrap bg-emerald-500 text-white font-black text-[9px] px-2 py-0.5 rounded-full shadow-lg pointer-events-none"
+                                >
+                                  Goal! 🎉
+                                </motion.div>
+                              )}
+                            </motion.div>
+                          )}
+
+                          {/* 2. Goal Portal */}
+                          {!isPet && isGoal && (
+                            <div className="relative flex flex-col items-center justify-center">
+                              <div className="w-8 h-8 rounded-full bg-teal-500/20 border-2 border-teal-400 flex items-center justify-center text-base animate-pulse shadow-soft">
+                                🌀
+                              </div>
+                              <span className="text-[8px] font-black text-teal-300 uppercase tracking-widest mt-0.5">
+                                Goal
+                              </span>
+                            </div>
+                          )}
+
+                          {/* 3. Crystal Gem */}
+                          {!isPet && crystalDef && (
+                            <div className="flex flex-col items-center justify-center">
+                              {isCollected ? (
+                                <span className="text-sm opacity-20 filter grayscale">💎</span>
+                              ) : (
+                                <span className="text-xl sm:text-2xl filter drop-shadow animate-bounce">
+                                  💎
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* 4. Obstacle */}
+                          {!isPet && hasObstacle && (
+                            <div className="text-lg opacity-80">
+                              🧱
+                            </div>
+                          )}
+
+                          {/* 5. Start Marker */}
+                          {!isPet && !isGoal && isStart && (
+                            <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">
+                              START
+                            </span>
+                          )}
                         </div>
                       );
                     })
                   )}
+                </div>
+
+                {/* 2D Board Legend */}
+                <div className="mt-3 flex items-center gap-4 text-[10px] text-white/40">
+                  <span className="flex items-center gap-1">🐾 Pet: {petName}</span>
+                  <span className="flex items-center gap-1">🌀 Goal Portal</span>
+                  <span className="flex items-center gap-1">💎 Crystal Gem</span>
+                  <span className="flex items-center gap-1">🧱 Obstacle</span>
                 </div>
               </div>
             )}
