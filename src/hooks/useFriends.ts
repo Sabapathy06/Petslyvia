@@ -2,32 +2,39 @@
  * useFriends.ts
  *
  * Real-time social hooks for PETSLYVIA:
- *  - Friend list with live Presence status
- *  - Pending inbound friend requests
- *  - Room invitations & instant responses
- *  - Search by public Friend ID
- *  - Send/respond/remove friend requests
+ *  - Single source of truth for friends, incoming requests, and outgoing requests
+ *  - Authoritative relationship status resolver
+ *  - Live Realtime Presence binding (online, lobby, playing, finished, offline)
+ *  - Real-time instant updates on request receive, accept, decline, and invite
+ *  - Clean channel unsubscribe on unmount to prevent memory leaks
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from './useAuth';
 import { useGameData } from './useGameData';
 import { supabase } from '@/lib/supabase';
 import {
   fetchFriendsList,
   fetchPendingRequests,
+  fetchSentRequests,
   fetchPendingRoomInvitations,
   sendFriendRequest as apiSendFriendRequest,
   respondFriendRequest as apiRespondFriendRequest,
+  cancelFriendRequest as apiCancelFriendRequest,
   removeFriend as apiRemoveFriend,
+  blockUser as apiBlockUser,
+  unblockUser as apiUnblockUser,
   searchPlayerByFriendId as apiSearchPlayerByFriendId,
+  getFriendshipStatus as apiGetFriendshipStatus,
   inviteFriendToRoom as apiInviteFriendToRoom,
   respondRoomInvitation as apiRespondRoomInvitation,
   ensureFriendId,
+  generateFriendId,
   type FriendEntry,
   type PendingFriendRequest,
   type RoomInvitation,
   type SafePublicProfile,
+  type FriendshipStatus,
 } from '@/services/friendService';
 import type { LobbyPresence } from '@/services/multiplayerRealtimeService';
 
@@ -42,33 +49,39 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
 
   const [friends, setFriends] = useState<FriendEntry[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
+  const [sentRequests, setSentRequests] = useState<PendingFriendRequest[]>([]);
   const [roomInvitations, setRoomInvitations] = useState<RoomInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assignedFriendId, setAssignedFriendId] = useState<string | null>(profile?.friend_id || null);
 
+  const currentUserId = user?.id || profile?.id;
+  const channelRef = useRef<any>(null);
+
+  // Sync / Ensure friend ID
   useEffect(() => {
-    const currentUserId = user?.id || profile?.id;
     if (!currentUserId) return;
     const fid = profile?.friend_id || generateFriendId(currentUserId);
     setAssignedFriendId(fid);
-    if (profile) profile.friend_id = fid;
+    if (profile && !profile.friend_id) {
+      profile.friend_id = fid;
+    }
     void ensureFriendId(currentUserId, fid);
-  }, [user?.id, profile?.id, profile?.friend_id]);
+  }, [currentUserId, profile?.friend_id]);
 
-  // Load initial friends & pending requests
-  const currentUserId = user?.id || profile?.id;
-
+  // Load initial friends, incoming & outgoing requests
   const refreshFriends = useCallback(async () => {
     if (!currentUserId) return;
     try {
-      const [fList, pList, invList] = await Promise.all([
+      const [fList, inList, outList, invList] = await Promise.all([
         fetchFriendsList(),
         fetchPendingRequests(),
+        fetchSentRequests(),
         fetchPendingRoomInvitations(),
       ]);
       setFriends(fList);
-      setPendingRequests(pList);
+      setPendingRequests(inList);
+      setSentRequests(outList);
       setRoomInvitations(invList);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load friends');
@@ -81,20 +94,23 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
     refreshFriends();
   }, [refreshFriends]);
 
-  // Subscribe to friend_requests and room_invitations realtime changes
+  // Subscribe to Realtime social updates with cleanup
   useEffect(() => {
     if (!currentUserId) return;
 
-    const channel = supabase
+    const socialChannel = supabase
       .channel(`user-social:${currentUserId}`)
       .on('broadcast', { event: 'friend_request' }, () => {
-        refreshFriends();
+        void refreshFriends();
       })
       .on('broadcast', { event: 'friend_request_accepted' }, () => {
-        refreshFriends();
+        void refreshFriends();
+      })
+      .on('broadcast', { event: 'friend_removed' }, () => {
+        void refreshFriends();
       })
       .on('broadcast', { event: 'room_invitation' }, () => {
-        refreshFriends();
+        void refreshFriends();
       })
       .on(
         'postgres_changes',
@@ -105,7 +121,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
           filter: `receiver_user_id=eq.${currentUserId}`,
         },
         () => {
-          refreshFriends();
+          void refreshFriends();
         }
       )
       .on(
@@ -117,7 +133,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
           filter: `sender_user_id=eq.${currentUserId}`,
         },
         () => {
-          refreshFriends();
+          void refreshFriends();
         }
       )
       .on(
@@ -129,24 +145,30 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
           filter: `receiver_user_id=eq.${currentUserId}`,
         },
         () => {
-          refreshFriends();
+          void refreshFriends();
         }
       )
       .subscribe();
 
+    channelRef.current = socialChannel;
+
     const lobbyChan = supabase.channel('arena:lobby');
     lobbyChan.on('broadcast', { event: 'social_event' }, (payload: any) => {
       if (payload?.payload?.to === currentUserId || payload?.payload?.from === currentUserId) {
-        refreshFriends();
+        void refreshFriends();
       }
     });
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      supabase.removeChannel(lobbyChan);
     };
   }, [currentUserId, refreshFriends]);
 
-  // Match presence for friends
+  // Combine friends with live presence status
   const friendsWithPresence = useMemo<FriendWithPresence[]>(() => {
     const presenceMap = new Map<string, LobbyPresence>();
     for (const p of onlinePlayers) {
@@ -163,7 +185,6 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
     });
   }, [friends, onlinePlayers]);
 
-  // Count active requests & invites for notification badge
   const notificationCount = pendingRequests.length + roomInvitations.length;
 
   // Actions
@@ -189,11 +210,44 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
     return res;
   };
 
-  const removeExistingFriend = async (friendUserId: string) => {
+  const cancelRequest = async (requestId: string) => {
+    setError(null);
+    const res = await apiCancelFriendRequest(requestId);
+    if (!res.success) {
+      setError(res.error || 'Failed to cancel request');
+      return res;
+    }
+    await refreshFriends();
+    return res;
+  };
+
+  const removeFriend = async (friendUserId: string) => {
     setError(null);
     const res = await apiRemoveFriend(friendUserId);
     if (!res.success) {
       setError(res.error || 'Failed to remove friend');
+      return res;
+    }
+    await refreshFriends();
+    return res;
+  };
+
+  const blockUser = async (targetUserId: string) => {
+    setError(null);
+    const res = await apiBlockUser(targetUserId);
+    if (!res.success) {
+      setError(res.error || 'Failed to block user');
+      return res;
+    }
+    await refreshFriends();
+    return res;
+  };
+
+  const unblockUser = async (targetUserId: string) => {
+    setError(null);
+    const res = await apiUnblockUser(targetUserId);
+    if (!res.success) {
+      setError(res.error || 'Failed to unblock user');
       return res;
     }
     await refreshFriends();
@@ -224,20 +278,29 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
     return apiSearchPlayerByFriendId(friendId, onlinePlayers);
   };
 
+  const getFriendshipStatus = async (targetUserId: string): Promise<FriendshipStatus> => {
+    return apiGetFriendshipStatus(targetUserId);
+  };
+
   return {
     friends: friendsWithPresence,
     pendingRequests,
+    sentRequests,
     roomInvitations,
     notificationCount,
     loading,
     error,
-    myFriendId: profile?.friend_id || assignedFriendId,
+    myFriendId: profile?.friend_id || assignedFriendId || 'PVS-EXPLORER',
     refreshFriends,
     sendRequest,
     respondRequest,
-    removeFriend: removeExistingFriend,
+    cancelRequest,
+    removeFriend,
+    blockUser,
+    unblockUser,
     inviteToRoom,
     respondInvite,
     searchFriend,
+    getFriendshipStatus,
   };
 }

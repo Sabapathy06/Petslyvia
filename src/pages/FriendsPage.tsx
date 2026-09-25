@@ -3,14 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Search, Copy, Check, ShieldAlert,
   Send, UserCheck, UserX, Loader2, Sparkles, Trophy,
-  Clock, Flame, Radio, Bell, ArrowRight
+  Clock, Flame, Radio, Bell, ArrowRight, X, Swords
 } from 'lucide-react';
 import { useGameData } from '@/hooks/useGameData';
 import { useFriends, type FriendWithPresence } from '@/hooks/useFriends';
 import { useMultiplayerRoom } from '@/hooks/useMultiplayerRoom';
 import { PetSVG } from '@/components/PetSVG';
 import { sound } from '@/utils/audio';
-import type { SafePublicProfile } from '@/services/friendService';
+import type { SafePublicProfile, FriendshipStatus } from '@/services/friendService';
 
 export function FriendsPage() {
   const { profile } = useGameData();
@@ -18,6 +18,7 @@ export function FriendsPage() {
   const {
     friends,
     pendingRequests,
+    sentRequests,
     roomInvitations,
     notificationCount,
     loading,
@@ -25,9 +26,11 @@ export function FriendsPage() {
     myFriendId,
     sendRequest,
     respondRequest,
+    cancelRequest,
     removeFriend,
     respondInvite,
     searchFriend,
+    unblockUser,
   } = useFriends(onlinePlayers);
 
   const [activeTab, setActiveTab] = useState<'friends' | 'add' | 'requests'>('friends');
@@ -36,9 +39,8 @@ export function FriendsPage() {
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<SafePublicProfile | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [requestSent, setRequestSent] = useState(false);
+  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
   const [sendingRequest, setSendingRequest] = useState(false);
-  const [sentRequestMap, setSentRequestMap] = useState<Record<string, boolean>>({});
   const [viewingProfile, setViewingProfile] = useState<SafePublicProfile | FriendWithPresence | null>(null);
 
   const handleCopyId = () => {
@@ -54,8 +56,8 @@ export function FriendsPage() {
     if (!searchQuery.trim()) return;
     setSearching(true);
     setSearchError(null);
+    setActionSuccessMessage(null);
     setSearchResult(null);
-    setRequestSent(false);
 
     try {
       const res = await searchFriend(searchQuery.trim());
@@ -67,31 +69,61 @@ export function FriendsPage() {
         sound.playClick();
       }
     } catch {
-      setSearchError('Failed to search player');
+      setSearchError('Unable to search player. Please try again.');
       sound.playError();
     } finally {
       setSearching(false);
     }
   };
 
-  const handleSendFriendRequest = async (targetId: string, itemKey?: string) => {
+  const handleSendFriendRequest = async (targetId: string) => {
     setSendingRequest(true);
     setSearchError(null);
+    setActionSuccessMessage(null);
     sound.playClick();
+
     try {
       const res = await sendRequest(targetId);
       if (res.success) {
-        setRequestSent(true);
-        if (itemKey) {
-          setSentRequestMap((prev) => ({ ...prev, [itemKey]: true }));
-        }
+        setActionSuccessMessage(res.message || 'Friend request sent!');
         sound.playVictory();
+        if (searchResult) {
+          setSearchResult({ ...searchResult, friendship_status: 'request_sent' });
+        }
       } else {
-        setSearchError(res.error || 'Failed to send request');
+        setSearchError(res.error || 'Unable to send friend request.');
         sound.playError();
       }
+    } catch (err: any) {
+      setSearchError(err?.message || 'Unable to send friend request.');
+      sound.playError();
     } finally {
       setSendingRequest(false);
+    }
+  };
+
+  const handleCancelRequest = async (requestId: string) => {
+    sound.playClick();
+    const res = await cancelRequest(requestId);
+    if (res.success) {
+      setActionSuccessMessage('Request cancelled.');
+      if (searchResult) {
+        setSearchResult({ ...searchResult, friendship_status: 'not_friends' });
+      }
+    } else {
+      setSearchError(res.error || 'Failed to cancel request.');
+      sound.playError();
+    }
+  };
+
+  const handleUnblock = async (userId: string) => {
+    sound.playClick();
+    const res = await unblockUser(userId);
+    if (res.success) {
+      setActionSuccessMessage('Player unblocked.');
+      if (searchResult) {
+        setSearchResult({ ...searchResult, friendship_status: 'not_friends' });
+      }
     }
   };
 
@@ -112,12 +144,12 @@ export function FriendsPage() {
         </div>
 
         {/* My Public Friend ID Box */}
-        <div className="bg-[#f4f8f5] border border-[#dbe7df] p-4 rounded-2xl flex items-center gap-4 shrink-0 w-full md:w-auto justify-between md:justify-start">
+        <div className="bg-[#f4f8f5] border border-[#dbe7df] p-4 rounded-2xl flex items-center gap-4 shrink-0 w-full md:w-auto justify-between md:justify-start shadow-sm">
           <div>
-            <span className="text-[10px] font-bold text-[#7a9386] tracking-wider uppercase block">
-              Your Public Friend ID
+            <span className="text-[10px] font-extrabold text-[#7a9386] tracking-wider uppercase block">
+              YOUR USER ID
             </span>
-            <span className="font-mono text-lg font-black text-[#1b382b] tracking-wider">
+            <span className="font-mono text-xl font-black text-[#1b382b] tracking-wider">
               {myFriendId || profile?.friend_id || 'PVS-EXPLORER'}
             </span>
           </div>
@@ -128,7 +160,7 @@ export function FriendsPage() {
             className="px-4 py-2 bg-[#2d6a4f] hover:bg-[#22533d] text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
-            {copied ? 'Copied!' : 'Copy ID'}
+            {copied ? 'COPIED!' : 'COPY'}
           </button>
         </div>
       </div>
@@ -177,10 +209,18 @@ export function FriendsPage() {
         </button>
       </div>
 
-      {/* Error alert */}
+      {/* Global Alerts */}
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-2xl">
-          ⚠️ {error}
+        <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-2xl flex items-center justify-between">
+          <span>⚠️ {error}</span>
+        </div>
+      )}
+      {actionSuccessMessage && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center justify-between">
+          <span>✓ {actionSuccessMessage}</span>
+          <button onClick={() => setActionSuccessMessage(null)} className="text-emerald-600 hover:text-emerald-900 cursor-pointer">
+            <X size={14} />
+          </button>
         </div>
       )}
 
@@ -195,9 +235,9 @@ export function FriendsPage() {
           ) : friends.length === 0 ? (
             <div className="bg-white rounded-3xl p-12 border border-[#e2ece5] text-center space-y-3">
               <div className="text-4xl">🐾</div>
-              <h3 className="font-extrabold text-base text-[#1b382b]">No Friends Yet</h3>
+              <h3 className="font-extrabold text-base text-[#1b382b]">No friends yet.</h3>
               <p className="text-xs text-[#5b7566] max-w-sm mx-auto">
-                Share your Friend ID ({myFriendId ?? 'PVS-XXXXXX'}) or add a rival using their Friend ID to see their live status and race together!
+                Share your Friend ID (<span className="font-mono font-bold text-[#1b382b]">{myFriendId}</span>) with other players or search their Friend ID to connect!
               </p>
               <button
                 onClick={() => setActiveTab('add')}
@@ -222,8 +262,8 @@ export function FriendsPage() {
                       className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white ${
                         friend.isOnline
                           ? friend.presence?.status === 'playing'
-                            ? 'bg-emerald-500 animate-pulse'
-                            : 'bg-yellow-400'
+                            ? 'bg-blue-500 animate-pulse'
+                            : 'bg-emerald-500'
                           : 'bg-slate-300'
                       }`}
                       title={friend.isOnline ? `Online (${friend.presence?.status ?? 'active'})` : 'Offline'}
@@ -241,11 +281,12 @@ export function FriendsPage() {
 
                     <p className="text-[10px] text-[#7a9386] truncate mt-0.5">
                       {friend.isOnline ? (
-                        <span className="text-emerald-700 font-bold">
-                          🟢 {friend.presence?.status === 'playing' ? 'In a Match' : 'In Lobby'}
+                        <span className="text-emerald-700 font-bold flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                          {friend.presence?.status === 'playing' ? 'Playing' : friend.presence?.status === 'lobby' ? 'In Lobby' : 'Online'}
                         </span>
                       ) : (
-                        <span>⚫ Offline</span>
+                        <span className="text-slate-400 font-medium">⚫ Offline</span>
                       )}
                     </p>
 
@@ -268,7 +309,7 @@ export function FriendsPage() {
                     <button
                       onClick={() => {
                         if (confirm(`Remove ${friend.username} from your friends?`)) {
-                          removeFriend(friend.user_id);
+                          void removeFriend(friend.user_id);
                         }
                       }}
                       className="px-2.5 py-1 text-[10px] font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
@@ -288,10 +329,10 @@ export function FriendsPage() {
         <div className="max-w-xl mx-auto space-y-6">
           <div className="bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-4">
             <h3 className="font-black text-lg text-[#1b382b] flex items-center gap-2">
-              <Search size={18} className="text-[#2d6a4f]" /> Add Friend
+              <Search size={18} className="text-[#2d6a4f]" /> Search User by ID
             </h3>
             <p className="text-xs text-[#5b7566]">
-              Search by Friend ID (e.g. <span className="font-mono font-bold text-[#1b382b]">PVS-XXXXXX</span> or 6 characters) or by player username.
+              Enter a player's unique public User ID (e.g. <span className="font-mono font-bold text-[#1b382b]">PVS-7K4M9Q</span>) or username.
             </p>
 
             <div className="flex gap-2">
@@ -300,8 +341,8 @@ export function FriendsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-                placeholder="Friend ID (PVS-XXXXXX) or Username"
-                className="flex-1 px-4 py-3 border border-[#e2ece5] rounded-2xl text-sm focus:border-[#2d6a4f] outline-none"
+                placeholder="PVS-XXXXXX or Username"
+                className="flex-1 px-4 py-3 border border-[#e2ece5] rounded-2xl text-sm focus:border-[#2d6a4f] outline-none font-medium bg-[#f4f8f5]"
               />
               <button
                 onClick={handleSearch}
@@ -309,7 +350,7 @@ export function FriendsPage() {
                 className="px-6 py-3 bg-[#2d6a4f] hover:bg-[#22533d] text-white font-black text-xs rounded-2xl transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow-sm"
               >
                 {searching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                Search
+                SEARCH
               </button>
             </div>
 
@@ -324,7 +365,7 @@ export function FriendsPage() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-5 bg-[#f4f8f5] rounded-2xl border border-[#dbe7df] space-y-4"
+                className="p-5 bg-[#f4f8f5] rounded-2xl border border-[#dbe7df] space-y-4 shadow-sm"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-2xl bg-white border border-[#e2ece5] flex items-center justify-center shrink-0">
@@ -350,79 +391,54 @@ export function FriendsPage() {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-[#dbe7df] flex items-center justify-between">
+                <div className="pt-2 border-t border-[#dbe7df] flex items-center justify-between flex-wrap gap-2">
                   <span className="text-[11px] text-[#7a9386]">Safe public profile</span>
-                  {requestSent ? (
-                    <div className="px-4 py-2 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-1.5">
-                      <Check size={14} /> Request Sent!
-                    </div>
+
+                  {/* Authoritative Relationship Action Button */}
+                  {searchResult.friendship_status === 'self' ? (
+                    <span className="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-black rounded-xl">
+                      THIS IS YOU
+                    </span>
+                  ) : searchResult.friendship_status === 'friends' ? (
+                    <span className="px-4 py-2 bg-emerald-100 text-emerald-800 text-xs font-black rounded-xl flex items-center gap-1.5">
+                      <Check size={14} /> FRIENDS
+                    </span>
+                  ) : searchResult.friendship_status === 'request_sent' ? (
+                    <span className="px-4 py-2 bg-amber-100 text-amber-900 text-xs font-black rounded-xl flex items-center gap-1.5">
+                      <Clock size={14} /> REQUEST SENT
+                    </span>
+                  ) : searchResult.friendship_status === 'request_received' ? (
+                    <button
+                      onClick={() => setActiveTab('requests')}
+                      className="px-4 py-2 bg-[#2d6a4f] text-white text-xs font-black rounded-xl shadow-sm hover:bg-[#22533d] cursor-pointer flex items-center gap-1.5"
+                    >
+                      <UserCheck size={14} /> ACCEPT REQUEST
+                    </button>
+                  ) : searchResult.friendship_status === 'blocked' ? (
+                    <button
+                      onClick={() => handleUnblock(searchResult.user_id)}
+                      className="px-4 py-2 bg-rose-100 text-rose-700 text-xs font-black rounded-xl hover:bg-rose-200 cursor-pointer"
+                    >
+                      BLOCKED (UNBLOCK)
+                    </button>
                   ) : (
                     <button
-                      onClick={() => handleSendFriendRequest(searchResult.user_id || searchResult.friend_id || searchResult.username)}
+                      onClick={() => handleSendFriendRequest(searchResult.user_id || searchResult.friend_id)}
                       disabled={sendingRequest}
-                      className="px-5 py-2.5 bg-[#2d6a4f] hover:bg-[#22533d] text-white text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                      className="px-5 py-2.5 bg-[#2d6a4f] hover:bg-[#22533d] disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
                     >
                       {sendingRequest ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
-                      Send Friend Request
+                      {sendingRequest ? 'SENDING...' : 'ADD FRIEND'}
                     </button>
                   )}
                 </div>
               </motion.div>
             )}
           </div>
-
-          {/* Online Players Available to Add */}
-          {onlinePlayers.filter((p) => p.userId && p.userId !== profile?.id && !friends.some((f) => f.user_id === p.userId)).length > 0 && (
-            <div className="bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-extrabold text-sm text-[#1b382b] flex items-center gap-2">
-                  <Sparkles size={15} className="text-amber-500" /> Online Players Right Now
-                </h3>
-                <span className="text-[10px] font-bold text-[#2d6a4f] bg-[#eaf2ec] px-2 py-0.5 rounded-full">
-                  Live
-                </span>
-              </div>
-              <p className="text-xs text-[#5b7566]">
-                These explorers are active right now. Send an instant friend request to team up!
-              </p>
-              <div className="space-y-2">
-                {onlinePlayers
-                  .filter((p) => p.userId && p.userId !== profile?.id && !friends.some((f) => f.user_id === p.userId))
-                  .map((p) => (
-                    <div key={p.userId} className="flex items-center gap-3 p-3 bg-[#f4f8f5] rounded-xl border border-[#e2ece5] justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-white border border-[#e2ece5] flex items-center justify-center shrink-0">
-                          <PetSVG type={p.petType as any} stage={p.petStage as any} state="happy" size={30} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-black text-xs text-[#1b382b] truncate">{p.username}</p>
-                          <p className="text-[10px] text-[#7a9386]">
-                            Lv {p.level} · {p.friendId || 'Online Explorer'}
-                          </p>
-                        </div>
-                      </div>
-                      {sentRequestMap[p.userId] ? (
-                        <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl flex items-center gap-1 shrink-0">
-                          <Check size={12} /> Sent!
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleSendFriendRequest(p.userId, p.userId)}
-                          disabled={sendingRequest}
-                          className="px-3.5 py-1.5 bg-[#2d6a4f] hover:bg-[#22533d] disabled:opacity-50 text-white font-black text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-sm shrink-0"
-                        >
-                          <UserPlus size={12} /> Add
-                        </button>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
-      {/* TAB CONTENT: Pending Requests & Room Invites */}
+      {/* TAB CONTENT: Requests & Invitations */}
       {activeTab === 'requests' && (
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Room Invitations */}
@@ -463,14 +479,14 @@ export function FriendsPage() {
             </div>
           )}
 
-          {/* Pending Inbound Requests */}
+          {/* Incoming Friend Requests */}
           <div className="bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-4">
             <h3 className="font-black text-base text-[#1b382b] flex items-center gap-2">
-              <Bell size={16} className="text-[#2d6a4f]" /> Pending Friend Requests ({pendingRequests.length})
+              <Bell size={16} className="text-[#2d6a4f]" /> Incoming Friend Requests ({pendingRequests.length})
             </h3>
 
             {pendingRequests.length === 0 ? (
-              <p className="text-xs text-[#7a9386] py-6 text-center">No pending friend requests.</p>
+              <p className="text-xs text-[#7a9386] py-6 text-center">No pending requests.</p>
             ) : (
               <div className="space-y-3">
                 {pendingRequests.map((req) => (
@@ -489,22 +505,25 @@ export function FriendsPage() {
                             {req.friend_id}
                           </span>
                         </div>
-                        <p className="text-[10px] text-[#7a9386]">Level {req.level} Explorer</p>
+                        <p className="text-[10px] text-[#7a9386]">wants to be your friend.</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
                       <button
-                        onClick={() => respondRequest(req.request_id, 'accept')}
+                        onClick={async () => {
+                          const res = await respondRequest(req.request_id, 'accept');
+                          if (res.success) sound.playVictory();
+                        }}
                         className="px-3 py-1.5 bg-[#2d6a4f] hover:bg-[#22533d] text-white text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-sm"
                       >
-                        <UserCheck size={13} /> Accept
+                        <UserCheck size={13} /> ACCEPT
                       </button>
                       <button
                         onClick={() => respondRequest(req.request_id, 'reject')}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-[#5b7566] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1"
                       >
-                        <UserX size={13} /> Decline
+                        <UserX size={13} /> DECLINE
                       </button>
                       <button
                         onClick={() => respondRequest(req.request_id, 'block')}
@@ -514,6 +533,48 @@ export function FriendsPage() {
                         <ShieldAlert size={14} />
                       </button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Outgoing Sent Requests */}
+          <div className="bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-4">
+            <h3 className="font-black text-base text-[#1b382b] flex items-center gap-2">
+              <Send size={16} className="text-[#2d6a4f]" /> Sent Requests ({sentRequests.length})
+            </h3>
+
+            {sentRequests.length === 0 ? (
+              <p className="text-xs text-[#7a9386] py-6 text-center">No outgoing requests.</p>
+            ) : (
+              <div className="space-y-3">
+                {sentRequests.map((req) => (
+                  <div
+                    key={req.request_id}
+                    className="p-4 bg-[#f4f8f5] rounded-2xl border border-[#e2ece5] flex items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-[#e2ece5] flex items-center justify-center shrink-0">
+                        <PetSVG type={req.pet_type as any} stage={req.pet_stage as any} state="happy" size={32} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-black text-xs text-[#1b382b] truncate">{req.username}</p>
+                          <span className="font-mono text-[9px] px-1 bg-white border border-[#e2ece5] rounded text-[#5b7566]">
+                            {req.friend_id}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-amber-700 font-bold">REQUEST SENT</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleCancelRequest(req.request_id)}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-[#5b7566] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                    >
+                      <X size={13} /> CANCEL
+                    </button>
                   </div>
                 ))}
               </div>

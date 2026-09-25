@@ -6,10 +6,11 @@ import {
   Trophy, Swords, X, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
   Hand, Trash2, Box, Plus, Radio, RefreshCw,
   Wifi, WifiOff, Loader2, LogIn, LogOut as LeaveIcon,
-  Zap, Lock, Clock
+  Zap, Lock, Clock, UserPlus, UserCheck
 } from "lucide-react";
 import { useGameData } from "@/hooks/useGameData";
 import { useAuth } from "@/hooks/useAuth";
+import { useFriends } from "@/hooks/useFriends";
 import type { BugExchangeItem, CommunityProblem, VisualBlock, SimulationStep } from "@/types/game";
 import type { Contact } from "@/types/database";
 import { runDeterministicSimulation } from "@/services/gameEngine";
@@ -50,7 +51,21 @@ function ConnectionBanner({ status, reconnectCount }: { status: string; reconnec
   );
 }
 
-function PlayerCard({ player }: { player: LobbyPresence }) {
+function PlayerCard({
+  player,
+  currentUserId,
+  isFriend,
+  onAddFriend,
+  onInvite,
+}: {
+  player: LobbyPresence;
+  currentUserId?: string;
+  isFriend?: boolean;
+  onAddFriend?: () => void;
+  onInvite?: () => void;
+}) {
+  const isMe = Boolean(currentUserId && player.userId === currentUserId);
+
   return (
     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
       className="bg-white rounded-2xl p-4 border border-[#e2ece5] hover:border-[#2d6a4f] transition-all shadow-soft flex items-center gap-3">
@@ -66,6 +81,11 @@ function PlayerCard({ player }: { player: LobbyPresence }) {
           {player.friendId && (
             <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 bg-[#f4f8f5] text-[#2d6a4f] rounded border border-[#e2ece5]">
               {player.friendId}
+            </span>
+          )}
+          {isMe && (
+            <span className="text-[8px] font-bold text-[#2d6a4f] bg-[#eaf2ec] px-1.5 py-0.2 rounded-full">
+              You
             </span>
           )}
         </div>
@@ -88,9 +108,28 @@ function PlayerCard({ player }: { player: LobbyPresence }) {
           </div>
         )}
       </div>
-      <div className="shrink-0 text-center">
-        <span className="block text-[8px] text-[#7a9386] font-bold">Lv</span>
-        <span className="text-sm font-black text-[#2d6a4f]">{player.level}</span>
+      <div className="shrink-0 flex flex-col items-end gap-1.5">
+        <div className="text-right">
+          <span className="block text-[8px] text-[#7a9386] font-bold">Lv</span>
+          <span className="text-sm font-black text-[#2d6a4f]">{player.level}</span>
+        </div>
+        {!isMe && (
+          isFriend ? (
+            onInvite ? (
+              <button onClick={onInvite} className="px-2 py-1 text-[10px] font-bold text-white bg-[#2d6a4f] hover:bg-[#22533d] rounded-lg transition-all cursor-pointer flex items-center gap-1 shadow-sm">
+                <Users size={11} /> Invite
+              </button>
+            ) : (
+              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Friend ✓</span>
+            )
+          ) : (
+            onAddFriend && (
+              <button onClick={onAddFriend} className="px-2 py-1 text-[10px] font-bold text-[#2d6a4f] bg-[#eaf2ec] hover:bg-[#ddebe0] rounded-lg transition-all cursor-pointer flex items-center gap-1">
+                <UserPlus size={11} /> Add
+              </button>
+            )
+          )
+        )}
       </div>
     </motion.div>
   );
@@ -454,6 +493,41 @@ export function MultiplayerPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [roomError, setRoomError] = useState<string | null>(null);
 
+  const { friends, sendRequest, inviteToRoom, roomInvitations, respondInvite } = useFriends(onlinePlayers);
+
+  // Authoritative combined duel opponents (real friends + contacts)
+  const combinedDuelOpponents: Contact[] = [
+    ...friends.map((f) => ({
+      id: `friend_${f.user_id}`,
+      user_id: user?.id || 'current',
+      friend_user_id: f.user_id,
+      friend_name: f.username,
+      friend_pet_type: (f.pet_type as any) || 'fox',
+      friend_pet_stage: (f.pet_stage as any) || 'child',
+      status: 'accepted' as const,
+      is_online: f.isOnline,
+      created_at: f.friendship_since || new Date().toISOString(),
+    })),
+    ...contacts.filter((c) => !friends.some((f) => f.user_id === c.friend_user_id)),
+  ];
+
+  const handleAddFriendFromCard = async (targetId: string) => {
+    sound.playClick();
+    const res = await sendRequest(targetId);
+    if (!res.success && res.error) {
+      setRoomError(res.error);
+    }
+  };
+
+  const handleInviteFriendToRoom = async (targetId: string) => {
+    if (!currentRoom) return;
+    sound.playClick();
+    const res = await inviteToRoom(currentRoom.id, targetId);
+    if (!res.success && res.error) {
+      setRoomError(res.error);
+    }
+  };
+
   // Legacy state (bug exchange + duel)
   const [selectedBug, setSelectedBug] = useState<BugExchangeItem | null>(bugExchanges[0] || null);
   const [bugBlocks, setBugBlocks] = useState<VisualBlock[]>(bugExchanges[0]?.brokenBlocks || []);
@@ -701,18 +775,29 @@ export function MultiplayerPage() {
                 <h3 className="font-extrabold text-sm text-[#1b382b] flex items-center gap-2"><Swords size={15} className="text-[#2d6a4f]" /> 1v1 Friend Duels</h3>
                 <p className="text-xs text-[#5b7566]">Quick head-to-head algorithm race.</p>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  {contacts.map((c) => (
-                    <div key={c.id} className="flex items-center gap-3 p-3 bg-[#f4f8f5] rounded-xl border border-[#e2ece5]">
-                      <PetSVG type={c.friend_pet_type} stage={c.friend_pet_stage} state="happy" size={36} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-extrabold text-xs text-[#1b382b] truncate">{c.friend_name}</p>
-                        <p className="text-[9px] text-[#5b7566] capitalize">{c.friend_pet_stage} {c.friend_pet_type}</p>
-                      </div>
-                      <button onClick={() => handleOpenChallenge(c)} className="px-2.5 py-1.5 bg-[#2d6a4f] hover:bg-[#245840] text-white rounded-lg text-xs font-black cursor-pointer flex items-center gap-1">
-                        <Swords size={11} /> Duel
-                      </button>
+                  {combinedDuelOpponents.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-[#7a9386]">
+                      No friends yet. Add friends via Friend ID to race against them!
                     </div>
-                  ))}
+                  ) : (
+                    combinedDuelOpponents.map((c) => (
+                      <div key={c.id} className="flex items-center gap-3 p-3 bg-[#f4f8f5] rounded-xl border border-[#e2ece5]">
+                        <div className="relative">
+                          <PetSVG type={c.friend_pet_type} stage={c.friend_pet_stage} state="happy" size={36} />
+                          {c.is_online && (
+                            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-extrabold text-xs text-[#1b382b] truncate">{c.friend_name}</p>
+                          <p className="text-[9px] text-[#5b7566] capitalize">{c.friend_pet_stage} {c.friend_pet_type} · {c.is_online ? "🟢 Online" : "⚫ Offline"}</p>
+                        </div>
+                        <button onClick={() => handleOpenChallenge(c)} className="px-2.5 py-1.5 bg-[#2d6a4f] hover:bg-[#245840] text-white rounded-lg text-xs font-black cursor-pointer flex items-center gap-1 shadow-sm">
+                          <Swords size={11} /> Duel
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -749,7 +834,16 @@ export function MultiplayerPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {onlinePlayers.map((p) => <PlayerCard key={p.userId} player={p} />)}
+              {onlinePlayers.map((p) => (
+                <PlayerCard
+                  key={p.userId}
+                  player={p}
+                  currentUserId={user?.id}
+                  isFriend={friends.some((f) => f.user_id === p.userId)}
+                  onAddFriend={() => handleAddFriendFromCard(p.friendId || p.userId)}
+                  onInvite={currentRoom ? () => handleInviteFriendToRoom(p.friendId || p.userId) : undefined}
+                />
+              ))}
             </div>
           )}
         </div>

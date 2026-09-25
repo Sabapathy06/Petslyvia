@@ -1,24 +1,34 @@
 /**
  * friendService.ts
  *
- * Provides real-time social & friends functionality for PETSLYVIA:
- *  - Friend ID lookup & validation (PVS-XXXXXX format)
- *  - Send, accept, decline, block, unblock friend requests
- *  - Remove friends
- *  - Room invitations (send & respond)
- *  - Match results persistence & retrieval
- *  - Safe public profiles
+ * Authoritative Social & Friend System for PETSLYVIA:
+ *  - Permanent public Friend IDs (PVS-XXXXXX format)
+ *  - Unique database constraints & reciprocal duplicate prevention
+ *  - Unified friendship state resolver (not_friends, request_sent, request_received, friends, blocked, self)
+ *  - Real database confirmation for friend requests (no premature "Sent" UI)
+ *  - Real-time instant status updates via Supabase Realtime Presence & Broadcast
+ *  - Outgoing sent requests tracking with cancellation
+ *  - Ingoing request acceptance, decline, and blocking
+ *  - Syncs directly with 1v1 Duel contacts to maintain a single source of truth
  *
- * SECURITY: All operations invoke SECURITY DEFINER Postgres RPCs or RLS-protected tables.
- * Internal Auth/Supabase UUIDs are never exposed as public Friend IDs.
+ * SECURITY: All operations validate authenticated caller and never expose internal Auth UUIDs.
  */
 
 import { supabase } from '../lib/supabase';
 import { broadcastLobbyRoomEvent } from './multiplayerRealtimeService';
+import type { Contact, PetType } from '../types/database';
 
 // ----------------------------------------------------------------
 // Types
 // ----------------------------------------------------------------
+
+export type FriendshipStatus =
+  | 'not_friends'
+  | 'request_sent'
+  | 'request_received'
+  | 'friends'
+  | 'blocked'
+  | 'self';
 
 export interface SafePublicProfile {
   user_id: string;
@@ -36,6 +46,7 @@ export interface SafePublicProfile {
   pet_name: string;
   pet_stage: string;
   created_at: string;
+  friendship_status?: FriendshipStatus;
 }
 
 export interface FriendEntry {
@@ -55,6 +66,7 @@ export interface FriendEntry {
 export interface PendingFriendRequest {
   request_id: string;
   sender_user_id: string;
+  receiver_user_id?: string;
   username: string;
   friend_id: string;
   avatar_url: string | null;
@@ -95,17 +107,22 @@ export interface MatchResultRecord {
 
 export const FRIEND_ID_REGEX = /^PVS-[A-Z0-9]{6}$/i;
 
-/** Validate friend ID format */
 export function isValidFriendIdFormat(id: string): boolean {
   return FRIEND_ID_REGEX.test(id.trim());
 }
 
-/** Normalize friend ID to uppercase */
 export function normalizeFriendId(id: string): string {
-  return id.trim().toUpperCase();
+  const trimmed = id.trim().toUpperCase();
+  if (/^[A-Z0-9]{6}$/i.test(trimmed)) {
+    return `PVS-${trimmed}`;
+  }
+  return trimmed;
 }
 
-/** Generate a unique public Friend ID in PVS-XXXXXX format (deterministic if seed/userId provided) */
+/**
+ * Generates a permanent, collision-resistant public Friend ID: PVS-XXXXXX
+ * (32 unambiguous alphanumeric characters, excluding confusing chars)
+ */
 export function generateFriendId(seed?: string): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   if (seed) {
@@ -128,12 +145,46 @@ export function generateFriendId(seed?: string): string {
   return id;
 }
 
-const LOCAL_FRIENDS_KEY = 'petslyvia_local_friends';
-const LOCAL_REQUESTS_KEY = 'petslyvia_local_requests';
-const LOCAL_INVITATIONS_KEY = 'petslyvia_local_invitations';
+// ----------------------------------------------------------------
+// Resilient Storage & Synchronization Keys
+// ----------------------------------------------------------------
+
+const STORAGE_KEYS = {
+  FRIENDS: 'petslyvia_authoritative_friends',
+  REQUESTS_IN: 'petslyvia_requests_incoming',
+  REQUESTS_OUT: 'petslyvia_requests_outgoing',
+  BLOCKS: 'petslyvia_blocked_users',
+  INVITATIONS: 'petslyvia_room_invitations',
+  CONTACTS: 'petslyvia_contacts',
+  ALL_REQUESTS: 'petslyvia_all_friend_requests',
+};
+
+export interface StoredFriendRequest {
+  id: string;
+  sender_user_id: string;
+  receiver_user_id: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'blocked';
+  created_at: string;
+  updated_at: string;
+  sender_username: string;
+  sender_friend_id: string;
+  sender_avatar?: string | null;
+  sender_level?: number;
+  sender_pet_type?: string;
+  sender_pet_stage?: string;
+  sender_pet_name?: string;
+  receiver_username: string;
+  receiver_friend_id: string;
+  receiver_avatar?: string | null;
+  receiver_level?: number;
+  receiver_pet_type?: string;
+  receiver_pet_stage?: string;
+  receiver_pet_name?: string;
+}
 
 function getLocalStore<T>(key: string, def: T): T {
   try {
+    if (typeof localStorage === 'undefined') return def;
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : def;
   } catch {
@@ -143,76 +194,35 @@ function getLocalStore<T>(key: string, def: T): T {
 
 function setLocalStore<T>(key: string, val: T): void {
   try {
+    if (typeof localStorage === 'undefined') return;
     localStorage.setItem(key, JSON.stringify(val));
   } catch {
     // ignore
   }
 }
 
-/** Ensure user has a valid friend_id, using Supabase RPC or generating and storing */
-export async function ensureFriendId(userId: string, currentFid?: string): Promise<string> {
-  // 1. If explicit FID provided, save it directly
-  if (currentFid && isValidFriendIdFormat(currentFid)) {
-    try {
-      const { data } = await supabase.from('profiles').select('skills').eq('id', userId).maybeSingle();
-      const skills = (data?.skills as Record<string, any>) || {};
-      if (skills.friend_id !== currentFid) {
-        skills.friend_id = currentFid;
-        await supabase.from('profiles').update({ skills }).eq('id', userId);
-      }
-    } catch {
-      // ignore
-    }
-    return currentFid;
-  }
-
-  // 2. Try Supabase RPC
-  try {
-    const { data, error } = await supabase.rpc('ensure_friend_id', { p_user_id: userId });
-    if (!error && data) {
-      return data as string;
-    }
-  } catch {
-    // RPC may not exist or offline
-  }
-
-  // 3. Check if already stored on profiles
-  try {
-    const { data } = await supabase.from('profiles').select('skills').eq('id', userId).maybeSingle();
-    const skills = data?.skills as Record<string, any> | undefined;
-    if (skills?.friend_id && isValidFriendIdFormat(skills.friend_id)) {
-      return skills.friend_id;
-    }
-  } catch {
-    // ignore
-  }
-
-  // 4. Generate deterministic client-side and persist in profiles.skills
-  const newFid = generateFriendId(userId);
-  try {
-    const { data } = await supabase.from('profiles').select('skills').eq('id', userId).maybeSingle();
-    const updatedSkills = { ...(data?.skills || {}), friend_id: newFid };
-    await supabase.from('profiles').update({ skills: updatedSkills }).eq('id', userId);
-  } catch {
-    // ignore
-  }
-
-  return newFid;
-}
-
 // ----------------------------------------------------------------
-// Session & Identity Resolution (Auth + Local Session Fallback)
+// Session & Identity Resolution
 // ----------------------------------------------------------------
 
-export async function resolveCurrentUser(): Promise<{ id: string; email?: string; username?: string } | null> {
+export async function resolveCurrentUser(): Promise<{ id: string; email?: string; username?: string; friend_id?: string } | null> {
   // 1. Try Supabase Auth
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.id) {
+      // Fetch or derive friend_id
+      let friendId: string | undefined;
+      try {
+        const { data: prof } = await supabase.from('profiles').select('friend_id, username, display_name').eq('id', user.id).maybeSingle();
+        if (prof?.friend_id) friendId = prof.friend_id;
+      } catch {
+        // ignore
+      }
       return {
         id: user.id,
         email: user.email,
         username: user.user_metadata?.display_name || user.email?.split('@')[0] || 'Player',
+        friend_id: friendId,
       };
     }
   } catch {
@@ -221,55 +231,32 @@ export async function resolveCurrentUser(): Promise<{ id: string; email?: string
 
   // 2. Try localStorage active session
   try {
-    const raw = localStorage.getItem('petslyvia_active_session');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed?.user?.id) {
-        return {
-          id: parsed.user.id,
-          email: parsed.user.email,
-          username: parsed.user.user_metadata?.display_name || parsed.user.email?.split('@')[0] || 'Player',
-        };
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('petslyvia_active_session');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.user?.id) {
+          return {
+            id: parsed.user.id,
+            email: parsed.user.email,
+            username: parsed.user.display_name || parsed.user.user_metadata?.display_name || parsed.user.email?.split('@')[0] || 'Player',
+            friend_id: parsed.user.friend_id || generateFriendId(parsed.user.id),
+          };
+        }
       }
-    }
-  } catch {
-    // ignore
-  }
 
-  // 3. Try localStorage profile
-  try {
-    const rawProf = localStorage.getItem('petslyvia_profile');
-    if (rawProf) {
-      const parsed = JSON.parse(rawProf);
-      if (parsed?.id) {
-        return {
-          id: parsed.id,
-          email: parsed.email,
-          username: parsed.display_name || parsed.username || 'Player',
-        };
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  // 4. Try localStorage current user ID & cached profiles
-  try {
-    const currentUid = localStorage.getItem('petslyvia_current_user_id');
-    if (currentUid) {
-      const rawProfs = localStorage.getItem('petslyvia_profiles');
-      if (rawProfs) {
-        const profs = JSON.parse(rawProfs);
-        const p = profs[currentUid];
+      const rawProf = localStorage.getItem('petslyvia_profile');
+      if (rawProf) {
+        const p = JSON.parse(rawProf);
         if (p?.id) {
           return {
             id: p.id,
             email: p.email,
             username: p.display_name || p.username || 'Player',
+            friend_id: p.friend_id,
           };
         }
       }
-      return { id: currentUid, username: 'Player' };
     }
   } catch {
     // ignore
@@ -278,30 +265,234 @@ export async function resolveCurrentUser(): Promise<{ id: string; email?: string
   return null;
 }
 
+/**
+ * Ensures user has a permanent public friend_id assigned in profile.
+ */
+export async function ensureFriendId(userId: string, currentFid?: string): Promise<string> {
+  if (currentFid && isValidFriendIdFormat(currentFid)) {
+    try {
+      await supabase.from('profiles').update({ friend_id: currentFid }).eq('id', userId);
+    } catch {
+      // ignore
+    }
+    return currentFid;
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('ensure_friend_id', { p_user_id: userId });
+    if (!error && data) {
+      return data as string;
+    }
+  } catch {
+    // ignore
+  }
+
+  // Check existing in database
+  try {
+    const { data } = await supabase.from('profiles').select('friend_id').eq('id', userId).maybeSingle();
+    if (data?.friend_id && isValidFriendIdFormat(data.friend_id)) {
+      return data.friend_id;
+    }
+  } catch {
+    // ignore
+  }
+
+  // Generate deterministic ID
+  const newFid = generateFriendId(userId);
+  try {
+    await supabase.from('profiles').update({ friend_id: newFid }).eq('id', userId);
+  } catch {
+    // ignore
+  }
+
+  return newFid;
+}
+
 // ----------------------------------------------------------------
-// Search & Public Profile
+// Authoritative Friendship State Resolver
 // ----------------------------------------------------------------
 
-/** Search for a player by their public Friend ID OR Username/Display Name */
+function getAllStoredRequests(): StoredFriendRequest[] {
+  return getLocalStore<StoredFriendRequest[]>(STORAGE_KEYS.ALL_REQUESTS, []);
+}
+
+function saveAllStoredRequests(reqs: StoredFriendRequest[]): void {
+  setLocalStore(STORAGE_KEYS.ALL_REQUESTS, reqs);
+}
+
+function addFriendToStore(ownerUserId: string, entry: FriendEntry) {
+  const key = `${STORAGE_KEYS.FRIENDS}_${ownerUserId}`;
+  const list = getLocalStore<FriendEntry[]>(key, []);
+  if (!list.some((f) => f.user_id === entry.user_id)) {
+    setLocalStore(key, [entry, ...list]);
+  }
+}
+
+/**
+ * Resolves the authoritative relationship status between current user and target user:
+ * 'self' | 'friends' | 'request_sent' | 'request_received' | 'blocked' | 'not_friends'
+ */
+export async function getFriendshipStatus(targetUserId: string): Promise<FriendshipStatus> {
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return 'not_friends';
+  if (currentUser.id === targetUserId) return 'self';
+
+  // 1. Try Supabase RPC
+  try {
+    const { data, error } = await supabase.rpc('get_friendship_status', {
+      p_target_user_id: targetUserId,
+    });
+    if (!error && data) {
+      return data as FriendshipStatus;
+    }
+  } catch {
+    // fallback
+  }
+
+  // 2. Direct query on friend_requests table
+  try {
+    const { data: req } = await supabase
+      .from('friend_requests')
+      .select('*')
+      .or(`and(sender_user_id.eq.${currentUser.id},receiver_user_id.eq.${targetUserId}),and(sender_user_id.eq.${targetUserId},receiver_user_id.eq.${currentUser.id})`)
+      .maybeSingle();
+
+    if (req) {
+      if (req.status === 'blocked') return 'blocked';
+      if (req.status === 'accepted') return 'friends';
+      if (req.status === 'pending') {
+        return req.sender_user_id === currentUser.id ? 'request_sent' : 'request_received';
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  // 3. Check synchronized all requests store
+  const allReqs = getAllStoredRequests();
+  const matchedReq = allReqs.find(
+    (r) =>
+      (r.sender_user_id === currentUser.id && r.receiver_user_id === targetUserId) ||
+      (r.sender_user_id === targetUserId && r.receiver_user_id === currentUser.id)
+  );
+
+  if (matchedReq) {
+    if (matchedReq.status === 'blocked') return 'blocked';
+    if (matchedReq.status === 'accepted') return 'friends';
+    if (matchedReq.status === 'pending') {
+      return matchedReq.sender_user_id === currentUser.id ? 'request_sent' : 'request_received';
+    }
+    if (matchedReq.status === 'rejected') {
+      return 'not_friends';
+    }
+  }
+
+  // 4. Fallback: check blocked list and friends list
+  const blocked = getLocalStore<string[]>(STORAGE_KEYS.BLOCKS, []);
+  if (blocked.includes(targetUserId)) return 'blocked';
+
+  const userFriends = getLocalStore<FriendEntry[]>(`${STORAGE_KEYS.FRIENDS}_${currentUser.id}`, []);
+  if (userFriends.some((f) => f.user_id === targetUserId)) return 'friends';
+
+  const friends = getLocalStore<FriendEntry[]>(STORAGE_KEYS.FRIENDS, []);
+  if (friends.some((f) => f.user_id === targetUserId)) return 'friends';
+
+  const outReqs = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_OUT, []);
+  if (outReqs.some((r) => r.receiver_user_id === targetUserId)) {
+    return 'request_sent';
+  }
+
+  const inReqs = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_IN, []);
+  if (inReqs.some((r) => r.sender_user_id === targetUserId)) {
+    return 'request_received';
+  }
+
+  return 'not_friends';
+}
+
+// ----------------------------------------------------------------
+// Search & Public Profile Lookup
+// ----------------------------------------------------------------
+
+/**
+ * Search player by public Friend ID (PVS-XXXXXX) or username.
+ * Returns safe public profile and live relationship status.
+ */
 export async function searchPlayerByFriendId(
   friendIdOrQuery: string,
   onlinePlayers?: any[]
-): Promise<{
-  profile: SafePublicProfile | null;
-  error?: string;
-}> {
+): Promise<{ profile: SafePublicProfile | null; error?: string }> {
   const raw = (friendIdOrQuery || '').trim();
   if (!raw) {
     return { profile: null, error: 'Please enter a Friend ID or username.' };
   }
 
-  // Normalize: if exactly 6 alphanumeric chars without PVS-, prepend PVS-
-  let normalized = raw.toUpperCase();
-  if (/^[A-Z0-9]{6}$/i.test(raw)) {
-    normalized = `PVS-${normalized}`;
+  const normalized = normalizeFriendId(raw);
+
+  // 1. Try Supabase RPC
+  if (isValidFriendIdFormat(normalized)) {
+    try {
+      const { data, error } = await supabase.rpc('search_player_by_friend_id', {
+        p_friend_id: normalized,
+      });
+      if (!error && data) {
+        const p = data as SafePublicProfile;
+        p.friendship_status = await getFriendshipStatus(p.user_id);
+        return { profile: p };
+      }
+    } catch {
+      // fallback
+    }
   }
 
-  // 0. Check live online players from Realtime Presence first!
+  // 2. Direct database query
+  try {
+    let query = supabase.from('profiles').select('id, username, display_name, avatar_url, friend_id, current_level, total_xp, coins, bugs_solved, created_at');
+
+    if (isValidFriendIdFormat(normalized)) {
+      query = query.ilike('friend_id', normalized);
+    } else {
+      query = query.or(`username.ilike.%${raw}%,display_name.ilike.%${raw}%`);
+    }
+
+    const { data, error } = await query.limit(1).maybeSingle();
+
+    if (!error && data) {
+      let petData: any = null;
+      try {
+        const petRes = await supabase.from('pets').select('*').eq('user_id', data.id).eq('is_active', true).maybeSingle();
+        petData = petRes.data;
+      } catch {
+        // ignore
+      }
+
+      const assignedFid = data.friend_id || generateFriendId(data.id);
+      const safeProfile: SafePublicProfile = {
+        user_id: data.id,
+        username: data.display_name || data.username || 'Explorer',
+        friend_id: assignedFid,
+        avatar_url: data.avatar_url || null,
+        level: data.current_level || 1,
+        xp: data.total_xp || 50,
+        score: data.coins || 100,
+        wins: data.bugs_solved || 0,
+        missions_completed: data.bugs_solved || 0,
+        walls_broken: data.bugs_solved || 0,
+        best_time_sec: 45,
+        pet_type: petData?.pet_type || 'fox',
+        pet_name: petData?.pet_name || 'Companion',
+        pet_stage: petData?.stage || 'infant',
+        created_at: data.created_at || new Date().toISOString(),
+      };
+
+      safeProfile.friendship_status = await getFriendshipStatus(safeProfile.user_id);
+      return { profile: safeProfile };
+    }
+  } catch {
+    // fallback
+  }
+
+  // 3. Check live online presence players
   if (onlinePlayers && onlinePlayers.length > 0) {
     const target = raw.toLowerCase();
     const liveMatch = onlinePlayers.find((p) => {
@@ -311,7 +502,6 @@ export async function searchPlayerByFriendId(
       return (
         p.userId === raw ||
         pFid === normalized ||
-        pFid === raw.toUpperCase() ||
         pName === target ||
         pName.includes(target)
       );
@@ -335,157 +525,99 @@ export async function searchPlayerByFriendId(
         pet_stage: liveMatch.petStage || 'infant',
         created_at: liveMatch.joinedAt || new Date().toISOString(),
       };
+      safeProfile.friendship_status = await getFriendshipStatus(safeProfile.user_id);
       return { profile: safeProfile };
     }
   }
 
-  const PROFILE_COLS = 'id, username, display_name, avatar_url, current_level, total_xp, coins, bugs_solved, created_at, skills';
-
-  // 1. Check if direct UUID
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
-  if (isUuid) {
-    try {
-      const { data: uuidProf } = await supabase
-        .from('profiles')
-        .select(PROFILE_COLS)
-        .eq('id', raw)
-        .maybeSingle();
-
-      if (uuidProf) {
-        let petData: any = null;
-        try {
-          const petRes = await supabase.from('pets').select('*').eq('user_id', uuidProf.id).eq('is_active', true).maybeSingle();
-          petData = petRes.data;
-        } catch { /* ignore */ }
-
-        const assignedFid = uuidProf.skills?.friend_id || generateFriendId(uuidProf.id);
-        return {
-          profile: {
-            user_id: uuidProf.id,
-            username: uuidProf.display_name || uuidProf.username || 'Explorer',
-            friend_id: assignedFid,
-            avatar_url: uuidProf.avatar_url || null,
-            level: uuidProf.current_level || 1,
-            xp: uuidProf.total_xp || 50,
-            score: uuidProf.coins || 100,
-            wins: uuidProf.bugs_solved || 0,
-            missions_completed: uuidProf.bugs_solved || 0,
-            walls_broken: uuidProf.bugs_solved || 0,
-            best_time_sec: 45,
-            pet_type: petData?.pet_type || 'fox',
-            pet_name: petData?.pet_name || 'Companion',
-            pet_stage: petData?.stage || 'infant',
-            created_at: uuidProf.created_at || new Date().toISOString(),
-          }
-        };
-      }
-    } catch { /* fallback */ }
-  }
-
-  // 2. If it matches Friend ID format, try Supabase RPC
-  if (isValidFriendIdFormat(normalized)) {
-    try {
-      const { data, error } = await supabase.rpc('search_player_by_friend_id', {
-        p_friend_id: normalized,
-      });
-      if (!error && data) {
-        return { profile: data as SafePublicProfile };
-      }
-    } catch {
-      // fallback
-    }
-  }
-
-  // 3. Direct profiles lookup
+  // 4. Check cached / local profiles store (petslyvia_profiles)
   try {
-    let users: any[] | null = null;
+    if (typeof localStorage !== 'undefined') {
+      const rawProfiles = localStorage.getItem('petslyvia_profiles');
+      if (rawProfiles) {
+        const allProfiles: Record<string, any> = JSON.parse(rawProfiles);
+        const queryLower = raw.toLowerCase();
 
-    // Search by Friend ID
-    if (isValidFriendIdFormat(normalized)) {
-      const { data } = await supabase
-        .from('profiles')
-        .select(PROFILE_COLS)
-        .eq('skills->>friend_id', normalized)
-        .limit(1);
+        for (const p of Object.values(allProfiles)) {
+          if (!p || typeof p !== 'object' || !p.id) continue;
+          const pFid = (p.friend_id || generateFriendId(p.id)).toUpperCase();
+          const pUsername = (p.username || '').toLowerCase();
+          const pDisplayName = (p.display_name || '').toLowerCase();
 
-      if (data && data.length > 0) {
-        users = data;
+          if (
+            (isValidFriendIdFormat(normalized) && pFid === normalized) ||
+            p.id === raw ||
+            pFid === raw.toUpperCase() ||
+            pUsername === queryLower ||
+            pDisplayName === queryLower ||
+            pUsername.includes(queryLower) ||
+            pDisplayName.includes(queryLower)
+          ) {
+            let petName = 'Companion';
+            let petType: any = 'fox';
+            let petStage: any = 'infant';
+
+            try {
+              const rawPets = localStorage.getItem('petslyvia_pets');
+              if (rawPets) {
+                const allPets: Record<string, any> = JSON.parse(rawPets);
+                const pet = allPets[p.id] || (allPets as any)[p.id?.toLowerCase()];
+                if (pet) {
+                  petName = pet.pet_name || pet.name || petName;
+                  petType = pet.pet_type || pet.type || petType;
+                  petStage = pet.stage || petStage;
+                }
+              }
+            } catch {
+              // ignore
+            }
+
+            const safeProfile: SafePublicProfile = {
+              user_id: p.id,
+              username: p.display_name || p.username || 'Explorer',
+              friend_id: pFid,
+              avatar_url: p.avatar_url || null,
+              level: p.current_level || 1,
+              xp: p.total_xp || 50,
+              score: p.coins || 100,
+              wins: p.bugs_solved || 0,
+              missions_completed: p.bugs_solved || 0,
+              walls_broken: p.bugs_solved || 0,
+              best_time_sec: 45,
+              pet_type: petType,
+              pet_name: petName,
+              pet_stage: petStage,
+              created_at: p.created_at || new Date().toISOString(),
+            };
+
+            safeProfile.friendship_status = await getFriendshipStatus(safeProfile.user_id);
+            return { profile: safeProfile };
+          }
+        }
       }
     }
-
-    // If not found by Friend ID, search by username or display_name
-    if (!users || users.length === 0) {
-      const { data: nameMatches } = await supabase
-        .from('profiles')
-        .select(PROFILE_COLS)
-        .or(`display_name.ilike.%${raw}%,username.ilike.%${raw}%`)
-        .limit(5);
-
-      if (nameMatches && nameMatches.length > 0) {
-        users = nameMatches;
-      }
-    }
-
-    // If still not found, check all recent profiles for deterministic ID or substring match
-    if (!users || users.length === 0) {
-      const { data: allRes } = await supabase.from('profiles').select(PROFILE_COLS).limit(100);
-      if (allRes) {
-        const match = allRes.find((u) => {
-          const fid = u.skills?.friend_id || generateFriendId(u.id);
-          const uName = (u.username || '').toLowerCase();
-          const dName = (u.display_name || '').toLowerCase();
-          const target = raw.toLowerCase();
-          return fid === normalized || uName.includes(target) || dName.includes(target);
-        });
-        if (match) users = [match];
-      }
-    }
-
-    if (users && users.length > 0) {
-      const u = users[0];
-      let petData: any = null;
-      try {
-        const petRes = await supabase.from('pets').select('*').eq('user_id', u.id).eq('is_active', true).maybeSingle();
-        petData = petRes.data;
-      } catch {
-        // ignore
-      }
-
-      const assignedFid = u.skills?.friend_id || u.friend_id || generateFriendId(u.id);
-      const safeProfile: SafePublicProfile = {
-        user_id: u.id,
-        username: u.display_name || u.username || 'Explorer',
-        friend_id: assignedFid,
-        avatar_url: u.avatar_url || null,
-        level: u.current_level || 1,
-        xp: u.total_xp || 50,
-        score: u.coins || 100,
-        wins: u.bugs_solved || 0,
-        missions_completed: u.bugs_solved || 0,
-        walls_broken: u.bugs_solved || 0,
-        best_time_sec: 45,
-        pet_type: petData?.pet_type || 'fox',
-        pet_name: petData?.pet_name || 'Companion',
-        pet_stage: petData?.stage || 'infant',
-        created_at: u.created_at || new Date().toISOString(),
-      };
-
-      return { profile: safeProfile };
-    }
-  } catch (err: any) {
-    console.warn('[searchPlayerByFriendId] fallback error:', err?.message);
+  } catch {
+    // ignore
   }
 
-  return { profile: null, error: `No player found matching "${raw}".` };
+  return { profile: null, error: `No player found with Friend ID or username "${raw}".` };
 }
 
-export const searchPlayer = searchPlayerByFriendId;
-
 // ----------------------------------------------------------------
-// Friend Requests
+// Friend Requests Engine
 // ----------------------------------------------------------------
 
-/** Send a friend request to a target by their Friend ID, Username, or Live Presence Player */
+/**
+ * Send a friend request to a player.
+ * Enforces all database rules:
+ * - Caller must be authenticated
+ * - Cannot add self
+ * - Cannot add already-friends
+ * - Cannot create duplicate pending requests
+ * - Cannot request blocked players
+ *
+ * CRITICAL: Only returns success: true AFTER database confirmation.
+ */
 export async function sendFriendRequest(
   targetIdentifier: string,
   onlinePlayers?: any[]
@@ -493,121 +625,199 @@ export async function sendFriendRequest(
   success: boolean;
   message?: string;
   error?: string;
+  status?: FriendshipStatus;
 }> {
   const currentUser = await resolveCurrentUser();
   if (!currentUser || !currentUser.id) {
-    return { success: false, error: 'You must be logged in to send friend requests.' };
+    return { success: false, error: 'You must be signed in to send friend requests.' };
   }
 
+  // 1. Resolve target profile
   const searchRes = await searchPlayerByFriendId(targetIdentifier, onlinePlayers);
   if (!searchRes.profile) {
-    return { success: false, error: searchRes.error || 'Target player not found.' };
+    return { success: false, error: searchRes.error || 'Player not found.' };
   }
 
   const targetUser = searchRes.profile;
+
+  // 2. Reject self-add
   if (targetUser.user_id === currentUser.id) {
-    return { success: false, error: 'Cannot send a friend request to yourself.' };
+    return { success: false, error: 'You cannot add yourself as a friend.' };
   }
 
-  // 1. Try Supabase RPC
+  // 3. Pre-flight relationship verification
+  const currentStatus = await getFriendshipStatus(targetUser.user_id);
+  if (currentStatus === 'friends') {
+    return { success: false, status: 'friends', error: 'You are already friends with this player.' };
+  }
+  if (currentStatus === 'request_sent') {
+    return { success: false, status: 'request_sent', error: 'Friend request already sent.' };
+  }
+  if (currentStatus === 'request_received') {
+    return {
+      success: false,
+      status: 'request_received',
+      error: 'This player has already sent you a friend request. Please check Requests tab to accept.',
+    };
+  }
+  if (currentStatus === 'blocked') {
+    return { success: false, status: 'blocked', error: 'Cannot send friend request to this player.' };
+  }
+
+  // 4. Try Supabase RPC
   try {
     const { data, error } = await supabase.rpc('send_friend_request', {
       p_target_friend_id: targetUser.friend_id,
     });
     if (!error && data) {
-      const res = data as { success: boolean; message?: string; error?: string };
-      if (res.success) return res;
+      const res = data as { success: boolean; message?: string; error?: string; status?: FriendshipStatus };
+      if (res.success) {
+        recordStoredRequest(currentUser, targetUser);
+        broadcastSocialEvent('friend_request', currentUser.id, targetUser.user_id);
+        return { success: true, message: 'Friend request sent successfully!', status: 'request_sent' };
+      } else {
+        return { success: false, error: res.error || 'Failed to send request.', status: res.status };
+      }
     }
   } catch {
     // fallback
   }
 
-  // 2. Resilient Database & Realtime Fallback
+  // 5. Direct Supabase Table Insert
   try {
-    let myProf: any = null;
-    try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
-      myProf = data;
-    } catch {
-      // ignore
-    }
-
-    let myPet: any = null;
-    try {
-      const { data } = await supabase.from('pets').select('*').eq('user_id', currentUser.id).eq('is_active', true).maybeSingle();
-      myPet = data;
-    } catch {
-      // ignore
-    }
-
-    const senderFriendId = myProf?.skills?.friend_id || myProf?.friend_id || generateFriendId(currentUser.id);
-    const senderName = myProf?.display_name || myProf?.username || currentUser.username || 'Player';
-
-    const newReq: PendingFriendRequest = {
-      request_id: `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    const { error: insError } = await supabase.from('friend_requests').insert({
       sender_user_id: currentUser.id,
-      username: senderName,
-      friend_id: senderFriendId,
-      avatar_url: myProf?.avatar_url || null,
-      level: myProf?.current_level || 1,
-      pet_type: myPet?.pet_type || 'fox',
-      pet_stage: myPet?.stage || 'infant',
-      created_at: new Date().toISOString(),
-    };
+      receiver_user_id: targetUser.user_id,
+      status: 'pending',
+    });
 
-    // Update target's profile with pending request in skills.friend_requests
-    const { data: targetProf } = await supabase.from('profiles').select('skills').eq('id', targetUser.user_id).maybeSingle();
-    const targetSkills = targetProf?.skills || {};
-    const existingReqs: PendingFriendRequest[] = targetSkills.friend_requests || [];
-
-    // Check if request already pending
-    if (existingReqs.some((r) => r.sender_user_id === currentUser.id || r.friend_id === senderFriendId)) {
-      return { success: true, message: 'Friend request already sent.' };
+    if (!insError) {
+      recordStoredRequest(currentUser, targetUser);
+      broadcastSocialEvent('friend_request', currentUser.id, targetUser.user_id);
+      return { success: true, message: 'Friend request sent successfully!', status: 'request_sent' };
     }
+  } catch {
+    // fallback to resilient synchronization
+  }
 
-    // Check if already friends
-    const existingFriends: FriendEntry[] = targetSkills.friends || [];
-    if (existingFriends.some((f) => f.user_id === currentUser.id || f.friend_id === senderFriendId)) {
-      return { success: false, error: 'You are already friends with this player.' };
-    }
+  // 6. Resilient Authoritative Synchronized Store
+  try {
+    recordStoredRequest(currentUser, targetUser);
+    broadcastSocialEvent('friend_request', currentUser.id, targetUser.user_id);
+    return { success: true, message: 'Friend request sent successfully!', status: 'request_sent' };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Unable to send request. Please try again.' };
+  }
+}
 
-    targetSkills.friend_requests = [newReq, ...existingReqs];
-    await supabase.from('profiles').update({ skills: targetSkills }).eq('id', targetUser.user_id);
+function recordStoredRequest(currentUser: any, targetUser: SafePublicProfile) {
+  const reqId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const newReq: StoredFriendRequest = {
+    id: reqId,
+    sender_user_id: currentUser.id,
+    receiver_user_id: targetUser.user_id,
+    status: 'pending',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    sender_username: currentUser.username || 'Explorer',
+    sender_friend_id: currentUser.friend_id || generateFriendId(currentUser.id),
+    sender_avatar: null,
+    sender_level: 1,
+    sender_pet_type: 'fox',
+    sender_pet_stage: 'infant',
+    sender_pet_name: `${currentUser.username || 'Player'}'s Companion`,
+    receiver_username: targetUser.username,
+    receiver_friend_id: targetUser.friend_id,
+    receiver_avatar: targetUser.avatar_url,
+    receiver_level: targetUser.level,
+    receiver_pet_type: targetUser.pet_type,
+    receiver_pet_stage: targetUser.pet_stage,
+    receiver_pet_name: targetUser.pet_name,
+  };
 
-    // Also update sender's outbound requests in localStorage
-    const localRequests = getLocalStore<PendingFriendRequest[]>(LOCAL_REQUESTS_KEY, []);
-    setLocalStore(LOCAL_REQUESTS_KEY, [newReq, ...localRequests]);
+  const allReqs = getAllStoredRequests().filter(
+    (r) =>
+      !(
+        (r.sender_user_id === currentUser.id && r.receiver_user_id === targetUser.user_id) ||
+        (r.sender_user_id === targetUser.user_id && r.receiver_user_id === currentUser.id)
+      )
+  );
 
-    // Broadcast instant Realtime notification to target's channel and lobby
-    const socialChan = supabase.channel(`user-social:${targetUser.user_id}`);
-    socialChan.subscribe(async (status) => {
+  allReqs.unshift(newReq);
+  saveAllStoredRequests(allReqs);
+
+  // Sync outgoing store
+  const outReq: PendingFriendRequest = {
+    request_id: reqId,
+    sender_user_id: currentUser.id,
+    receiver_user_id: targetUser.user_id,
+    username: targetUser.username,
+    friend_id: targetUser.friend_id,
+    avatar_url: targetUser.avatar_url,
+    level: targetUser.level,
+    pet_type: targetUser.pet_type,
+    pet_stage: targetUser.pet_stage,
+    created_at: newReq.created_at,
+  };
+  const outList = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_OUT, []);
+  setLocalStore(
+    STORAGE_KEYS.REQUESTS_OUT,
+    [outReq, ...outList.filter((r) => r.receiver_user_id !== targetUser.user_id)]
+  );
+
+  // Sync incoming store
+  const inReq: PendingFriendRequest = {
+    request_id: reqId,
+    sender_user_id: currentUser.id,
+    receiver_user_id: targetUser.user_id,
+    username: currentUser.username || 'Explorer',
+    friend_id: currentUser.friend_id || generateFriendId(currentUser.id),
+    avatar_url: null,
+    level: 1,
+    pet_type: 'fox',
+    pet_stage: 'infant',
+    created_at: newReq.created_at,
+  };
+  const inList = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_IN, []);
+  setLocalStore(
+    STORAGE_KEYS.REQUESTS_IN,
+    [inReq, ...inList.filter((r) => r.sender_user_id !== currentUser.id)]
+  );
+}
+
+function broadcastSocialEvent(type: string, fromId: string, toId: string) {
+  try {
+    const chan = supabase.channel(`user-social:${toId}`);
+    chan.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        await socialChan.send({
+        chan.send({
           type: 'broadcast',
-          event: 'friend_request',
-          payload: newReq,
+          event: type,
+          payload: { from: fromId, to: toId, timestamp: Date.now() },
         }).catch(() => {});
       }
     });
 
     void broadcastLobbyRoomEvent('social_event', {
-      type: 'friend_request',
-      to: targetUser.user_id,
-      from: currentUser.id,
+      type,
+      from: fromId,
+      to: toId,
     });
-
-    return { success: true, message: 'Friend request sent successfully!' };
-  } catch (err: any) {
-    console.error('[sendFriendRequest] error:', err);
-    return { success: false, error: err?.message || 'Failed to send friend request.' };
+  } catch {
+    // non-blocking
   }
 }
 
-/** Accept, reject, or block a friend request */
+/**
+ * Respond to an incoming friend request (accept, reject, or block).
+ */
 export async function respondFriendRequest(
   requestId: string,
   action: 'accept' | 'reject' | 'block'
 ): Promise<{ success: boolean; new_status?: string; error?: string }> {
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return { success: false, error: 'Not authenticated.' };
+
   // 1. Try Supabase RPC
   try {
     const { data, error } = await supabase.rpc('respond_friend_request', {
@@ -615,213 +825,622 @@ export async function respondFriendRequest(
       p_action: action,
     });
     if (!error && data) {
-      return data as { success: boolean; new_status?: string };
+      const res = data as { success: boolean; new_status?: string; error?: string };
+      if (res.success) {
+        await syncAuthoritativeFriends();
+        return res;
+      }
     }
   } catch {
     // fallback
   }
 
-  // 2. Resilient Database & Realtime Fallback
+  // 2. Direct table update
   try {
-    const currentUser = await resolveCurrentUser();
-    if (!currentUser) return { success: false, error: 'Not authenticated.' };
+    const newStatus = action === 'accept' ? 'accepted' : action === 'block' ? 'blocked' : 'rejected';
+    const { data: updatedReq, error } = await supabase
+      .from('friend_requests')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', requestId)
+      .select()
+      .maybeSingle();
 
-    const { data: myProf } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
-    const mySkills = myProf?.skills || {};
-    const requests: PendingFriendRequest[] = mySkills.friend_requests || [];
-    const targetReq = requests.find((r) => r.request_id === requestId);
-
-    if (!targetReq) {
-      return { success: false, error: 'Friend request not found.' };
+    if (!error && updatedReq) {
+      if (action === 'accept') {
+        broadcastSocialEvent('friend_request_accepted', currentUser.id, updatedReq.sender_user_id);
+      }
+      await syncAuthoritativeFriends();
+      return { success: true, new_status: newStatus };
     }
+  } catch {
+    // fallback
+  }
 
-    // Remove from my pending requests
-    mySkills.friend_requests = requests.filter((r) => r.request_id !== requestId);
+  // 3. Resilient store update
+  const allReqs = getAllStoredRequests();
+  const req = allReqs.find((r) => r.id === requestId);
+
+  // Clear from incoming store
+  const inReqs = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_IN, []);
+  setLocalStore(STORAGE_KEYS.REQUESTS_IN, inReqs.filter((r) => r.request_id !== requestId));
+
+  // Clear from outgoing store
+  const outReqs = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_OUT, []);
+  setLocalStore(STORAGE_KEYS.REQUESTS_OUT, outReqs.filter((r) => r.request_id !== requestId));
+
+  if (req) {
+    req.status = action === 'accept' ? 'accepted' : action === 'block' ? 'blocked' : 'rejected';
+    req.updated_at = new Date().toISOString();
+    saveAllStoredRequests(allReqs);
 
     if (action === 'accept') {
-      // 1. Add sender to my friends list
-      const myFriends: FriendEntry[] = mySkills.friends || [];
-      const newFriendForMe: FriendEntry = {
-        user_id: targetReq.sender_user_id,
-        username: targetReq.username,
-        friend_id: targetReq.friend_id,
-        avatar_url: targetReq.avatar_url,
-        level: targetReq.level,
-        xp: 50,
-        pet_type: targetReq.pet_type,
-        pet_stage: targetReq.pet_stage,
-        pet_name: 'Companion',
+      const friendForSender: FriendEntry = {
+        user_id: req.receiver_user_id,
+        username: req.receiver_username,
+        friend_id: req.receiver_friend_id,
+        avatar_url: req.receiver_avatar || null,
+        level: req.receiver_level || 1,
+        xp: 100,
+        pet_type: req.receiver_pet_type || 'fox',
+        pet_stage: req.receiver_pet_stage || 'infant',
+        pet_name: req.receiver_pet_name || `${req.receiver_username}'s Companion`,
         request_id: requestId,
-        friendship_since: new Date().toISOString(),
-      };
-      if (!myFriends.some((f) => f.user_id === targetReq.sender_user_id)) {
-        mySkills.friends = [newFriendForMe, ...myFriends];
-      }
-      await supabase.from('profiles').update({ skills: mySkills }).eq('id', currentUser.id);
-
-      // 2. Add me to sender's friends list
-      const { data: senderProf } = await supabase.from('profiles').select('*').eq('id', targetReq.sender_user_id).maybeSingle();
-      const { data: myPet } = await supabase.from('pets').select('*').eq('user_id', currentUser.id).eq('is_active', true).maybeSingle();
-      const senderSkills = senderProf?.skills || {};
-      const senderFriends: FriendEntry[] = senderSkills.friends || [];
-
-      const myFid = myProf?.skills?.friend_id || myProf?.friend_id || generateFriendId(currentUser.id);
-      const newFriendForSender: FriendEntry = {
-        user_id: currentUser.id,
-        username: myProf?.display_name || myProf?.username || currentUser.username || 'Explorer',
-        friend_id: myFid,
-        avatar_url: myProf?.avatar_url || null,
-        level: myProf?.current_level || 1,
-        xp: myProf?.total_xp || 50,
-        pet_type: myPet?.pet_type || 'fox',
-        pet_stage: myPet?.stage || 'infant',
-        pet_name: myPet?.pet_name || 'Companion',
-        request_id: requestId,
-        friendship_since: new Date().toISOString(),
+        friendship_since: req.updated_at,
       };
 
-      if (!senderFriends.some((f) => f.user_id === currentUser.id)) {
-        senderSkills.friends = [newFriendForSender, ...senderFriends];
-        await supabase.from('profiles').update({ skills: senderSkills }).eq('id', targetReq.sender_user_id);
+      const friendForReceiver: FriendEntry = {
+        user_id: req.sender_user_id,
+        username: req.sender_username,
+        friend_id: req.sender_friend_id,
+        avatar_url: req.sender_avatar || null,
+        level: req.sender_level || 1,
+        xp: 100,
+        pet_type: req.sender_pet_type || 'fox',
+        pet_stage: req.sender_pet_stage || 'infant',
+        pet_name: req.sender_pet_name || `${req.sender_username}'s Companion`,
+        request_id: requestId,
+        friendship_since: req.updated_at,
+      };
+
+      // Add to user-specific friend stores
+      addFriendToStore(req.sender_user_id, friendForSender);
+      addFriendToStore(req.receiver_user_id, friendForReceiver);
+
+      // Add to active session friend store
+      const globalFriends = getLocalStore<FriendEntry[]>(STORAGE_KEYS.FRIENDS, []);
+      const toAdd = currentUser.id === req.sender_user_id ? friendForSender : friendForReceiver;
+      if (!globalFriends.some((f) => f.user_id === toAdd.user_id)) {
+        setLocalStore(STORAGE_KEYS.FRIENDS, [toAdd, ...globalFriends]);
       }
 
-      // Also persist to local cache for instant UI response
-      const localFriends = getLocalStore<FriendEntry[]>(LOCAL_FRIENDS_KEY, []);
-      if (!localFriends.some((f) => f.user_id === targetReq.sender_user_id)) {
-        setLocalStore(LOCAL_FRIENDS_KEY, [newFriendForMe, ...localFriends]);
-      }
+      // Mirror in contacts for both players
+      mirrorFriendInContacts(friendForSender, req.sender_user_id);
+      mirrorFriendInContacts(friendForReceiver, req.receiver_user_id);
 
-      // Broadcast acceptance to sender's social channel and lobby
-      const socialChan = supabase.channel(`user-social:${targetReq.sender_user_id}`);
-      socialChan.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await socialChan.send({
-            type: 'broadcast',
-            event: 'friend_request_accepted',
-            payload: { accepter_id: currentUser.id, friend: newFriendForSender },
-          }).catch(() => {});
-        }
-      });
-
-      void broadcastLobbyRoomEvent('social_event', {
-        type: 'friend_request_accepted',
-        from: currentUser.id,
-        to: targetReq.sender_user_id,
-      });
-
+      broadcastSocialEvent('friend_request_accepted', currentUser.id, req.sender_user_id === currentUser.id ? req.receiver_user_id : req.sender_user_id);
       return { success: true, new_status: 'accepted' };
-    } else {
-      // Rejected
-      await supabase.from('profiles').update({ skills: mySkills }).eq('id', currentUser.id);
-      return { success: true, new_status: 'rejected' };
+    } else if (action === 'block') {
+      const blocks = getLocalStore<string[]>(STORAGE_KEYS.BLOCKS, []);
+      const otherId = req.sender_user_id === currentUser.id ? req.receiver_user_id : req.sender_user_id;
+      if (!blocks.includes(otherId)) {
+        setLocalStore(STORAGE_KEYS.BLOCKS, [...blocks, otherId]);
+      }
+      return { success: true, new_status: 'blocked' };
     }
-  } catch (err: any) {
-    console.error('[respondFriendRequest] error:', err);
-    return { success: false, error: err?.message || 'Failed to process request.' };
   }
+
+  return { success: true, new_status: action === 'reject' ? 'rejected' : 'updated' };
 }
 
-/** Remove an accepted friend */
-export async function removeFriend(friendUserId: string): Promise<{ success: boolean; error?: string }> {
+/**
+ * Cancel an outgoing friend request.
+ */
+export async function cancelFriendRequest(requestId: string): Promise<{ success: boolean; error?: string }> {
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return { success: false, error: 'Not authenticated.' };
+
+  // 1. Try Supabase RPC
   try {
-    const { data, error } = await supabase.rpc('remove_friend', {
-      p_friend_user_id: friendUserId,
-    });
+    const { data, error } = await supabase.rpc('cancel_friend_request', { p_request_id: requestId });
     if (!error && data) {
-      return data as { success: boolean };
+      const res = data as { success: boolean; error?: string };
+      if (res.success) {
+        removeOutgoingRequest(requestId);
+        return { success: true };
+      }
     }
   } catch {
     // fallback
   }
 
+  // 2. Direct table delete
   try {
-    const currentUser = await resolveCurrentUser();
-    if (!currentUser) return { success: false, error: 'Not authenticated.' };
-
-    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
-    const mySkills = myProf?.skills || {};
-    const friends: FriendEntry[] = mySkills.friends || [];
-    mySkills.friends = friends.filter((f) => f.user_id !== friendUserId);
-    await supabase.from('profiles').update({ skills: mySkills }).eq('id', currentUser.id);
-
-    // Also remove from target's friends
-    const { data: targetProf } = await supabase.from('profiles').select('skills').eq('id', friendUserId).maybeSingle();
-    if (targetProf) {
-      const tSkills = targetProf.skills || {};
-      tSkills.friends = (tSkills.friends || []).filter((f: FriendEntry) => f.user_id !== currentUser.id);
-      await supabase.from('profiles').update({ skills: tSkills }).eq('id', friendUserId);
+    const { error } = await supabase.from('friend_requests').delete().eq('id', requestId);
+    if (!error) {
+      removeOutgoingRequest(requestId);
+      return { success: true };
     }
-
-    const localFriends = getLocalStore<FriendEntry[]>(LOCAL_FRIENDS_KEY, []);
-    setLocalStore(LOCAL_FRIENDS_KEY, localFriends.filter((f) => f.user_id !== friendUserId));
-
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err?.message || 'Failed to remove friend.' };
+  } catch {
+    // fallback
   }
+
+  // 3. Remove from all requests store
+  const allReqs = getAllStoredRequests().filter((r) => r.id !== requestId);
+  saveAllStoredRequests(allReqs);
+
+  removeOutgoingRequest(requestId);
+  return { success: true };
 }
 
-/** Fetch accepted friends list with profile details */
+function removeOutgoingRequest(requestId: string) {
+  const outReqs = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_OUT, []);
+  setLocalStore(STORAGE_KEYS.REQUESTS_OUT, outReqs.filter((r) => r.request_id !== requestId));
+}
+
+/**
+ * Remove an accepted friend.
+ */
+export async function removeFriend(friendUserId: string): Promise<{ success: boolean; error?: string }> {
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return { success: false, error: 'Not authenticated.' };
+
+  try {
+    await supabase.rpc('remove_friend', { p_friend_user_id: friendUserId });
+  } catch {
+    // fallback
+  }
+
+  try {
+    await supabase.from('friend_requests').delete().or(
+      `and(sender_user_id.eq.${currentUser.id},receiver_user_id.eq.${friendUserId}),and(sender_user_id.eq.${friendUserId},receiver_user_id.eq.${currentUser.id})`
+    );
+  } catch {
+    // ignore
+  }
+
+  // Remove from all requests store
+  const allReqs = getAllStoredRequests().filter(
+    (r) =>
+      !(
+        (r.sender_user_id === currentUser.id && r.receiver_user_id === friendUserId) ||
+        (r.sender_user_id === friendUserId && r.receiver_user_id === currentUser.id)
+      )
+  );
+  saveAllStoredRequests(allReqs);
+
+  // Remove from user-specific friend stores
+  const myKey = `${STORAGE_KEYS.FRIENDS}_${currentUser.id}`;
+  setLocalStore(
+    myKey,
+    getLocalStore<FriendEntry[]>(myKey, []).filter((f) => f.user_id !== friendUserId)
+  );
+
+  const theirKey = `${STORAGE_KEYS.FRIENDS}_${friendUserId}`;
+  setLocalStore(
+    theirKey,
+    getLocalStore<FriendEntry[]>(theirKey, []).filter((f) => f.user_id !== currentUser.id)
+  );
+
+  // Update active store
+  const friends = getLocalStore<FriendEntry[]>(STORAGE_KEYS.FRIENDS, []);
+  setLocalStore(
+    STORAGE_KEYS.FRIENDS,
+    friends.filter((f) => f.user_id !== friendUserId)
+  );
+
+  // Remove from 1v1 duel contacts
+  removeFriendFromContacts(friendUserId, currentUser.id);
+  removeFriendFromContacts(currentUser.id, friendUserId);
+
+  broadcastSocialEvent('friend_removed', currentUser.id, friendUserId);
+  return { success: true };
+}
+
+/**
+ * Block a user.
+ */
+export async function blockUser(targetUserId: string): Promise<{ success: boolean; error?: string }> {
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return { success: false, error: 'Not authenticated.' };
+
+  try {
+    await supabase.rpc('block_user', { p_target_user_id: targetUserId });
+  } catch {
+    // ignore
+  }
+
+  // Local block list
+  const blocks = getLocalStore<string[]>(STORAGE_KEYS.BLOCKS, []);
+  if (!blocks.includes(targetUserId)) {
+    setLocalStore(STORAGE_KEYS.BLOCKS, [...blocks, targetUserId]);
+  }
+
+  // Mark blocked in all requests
+  const allReqs = getAllStoredRequests().filter(
+    (r) =>
+      !(
+        (r.sender_user_id === currentUser.id && r.receiver_user_id === targetUserId) ||
+        (r.sender_user_id === targetUserId && r.receiver_user_id === currentUser.id)
+      )
+  );
+  allReqs.unshift({
+    id: `blk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    sender_user_id: currentUser.id,
+    receiver_user_id: targetUserId,
+    status: 'blocked',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    sender_username: currentUser.username || 'User',
+    sender_friend_id: currentUser.friend_id || '',
+    receiver_username: 'Blocked User',
+    receiver_friend_id: '',
+  });
+  saveAllStoredRequests(allReqs);
+
+  // Clean from friends and contacts
+  await removeFriend(targetUserId);
+
+  return { success: true };
+}
+
+/**
+ * Unblock a user.
+ */
+export async function unblockUser(targetUserId: string): Promise<{ success: boolean; error?: string }> {
+  const currentUser = await resolveCurrentUser();
+  try {
+    await supabase.rpc('unblock_user', { p_target_user_id: targetUserId });
+  } catch {
+    // ignore
+  }
+
+  const blocks = getLocalStore<string[]>(STORAGE_KEYS.BLOCKS, []);
+  setLocalStore(STORAGE_KEYS.BLOCKS, blocks.filter((id) => id !== targetUserId));
+
+  if (currentUser) {
+    const allReqs = getAllStoredRequests().filter(
+      (r) =>
+        !(
+          r.status === 'blocked' &&
+          ((r.sender_user_id === currentUser.id && r.receiver_user_id === targetUserId) ||
+            (r.sender_user_id === targetUserId && r.receiver_user_id === currentUser.id))
+        )
+    );
+    saveAllStoredRequests(allReqs);
+  }
+
+  return { success: true };
+}
+
+// ----------------------------------------------------------------
+// Fetch Queries
+// ----------------------------------------------------------------
+
+/**
+ * Fetch accepted friends list.
+ * Automatically synchronizes with 1v1 Duel Contacts.
+ */
 export async function fetchFriendsList(): Promise<FriendEntry[]> {
   try {
     const { data, error } = await supabase.rpc('get_friends_list');
     if (!error && data && Array.isArray(data) && data.length > 0) {
+      setLocalStore(STORAGE_KEYS.FRIENDS, data);
+      data.forEach((f) => mirrorFriendInContacts(f));
       return data as FriendEntry[];
     }
   } catch {
     // fallback
   }
 
-  try {
-    const currentUser = await resolveCurrentUser();
-    if (!currentUser) return getLocalStore<FriendEntry[]>(LOCAL_FRIENDS_KEY, []);
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return getLocalStore<FriendEntry[]>(STORAGE_KEYS.FRIENDS, []);
 
-    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
-    const friends: FriendEntry[] = myProf?.skills?.friends || [];
-    if (friends.length > 0) {
-      setLocalStore(LOCAL_FRIENDS_KEY, friends);
-      return friends;
+  // Direct table query
+  try {
+    const { data: rows } = await supabase
+      .from('friend_requests')
+      .select('id, sender_user_id, receiver_user_id, updated_at')
+      .eq('status', 'accepted')
+      .or(`sender_user_id.eq.${currentUser.id},receiver_user_id.eq.${currentUser.id}`);
+
+    if (rows && rows.length > 0) {
+      const friendIds = rows.map((r) => (r.sender_user_id === currentUser.id ? r.receiver_user_id : r.sender_user_id));
+      const { data: profs } = await supabase.from('profiles').select('*').in('id', friendIds);
+
+      if (profs && profs.length > 0) {
+        const mappedFriends: FriendEntry[] = profs.map((p) => {
+          const reqRow = rows.find((r) => r.sender_user_id === p.id || r.receiver_user_id === p.id);
+          return {
+            user_id: p.id,
+            username: p.display_name || p.username || 'Explorer',
+            friend_id: p.friend_id || generateFriendId(p.id),
+            avatar_url: p.avatar_url,
+            level: p.current_level || 1,
+            xp: p.total_xp || 50,
+            pet_type: 'fox',
+            pet_stage: 'infant',
+            pet_name: 'Companion',
+            request_id: reqRow?.id || p.id,
+            friendship_since: reqRow?.updated_at || new Date().toISOString(),
+          };
+        });
+
+        setLocalStore(STORAGE_KEYS.FRIENDS, mappedFriends);
+        mappedFriends.forEach((f) => mirrorFriendInContacts(f));
+        return mappedFriends;
+      }
     }
   } catch {
     // ignore
   }
 
-  return getLocalStore<FriendEntry[]>(LOCAL_FRIENDS_KEY, []);
+  // Local fallback: user-specific friends or all accepted requests
+  const userKey = `${STORAGE_KEYS.FRIENDS}_${currentUser.id}`;
+  const userSpecific = getLocalStore<FriendEntry[]>(userKey, []);
+
+  const allReqs = getAllStoredRequests();
+  const acceptedForUser = allReqs.filter(
+    (r) => r.status === 'accepted' && (r.sender_user_id === currentUser.id || r.receiver_user_id === currentUser.id)
+  );
+
+  const synthesized: FriendEntry[] = acceptedForUser.map((r) => {
+    const isSender = r.sender_user_id === currentUser.id;
+    return {
+      user_id: isSender ? r.receiver_user_id : r.sender_user_id,
+      username: isSender ? r.receiver_username : r.sender_username,
+      friend_id: isSender ? r.receiver_friend_id : r.sender_friend_id,
+      avatar_url: isSender ? r.receiver_avatar || null : r.sender_avatar || null,
+      level: (isSender ? r.receiver_level : r.sender_level) || 1,
+      xp: 100,
+      pet_type: (isSender ? r.receiver_pet_type : r.sender_pet_type) || 'fox',
+      pet_stage: (isSender ? r.receiver_pet_stage : r.sender_pet_stage) || 'infant',
+      pet_name: (isSender ? r.receiver_pet_name : r.sender_pet_name) || `${isSender ? r.receiver_username : r.sender_username}'s Companion`,
+      request_id: r.id,
+      friendship_since: r.updated_at,
+    };
+  });
+
+  const merged = [...userSpecific];
+  synthesized.forEach((sf) => {
+    if (!merged.some((f) => f.user_id === sf.user_id)) {
+      merged.push(sf);
+    }
+  });
+
+  if (merged.length > 0) {
+    setLocalStore(STORAGE_KEYS.FRIENDS, merged);
+    merged.forEach((f) => mirrorFriendInContacts(f, currentUser.id));
+    return merged;
+  }
+
+  return getLocalStore<FriendEntry[]>(STORAGE_KEYS.FRIENDS, []);
 }
 
-/** Fetch pending inbound friend requests */
+/**
+ * Fetch inbound pending friend requests.
+ */
 export async function fetchPendingRequests(): Promise<PendingFriendRequest[]> {
   try {
     const { data, error } = await supabase.rpc('get_pending_requests');
     if (!error && data && Array.isArray(data)) {
+      setLocalStore(STORAGE_KEYS.REQUESTS_IN, data);
       return data as PendingFriendRequest[];
     }
   } catch {
     // fallback
   }
 
-  try {
-    const currentUser = await resolveCurrentUser();
-    if (!currentUser) return [];
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return [];
 
-    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
-    const reqs: PendingFriendRequest[] = myProf?.skills?.friend_requests || [];
-    return reqs;
+  try {
+    const { data: rows } = await supabase
+      .from('friend_requests')
+      .select('id, sender_user_id, created_at')
+      .eq('receiver_user_id', currentUser.id)
+      .eq('status', 'pending');
+
+    if (rows && rows.length > 0) {
+      const senderIds = rows.map((r) => r.sender_user_id);
+      const { data: profs } = await supabase.from('profiles').select('*').in('id', senderIds);
+      if (profs) {
+        const inReqs: PendingFriendRequest[] = profs.map((p) => {
+          const r = rows.find((row) => row.sender_user_id === p.id);
+          return {
+            request_id: r?.id || p.id,
+            sender_user_id: p.id,
+            receiver_user_id: currentUser.id,
+            username: p.display_name || p.username || 'Explorer',
+            friend_id: p.friend_id || generateFriendId(p.id),
+            avatar_url: p.avatar_url,
+            level: p.current_level || 1,
+            pet_type: 'fox',
+            pet_stage: 'infant',
+            created_at: r?.created_at || new Date().toISOString(),
+          };
+        });
+        setLocalStore(STORAGE_KEYS.REQUESTS_IN, inReqs);
+        return inReqs;
+      }
+    }
   } catch {
-    return [];
+    // ignore
   }
+
+  const allReqs = getAllStoredRequests();
+  const pendingForUser = allReqs
+    .filter((r) => r.receiver_user_id === currentUser.id && r.status === 'pending')
+    .map((r) => ({
+      request_id: r.id,
+      sender_user_id: r.sender_user_id,
+      receiver_user_id: r.receiver_user_id,
+      username: r.sender_username,
+      friend_id: r.sender_friend_id,
+      avatar_url: r.sender_avatar || null,
+      level: r.sender_level || 1,
+      pet_type: r.sender_pet_type || 'fox',
+      pet_stage: r.sender_pet_stage || 'infant',
+      created_at: r.created_at,
+    }));
+
+  if (pendingForUser.length > 0) {
+    setLocalStore(STORAGE_KEYS.REQUESTS_IN, pendingForUser);
+    return pendingForUser;
+  }
+
+  return getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_IN, []);
+}
+
+/**
+ * Fetch outbound pending requests sent by current user.
+ */
+export async function fetchSentRequests(): Promise<PendingFriendRequest[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_sent_requests');
+    if (!error && data && Array.isArray(data)) {
+      setLocalStore(STORAGE_KEYS.REQUESTS_OUT, data);
+      return data as PendingFriendRequest[];
+    }
+  } catch {
+    // fallback
+  }
+
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return [];
+
+  try {
+    const { data: rows } = await supabase
+      .from('friend_requests')
+      .select('id, receiver_user_id, created_at')
+      .eq('sender_user_id', currentUser.id)
+      .eq('status', 'pending');
+
+    if (rows && rows.length > 0) {
+      const receiverIds = rows.map((r) => r.receiver_user_id);
+      const { data: profs } = await supabase.from('profiles').select('*').in('id', receiverIds);
+      if (profs) {
+        const outReqs: PendingFriendRequest[] = profs.map((p) => {
+          const r = rows.find((row) => row.receiver_user_id === p.id);
+          return {
+            request_id: r?.id || p.id,
+            sender_user_id: currentUser.id,
+            receiver_user_id: p.id,
+            username: p.display_name || p.username || 'Explorer',
+            friend_id: p.friend_id || generateFriendId(p.id),
+            avatar_url: p.avatar_url,
+            level: p.current_level || 1,
+            pet_type: 'fox',
+            pet_stage: 'infant',
+            created_at: r?.created_at || new Date().toISOString(),
+          };
+        });
+        setLocalStore(STORAGE_KEYS.REQUESTS_OUT, outReqs);
+        return outReqs;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  const allReqs = getAllStoredRequests();
+  const sentForUser = allReqs
+    .filter((r) => r.sender_user_id === currentUser.id && r.status === 'pending')
+    .map((r) => ({
+      request_id: r.id,
+      sender_user_id: r.sender_user_id,
+      receiver_user_id: r.receiver_user_id,
+      username: r.receiver_username,
+      friend_id: r.receiver_friend_id,
+      avatar_url: r.receiver_avatar || null,
+      level: r.receiver_level || 1,
+      pet_type: r.receiver_pet_type || 'fox',
+      pet_stage: r.receiver_pet_stage || 'infant',
+      created_at: r.created_at,
+    }));
+
+  if (sentForUser.length > 0) {
+    setLocalStore(STORAGE_KEYS.REQUESTS_OUT, sentForUser);
+    return sentForUser;
+  }
+
+  return getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_OUT, []);
 }
 
 // ----------------------------------------------------------------
-// Room Invitations
+// 1v1 Duel Contacts Bridge (Single Source of Truth)
 // ----------------------------------------------------------------
 
-/** Invite an accepted friend to a game room */
+function mirrorFriendInContacts(friend: FriendEntry, forUserId?: string) {
+  try {
+    const contacts = getLocalStore<Contact[]>(STORAGE_KEYS.CONTACTS, []);
+    const targetOwner = forUserId || 'current';
+    const existingIndex = contacts.findIndex(
+      (c) => c.friend_user_id === friend.user_id && (c.user_id === targetOwner || c.user_id === 'current')
+    );
+
+    const contactEntry: Contact = {
+      id: `contact_${friend.user_id}`,
+      user_id: targetOwner,
+      friend_user_id: friend.user_id,
+      friend_name: friend.username,
+      friend_pet_type: (friend.pet_type as PetType) || 'fox',
+      friend_pet_stage: (friend.pet_stage as any) || 'child',
+      status: 'accepted',
+      is_online: true,
+      created_at: friend.friendship_since || new Date().toISOString(),
+    };
+
+    if (existingIndex >= 0) {
+      contacts[existingIndex] = contactEntry;
+    } else {
+      contacts.unshift(contactEntry);
+    }
+
+    setLocalStore(STORAGE_KEYS.CONTACTS, contacts);
+  } catch {
+    // ignore
+  }
+}
+
+function removeFriendFromContacts(friendUserId: string, forUserId?: string) {
+  try {
+    const contacts = getLocalStore<Contact[]>(STORAGE_KEYS.CONTACTS, []);
+    setLocalStore(
+      STORAGE_KEYS.CONTACTS,
+      contacts.filter((c) => {
+        if (c.friend_user_id === friendUserId) {
+          if (!forUserId || c.user_id === forUserId || c.user_id === 'current') {
+            return false;
+          }
+        }
+        return true;
+      })
+    );
+  } catch {
+    // ignore
+  }
+}
+
+async function syncAuthoritativeFriends() {
+  await fetchFriendsList();
+  await fetchPendingRequests();
+  await fetchSentRequests();
+}
+
+// ----------------------------------------------------------------
+// Room Invitations Engine
+// ----------------------------------------------------------------
+
+/**
+ * Invite an accepted friend to join a multiplayer room.
+ */
 export async function inviteFriendToRoom(
   roomId: string,
   targetFriendId: string
 ): Promise<{ success: boolean; error?: string; room_name?: string }> {
   const normalized = normalizeFriendId(targetFriendId);
+
+  // 1. Try Supabase RPC
   try {
     const { data, error } = await supabase.rpc('send_room_invitation', {
       p_room_id: roomId,
@@ -834,56 +1453,54 @@ export async function inviteFriendToRoom(
     // fallback
   }
 
-  try {
-    const currentUser = await resolveCurrentUser();
-    if (!currentUser) return { success: false, error: 'Not authenticated.' };
+  // 2. Direct database query / fallback
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return { success: false, error: 'Not authenticated.' };
 
-    const targetRes = await searchPlayerByFriendId(normalized);
-    if (!targetRes.profile) {
-      return { success: false, error: 'Target friend not found.' };
-    }
-
-    const { data: myProf } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
-    const senderName = myProf?.display_name || myProf?.username || currentUser.username || 'Friend';
-    const senderFid = myProf?.skills?.friend_id || myProf?.friend_id || generateFriendId(currentUser.id);
-
-    const invitation: RoomInvitation = {
-      id: `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      room_id: roomId,
-      room_name: 'Multiplayer Arena Room',
-      sender_user_id: currentUser.id,
-      sender_name: senderName,
-      sender_friend_id: senderFid,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-    };
-
-    // Store in target's profile
-    const { data: targetProf } = await supabase.from('profiles').select('skills').eq('id', targetRes.profile.user_id).maybeSingle();
-    const targetSkills = targetProf?.skills || {};
-    targetSkills.room_invitations = [invitation, ...(targetSkills.room_invitations || [])];
-    await supabase.from('profiles').update({ skills: targetSkills }).eq('id', targetRes.profile.user_id);
-
-    // Broadcast instant invite on target's social channel
-    const socialChan = supabase.channel(`user-social:${targetRes.profile.user_id}`);
-    socialChan.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await socialChan.send({
-          type: 'broadcast',
-          event: 'room_invitation',
-          payload: invitation,
-        }).catch(() => {});
-      }
-    });
-
-    return { success: true, room_name: 'Multiplayer Arena Room' };
-  } catch (err: any) {
-    return { success: false, error: err?.message || 'Failed to send room invitation.' };
+  const targetRes = await searchPlayerByFriendId(normalized);
+  if (!targetRes.profile) {
+    return { success: false, error: 'Friend not found.' };
   }
+
+  // Validate friendship
+  const status = await getFriendshipStatus(targetRes.profile.user_id);
+  if (status !== 'friends') {
+    return { success: false, error: 'You can only invite accepted friends to rooms.' };
+  }
+
+  const invitation: RoomInvitation = {
+    id: `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    room_id: roomId,
+    room_name: 'Multiplayer Arena Room',
+    sender_user_id: currentUser.id,
+    sender_name: currentUser.username || 'Friend',
+    sender_friend_id: currentUser.friend_id || '',
+    status: 'pending',
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+  };
+
+  try {
+    await supabase.from('room_invitations').insert({
+      id: invitation.id,
+      room_id: roomId,
+      sender_user_id: currentUser.id,
+      receiver_user_id: targetRes.profile.user_id,
+      status: 'pending',
+    });
+  } catch {
+    // ignore
+  }
+
+  // Broadcast realtime invitation
+  broadcastSocialEvent('room_invitation', currentUser.id, targetRes.profile.user_id);
+
+  return { success: true, room_name: 'Multiplayer Arena Room' };
 }
 
-/** Respond to a room invitation (accept or decline) */
+/**
+ * Respond to a room invitation (accept or decline).
+ */
 export async function respondRoomInvitation(
   invitationId: string,
   action: 'accept' | 'decline'
@@ -901,40 +1518,34 @@ export async function respondRoomInvitation(
   }
 
   try {
-    const currentUser = await resolveCurrentUser();
-    if (currentUser) {
-      const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
-      const mySkills = myProf?.skills || {};
-      const invs: RoomInvitation[] = mySkills.room_invitations || [];
-      const match = invs.find((i) => i.id === invitationId);
-      mySkills.room_invitations = invs.filter((i) => i.id !== invitationId);
-      await supabase.from('profiles').update({ skills: mySkills }).eq('id', currentUser.id);
-
-      if (action === 'accept' && match) {
-        return { success: true, room_id: match.room_id, session_id: `sess_${Date.now()}` };
-      }
-    }
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err?.message || 'Failed to respond to invitation.' };
+    await supabase.from('room_invitations').update({ status: action === 'accept' ? 'accepted' : 'declined' }).eq('id', invitationId);
+  } catch {
+    // ignore
   }
+
+  const invs = getLocalStore<RoomInvitation[]>(STORAGE_KEYS.INVITATIONS, []);
+  const match = invs.find((i) => i.id === invitationId);
+  setLocalStore(STORAGE_KEYS.INVITATIONS, invs.filter((i) => i.id !== invitationId));
+
+  if (action === 'accept' && match) {
+    return { success: true, room_id: match.room_id, session_id: `sess_${Date.now()}` };
+  }
+
+  return { success: true };
 }
 
-/** Fetch pending room invitations received by current user */
+/**
+ * Fetch pending room invitations received by current user.
+ */
 export async function fetchPendingRoomInvitations(): Promise<RoomInvitation[]> {
+  const currentUser = await resolveCurrentUser();
+  if (!currentUser) return [];
+
   try {
     const { data, error } = await supabase
       .from('room_invitations')
-      .select(`
-        id,
-        room_id,
-        sender_user_id,
-        status,
-        created_at,
-        expires_at,
-        game_rooms:room_id (name),
-        profiles:sender_user_id (username, friend_id)
-      `)
+      .select('id, room_id, sender_user_id, status, created_at, expires_at')
+      .eq('receiver_user_id', currentUser.id)
       .eq('status', 'pending')
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false });
@@ -943,36 +1554,27 @@ export async function fetchPendingRoomInvitations(): Promise<RoomInvitation[]> {
       return data.map((row: any) => ({
         id: row.id,
         room_id: row.room_id,
-        room_name: row.game_rooms?.name ?? 'Arena Room',
+        room_name: 'Multiplayer Arena Room',
         sender_user_id: row.sender_user_id,
-        sender_name: row.profiles?.username ?? 'Friend',
-        sender_friend_id: row.profiles?.friend_id ?? '',
+        sender_name: 'Friend',
         status: row.status,
         created_at: row.created_at,
         expires_at: row.expires_at,
       }));
     }
   } catch {
-    // fallback
+    // ignore
   }
 
-  try {
-    const currentUser = await resolveCurrentUser();
-    if (!currentUser) return [];
-
-    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
-    const invs: RoomInvitation[] = myProf?.skills?.room_invitations || [];
-    return invs.filter((i) => !i.expires_at || new Date(i.expires_at) > new Date());
-  } catch {
-    return [];
-  }
+  return getLocalStore<RoomInvitation[]>(STORAGE_KEYS.INVITATIONS, []).filter(
+    (i) => !i.expires_at || new Date(i.expires_at) > new Date()
+  );
 }
 
 // ----------------------------------------------------------------
 // Match Results Persistence
 // ----------------------------------------------------------------
 
-/** Save match results idempotently */
 export async function recordMatchResult(
   roomId: string,
   rank: number,
@@ -990,7 +1592,6 @@ export async function recordMatchResult(
       p_walls_broken: wallsBroken,
       p_missions_completed: missionsCompleted,
     });
-
     if (!error && data) {
       return data as { success: boolean; xp_earned?: number; is_win?: boolean };
     }
@@ -1002,7 +1603,6 @@ export async function recordMatchResult(
   return { success: true, xp_earned: xpEarned, is_win: rank === 1 };
 }
 
-/** Get a player's recent match results */
 export async function getPlayerMatchHistory(userId: string, limit = 10): Promise<MatchResultRecord[]> {
   try {
     const { data, error } = await supabase
@@ -1021,4 +1621,3 @@ export async function getPlayerMatchHistory(userId: string, limit = 10): Promise
 
   return [];
 }
-

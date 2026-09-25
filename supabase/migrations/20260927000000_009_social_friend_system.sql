@@ -1,4 +1,4 @@
-﻿/*
+/*
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  PETSLYVIA — Social System, Friend IDs, Friends & Match Results            ║
 ║  Migration 009  |  Idempotent — safe to run multiple times                 ║
@@ -39,6 +39,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS profiles_friend_id_unique
 
 -- Fast lookup index
 CREATE INDEX IF NOT EXISTS profiles_friend_id_idx ON profiles (friend_id);
+
+-- Public profile safe read policy for authenticated users:
+-- Allows authenticated players to search each other by Friend ID or username
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='profiles' AND policyname='public_profiles_select') THEN
+    CREATE POLICY "public_profiles_select" ON profiles FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;
 
 -- Generator: returns a new unique PVS-XXXXXX code
 CREATE OR REPLACE FUNCTION generate_friend_id()
@@ -179,6 +187,17 @@ CREATE TRIGGER trg_friend_requests_updated BEFORE UPDATE ON friend_requests
 CREATE INDEX IF NOT EXISTS idx_friend_requests_receiver ON friend_requests (receiver_user_id, status);
 CREATE INDEX IF NOT EXISTS idx_friend_requests_sender   ON friend_requests (sender_user_id, status);
 
+-- Strict pair unique index: prevents duplicate and cross-directional reciprocal requests
+CREATE UNIQUE INDEX IF NOT EXISTS friend_requests_pair_unique
+  ON friend_requests (LEAST(sender_user_id, receiver_user_id), GREATEST(sender_user_id, receiver_user_id));
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='friend_requests' AND policyname='friend_requests_delete') THEN
+    CREATE POLICY "friend_requests_delete" ON friend_requests FOR DELETE TO authenticated
+      USING (auth.uid() = receiver_user_id OR auth.uid() = sender_user_id);
+  END IF;
+END $$;
+
 -- ============================================================
 -- 4. ROOM INVITATIONS
 -- ============================================================
@@ -273,8 +292,42 @@ BEGIN
     'pet_type',          COALESCE(v_pet.pet_type, 'fox'),
     'pet_name',          COALESCE(v_pet.pet_name, 'Companion'),
     'pet_stage',         COALESCE(v_pet.stage, 'infant'),
-    'created_at',        v_row.created_at
+    'created_at',        v_row.created_at,
+    'friendship_status', get_friendship_status(v_row.id)
   );
+END;
+$$;
+
+-- ============================================================
+-- 6b. RPC: get_friendship_status
+--     Authoritative source of truth for relationship between caller and target
+-- ============================================================
+CREATE OR REPLACE FUNCTION get_friendship_status(p_target_user_id uuid)
+RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller uuid := auth.uid();
+  v_req record;
+BEGIN
+  IF v_caller IS NULL THEN RETURN 'not_friends'; END IF;
+  IF v_caller = p_target_user_id THEN RETURN 'self'; END IF;
+
+  SELECT * INTO v_req FROM friend_requests
+    WHERE (sender_user_id = v_caller AND receiver_user_id = p_target_user_id)
+       OR (sender_user_id = p_target_user_id AND receiver_user_id = v_caller);
+
+  IF NOT FOUND THEN RETURN 'not_friends'; END IF;
+  IF v_req.status = 'blocked' THEN RETURN 'blocked'; END IF;
+  IF v_req.status = 'accepted' THEN RETURN 'friends'; END IF;
+  IF v_req.status = 'pending' THEN
+    IF v_req.sender_user_id = v_caller THEN
+      RETURN 'request_sent';
+    ELSE
+      RETURN 'request_received';
+    END IF;
+  END IF;
+
+  RETURN 'not_friends';
 END;
 $$;
 
@@ -309,19 +362,24 @@ BEGIN
        OR (sender_user_id = v_target AND receiver_user_id = v_caller);
   IF FOUND THEN
     IF v_existing.status = 'accepted' THEN
-      RETURN jsonb_build_object('success', false, 'error', 'Already friends');
+      RETURN jsonb_build_object('success', false, 'status', 'friends', 'error', 'You are already friends with this player.');
     END IF;
     IF v_existing.status = 'pending' THEN
-      RETURN jsonb_build_object('success', false, 'error', 'Request already pending');
+      IF v_existing.sender_user_id = v_caller THEN
+        RETURN jsonb_build_object('success', false, 'status', 'request_sent', 'error', 'Friend request already sent.');
+      ELSE
+        RETURN jsonb_build_object('success', false, 'status', 'request_received', 'error', 'This player has already sent you a friend request. Accept it from your Requests tab.');
+      END IF;
+    END IF;
+    IF v_existing.status = 'blocked' THEN
+      RETURN jsonb_build_object('success', false, 'status', 'blocked', 'error', 'Cannot send friend request to this player.');
     END IF;
   END IF;
 
   SELECT friend_id, username INTO v_caller_fid, v_caller_name FROM profiles WHERE id = v_caller;
 
   INSERT INTO friend_requests (sender_user_id, receiver_user_id, status)
-    VALUES (v_caller, v_target, 'pending')
-    ON CONFLICT (sender_user_id, receiver_user_id) DO UPDATE
-      SET status = 'pending', updated_at = now();
+    VALUES (v_caller, v_target, 'pending');
 
   -- Notify receiver
   INSERT INTO notifications (user_id, type, title, message)
@@ -463,6 +521,89 @@ DECLARE v_caller uuid := auth.uid(); BEGIN
     LEFT JOIN pets pet ON pet.user_id = p.id AND pet.is_active = true
     WHERE fr.receiver_user_id = v_caller AND fr.status = 'pending'
     ORDER BY fr.created_at DESC;
+END;
+$$;
+
+-- ============================================================
+-- 11b. RPC: get_sent_requests (outgoing pending requests)
+-- ============================================================
+CREATE OR REPLACE FUNCTION get_sent_requests()
+RETURNS TABLE (
+  request_id       uuid,
+  receiver_user_id uuid,
+  username         text,
+  friend_id        text,
+  avatar_url       text,
+  level            integer,
+  pet_type         text,
+  pet_stage        text,
+  created_at       timestamptz
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_caller uuid := auth.uid(); BEGIN
+  IF v_caller IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  RETURN QUERY
+    SELECT fr.id, fr.receiver_user_id, p.username, p.friend_id, p.avatar_url,
+           p.current_level, COALESCE(pet.pet_type, 'fox'),
+           COALESCE(pet.stage, 'infant'), fr.created_at
+    FROM friend_requests fr
+    JOIN profiles p ON p.id = fr.receiver_user_id
+    LEFT JOIN pets pet ON pet.user_id = p.id AND pet.is_active = true
+    WHERE fr.sender_user_id = v_caller AND fr.status = 'pending'
+    ORDER BY fr.created_at DESC;
+END;
+$$;
+
+-- ============================================================
+-- 11c. RPC: cancel_friend_request
+-- ============================================================
+CREATE OR REPLACE FUNCTION cancel_friend_request(p_request_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller uuid := auth.uid();
+  v_req record;
+BEGIN
+  IF v_caller IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  SELECT * INTO v_req FROM friend_requests WHERE id = p_request_id;
+  IF NOT FOUND THEN RETURN jsonb_build_object('success', false, 'error', 'Request not found'); END IF;
+  IF v_req.sender_user_id != v_caller THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not authorized to cancel this request');
+  END IF;
+  DELETE FROM friend_requests WHERE id = p_request_id;
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
+
+-- ============================================================
+-- 11d. RPCs: block_user and unblock_user
+-- ============================================================
+CREATE OR REPLACE FUNCTION block_user(p_target_user_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_caller uuid := auth.uid(); BEGIN
+  IF v_caller IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF v_caller = p_target_user_id THEN RETURN jsonb_build_object('success', false, 'error', 'Cannot block yourself'); END IF;
+
+  DELETE FROM friend_requests
+    WHERE (sender_user_id = v_caller AND receiver_user_id = p_target_user_id)
+       OR (sender_user_id = p_target_user_id AND receiver_user_id = v_caller);
+
+  INSERT INTO friend_requests (sender_user_id, receiver_user_id, status)
+    VALUES (v_caller, p_target_user_id, 'blocked');
+
+  RETURN jsonb_build_object('success', true, 'status', 'blocked');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION unblock_user(p_target_user_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_caller uuid := auth.uid(); BEGIN
+  IF v_caller IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  DELETE FROM friend_requests
+    WHERE sender_user_id = v_caller AND receiver_user_id = p_target_user_id AND status = 'blocked';
+  RETURN jsonb_build_object('success', true, 'status', 'not_friends');
 END;
 $$;
 

@@ -30,8 +30,8 @@ const STORAGE_KEYS = {
 
 // Check if Supabase credentials are configured
 function isSupabaseConfigured(): boolean {
-  const url = import.meta.env.VITE_SUPABASE_URL || 'https://fgxjnowrzxlinbpozker.supabase.co';
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_l30DMOPfJgXNItzbN0geeA_P5y1QskO';
+  const url = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_URL) || 'https://fgxjnowrzxlinbpozker.supabase.co';
+  const key = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY) || 'sb_publishable_l30DMOPfJgXNItzbN0geeA_P5y1QskO';
   return Boolean(url && key && url.length > 5 && !url.includes('placeholder'));
 }
 

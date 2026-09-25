@@ -161,6 +161,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       petData = init.pet;
     }
 
+    if (p && !p.friend_id) {
+      p.friend_id = generateFriendId(p.id);
+      void petslyviaService.saveProfile(p);
+    }
+
+    try {
+      if (p) localStorage.setItem('petslyvia_profile', JSON.stringify(p));
+    } catch {
+      // ignore
+    }
+
     setProfile(p);
     setPet(petData);
     return { profile: p, pet: petData };
