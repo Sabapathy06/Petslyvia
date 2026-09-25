@@ -39,6 +39,7 @@ export interface LobbyPresence {
   progress:    number;
   isReady:     boolean;
   joinedAt:    string;
+  hostedRoom?: any;
 }
 
 export interface RoomPresence extends LobbyPresence {
@@ -51,6 +52,8 @@ export type BroadcastEventType =
   | 'player_left'
   | 'player_ready'
   | 'game_started'
+  | 'host_started_game'
+  | 'room_closed'
   | 'wall_broken'
   | 'progress_updated'
   | 'player_finished'
@@ -100,7 +103,8 @@ let _reconnectCount = 0;
 export function joinLobbyChannel(
   myPresence: LobbyPresence,
   onUpdate: (players: LobbyPresence[]) => void,
-  onStatusChange?: (status: string, reconnectCount: number) => void
+  onStatusChange?: (status: string, reconnectCount: number) => void,
+  onLobbyBroadcast?: (event: string, payload: any) => void
 ): RealtimeChannel {
   _myUserId = myPresence.userId;
 
@@ -110,7 +114,10 @@ export function joinLobbyChannel(
   }
 
   _lobbyChannel = supabase.channel('arena:lobby', {
-    config: { presence: { key: myPresence.userId } },
+    config: {
+      presence: { key: myPresence.userId },
+      broadcast: { ack: true, self: false },
+    },
   });
 
   const sync = () => {
@@ -122,6 +129,9 @@ export function joinLobbyChannel(
     .on('presence', { event: 'sync'  }, sync)
     .on('presence', { event: 'join'  }, sync)
     .on('presence', { event: 'leave' }, sync)
+    .on('broadcast', { event: '*' }, ({ event, payload }) => {
+      onLobbyBroadcast?.(event, payload);
+    })
     .subscribe(async (status, err) => {
       if (status === 'SUBSCRIBED') {
         await _lobbyChannel!.track(myPresence);
@@ -136,6 +146,31 @@ export function joinLobbyChannel(
     });
 
   return _lobbyChannel;
+}
+
+export async function broadcastLobbyRoomEvent(
+  event: 'room_created' | 'room_updated' | 'room_closed' | 'social_event',
+  payload: any
+): Promise<void> {
+  if (_lobbyChannel && _lobbyChannel.state === 'joined') {
+    await _lobbyChannel.send({
+      type: 'broadcast',
+      event,
+      payload,
+    }).catch(() => {});
+    return;
+  }
+
+  const chan = _lobbyChannel || supabase.channel('arena:lobby');
+  if (chan.state === 'joined') {
+    await chan.send({ type: 'broadcast', event, payload }).catch(() => {});
+  } else {
+    chan.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        chan.send({ type: 'broadcast', event, payload }).catch(() => {});
+      }
+    });
+  }
 }
 
 export async function updateLobbyPresence(update: Partial<LobbyPresence>): Promise<void> {

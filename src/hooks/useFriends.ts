@@ -48,19 +48,19 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
   const [assignedFriendId, setAssignedFriendId] = useState<string | null>(profile?.friend_id || null);
 
   useEffect(() => {
-    if (profile?.friend_id) {
-      setAssignedFriendId(profile.friend_id);
-    } else if (profile?.id) {
-      ensureFriendId(profile.id).then((fid) => {
-        setAssignedFriendId(fid);
-        if (profile) profile.friend_id = fid;
-      });
-    }
-  }, [profile?.id, profile?.friend_id]);
+    const currentUserId = user?.id || profile?.id;
+    if (!currentUserId) return;
+    const fid = profile?.friend_id || generateFriendId(currentUserId);
+    setAssignedFriendId(fid);
+    if (profile) profile.friend_id = fid;
+    void ensureFriendId(currentUserId, fid);
+  }, [user?.id, profile?.id, profile?.friend_id]);
 
   // Load initial friends & pending requests
+  const currentUserId = user?.id || profile?.id;
+
   const refreshFriends = useCallback(async () => {
-    if (!user) return;
+    if (!currentUserId) return;
     try {
       const [fList, pList, invList] = await Promise.all([
         fetchFriendsList(),
@@ -75,7 +75,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [currentUserId]);
 
   useEffect(() => {
     refreshFriends();
@@ -83,10 +83,10 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
 
   // Subscribe to friend_requests and room_invitations realtime changes
   useEffect(() => {
-    if (!user) return;
+    if (!currentUserId) return;
 
     const channel = supabase
-      .channel(`user-social:${user.id}`)
+      .channel(`user-social:${currentUserId}`)
       .on('broadcast', { event: 'friend_request' }, () => {
         refreshFriends();
       })
@@ -102,7 +102,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
           event: '*',
           schema: 'public',
           table: 'friend_requests',
-          filter: `receiver_user_id=eq.${user.id}`,
+          filter: `receiver_user_id=eq.${currentUserId}`,
         },
         () => {
           refreshFriends();
@@ -114,7 +114,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
           event: '*',
           schema: 'public',
           table: 'friend_requests',
-          filter: `sender_user_id=eq.${user.id}`,
+          filter: `sender_user_id=eq.${currentUserId}`,
         },
         () => {
           refreshFriends();
@@ -126,7 +126,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
           event: '*',
           schema: 'public',
           table: 'room_invitations',
-          filter: `receiver_user_id=eq.${user.id}`,
+          filter: `receiver_user_id=eq.${currentUserId}`,
         },
         () => {
           refreshFriends();
@@ -136,7 +136,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
 
     const lobbyChan = supabase.channel('arena:lobby');
     lobbyChan.on('broadcast', { event: 'social_event' }, (payload: any) => {
-      if (payload?.payload?.to === user.id || payload?.payload?.from === user.id) {
+      if (payload?.payload?.to === currentUserId || payload?.payload?.from === currentUserId) {
         refreshFriends();
       }
     });
@@ -144,7 +144,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, refreshFriends]);
+  }, [currentUserId, refreshFriends]);
 
   // Match presence for friends
   const friendsWithPresence = useMemo<FriendWithPresence[]>(() => {
@@ -169,7 +169,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
   // Actions
   const sendRequest = async (targetFriendId: string) => {
     setError(null);
-    const res = await apiSendFriendRequest(targetFriendId);
+    const res = await apiSendFriendRequest(targetFriendId, onlinePlayers);
     if (!res.success) {
       setError(res.error || 'Failed to send request');
       return res;
@@ -221,7 +221,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
   };
 
   const searchFriend = async (friendId: string): Promise<{ profile: SafePublicProfile | null; error?: string }> => {
-    return apiSearchPlayerByFriendId(friendId);
+    return apiSearchPlayerByFriendId(friendId, onlinePlayers);
   };
 
   return {

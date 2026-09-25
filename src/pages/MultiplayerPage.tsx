@@ -9,6 +9,7 @@ import {
   Zap, Lock, Clock
 } from "lucide-react";
 import { useGameData } from "@/hooks/useGameData";
+import { useAuth } from "@/hooks/useAuth";
 import type { BugExchangeItem, CommunityProblem, VisualBlock, SimulationStep } from "@/types/game";
 import type { Contact } from "@/types/database";
 import { runDeterministicSimulation } from "@/services/gameEngine";
@@ -95,17 +96,59 @@ function PlayerCard({ player }: { player: LobbyPresence }) {
   );
 }
 
-function RoomCard({ room, onJoin, isJoining }: { room: GameRoom; onJoin: () => void; isJoining: boolean }) {
+function RoomCard({
+  room,
+  currentUserId,
+  currentUsername,
+  onJoin,
+  onEnter,
+  onCloseRoom,
+  isJoining
+}: {
+  room: GameRoom;
+  currentUserId?: string;
+  currentUsername?: string;
+  onJoin: () => void;
+  onEnter?: () => void;
+  onCloseRoom?: (roomId: string) => void;
+  isJoining: boolean;
+}) {
+  const isHost = Boolean(
+    (currentUserId && (room.host_id === currentUserId || room.player_ids?.[0] === currentUserId)) ||
+    (currentUsername && (
+      (room.host_name && room.host_name.toLowerCase() === currentUsername.toLowerCase()) ||
+      (room.name && room.name.toLowerCase() === currentUsername.toLowerCase())
+    ))
+  );
+  const isParticipant = Boolean(
+    isHost || (currentUserId && room.player_ids?.includes(currentUserId))
+  );
   const pct = Math.round((room.player_count / room.max_players) * 100);
   const isFull = room.player_count >= room.max_players;
+
   return (
-    <div className="bg-white rounded-2xl p-4 border border-[#e2ece5] hover:border-[#2d6a4f] transition-all space-y-3">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="font-extrabold text-sm text-[#1b382b]">{room.name}</p>
-          <p className="text-[10px] text-[#5b7566] mt-0.5">{room.mission_id ? `Mission: ${room.mission_id}` : "Open Practice"} · Lv {room.level}</p>
+    <div className={`bg-white rounded-2xl p-4 border transition-all space-y-3 ${isHost ? "border-amber-300 ring-1 ring-amber-200/50 shadow-sm" : isParticipant ? "border-emerald-300 ring-1 ring-emerald-200/40" : "border-[#e2ece5] hover:border-[#2d6a4f]"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="font-extrabold text-sm text-[#1b382b] truncate">{room.name}</p>
+            {isHost && (
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5">
+                👑 Host
+              </span>
+            )}
+            {!isHost && isParticipant && (
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                Joined
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-[#5b7566] mt-0.5">
+            {room.host_name ? `Host: ${isHost ? 'You' : room.host_name} · ` : ''}
+            {room.mission_id ? `Mission: ${room.mission_id}` : "Open Practice"} · Lv {room.level}
+          </p>
         </div>
-        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${room.status === "playing" ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-[#eaf2ec] text-[#2d6a4f] border border-[#d3e2d8]"}`}>
+        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${room.status === "playing" ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-[#eaf2ec] text-[#2d6a4f] border border-[#d3e2d8]"}`}>
           {room.status === "playing" ? "In Progress" : "Waiting"}
         </span>
       </div>
@@ -118,10 +161,51 @@ function RoomCard({ room, onJoin, isJoining }: { room: GameRoom; onJoin: () => v
           <div className={`h-full rounded-full transition-all ${isFull ? "bg-rose-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
         </div>
       </div>
-      <button onClick={onJoin} disabled={isFull || isJoining || room.status === "playing"}
-        className="w-full py-2.5 bg-[#2d6a4f] hover:bg-[#245840] disabled:opacity-50 text-white font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-        {isJoining ? <><Loader2 size={12} className="animate-spin" /> Joining…</> : isFull ? <><Lock size={12} /> Full</> : room.status === "playing" ? <><Clock size={12} /> In Progress</> : <><LogIn size={12} /> Join Room</>}
-      </button>
+      <div className="flex gap-2">
+        {isHost ? (
+          <>
+            <button
+              onClick={onEnter || onJoin}
+              disabled={isJoining}
+              className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+            >
+              {isJoining ? <><Loader2 size={12} className="animate-spin" /> Entering…</> : <>👑 Enter Room</>}
+            </button>
+            <button
+              onClick={() => onCloseRoom?.(room.room_id)}
+              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+              title="Close and delete room"
+            >
+              <Trash2 size={13} /> Close
+            </button>
+          </>
+        ) : isParticipant ? (
+          <>
+            <button
+              onClick={onEnter || onJoin}
+              disabled={isJoining}
+              className="flex-1 py-2.5 bg-[#2d6a4f] hover:bg-[#245840] disabled:opacity-50 text-white font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+            >
+              {isJoining ? <><Loader2 size={12} className="animate-spin" /> Entering…</> : <>Enter Room</>}
+            </button>
+            <button
+              onClick={() => onCloseRoom?.(room.room_id)}
+              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+              title="Leave room"
+            >
+              <LeaveIcon size={13} /> Leave
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={onJoin}
+            disabled={isFull || isJoining || room.status === "playing"}
+            className="w-full py-2.5 bg-[#2d6a4f] hover:bg-[#245840] disabled:opacity-50 text-white font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+          >
+            {isJoining ? <><Loader2 size={12} className="animate-spin" /> Joining…</> : isFull ? <><Lock size={12} /> Full</> : room.status === "playing" ? <><Clock size={12} /> In Progress</> : <><LogIn size={12} /> Join Room</>}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -193,13 +277,34 @@ function CreateRoomModal({ onClose, onCreate }: { onClose: () => void; onCreate:
   );
 }
 
-function RoomPanel({ room, sessions, roomPlayers, recentEvents, isReady, currentUserId, onToggleReady, onLeave }: {
-  room: GameRoom; sessions: any[]; roomPlayers: any[]; recentEvents: any[];
-  isReady: boolean; currentUserId: string; onToggleReady: () => void; onLeave: () => void;
+function RoomPanel({
+  room,
+  sessions,
+  roomPlayers,
+  recentEvents,
+  isReady,
+  currentUserId,
+  onToggleReady,
+  onLeave,
+  onCloseRoom,
+  onLaunchGame,
+}: {
+  room: GameRoom;
+  sessions: any[];
+  roomPlayers: any[];
+  recentEvents: any[];
+  isReady: boolean;
+  currentUserId: string;
+  onToggleReady: () => void;
+  onLeave: () => void;
+  onCloseRoom: () => void;
+  onLaunchGame: () => void;
 }) {
+  const isHost = currentUserId ? (room.host_id === currentUserId || (room.player_ids && room.player_ids[0] === currentUserId)) : false;
+
   return (
     <div className="space-y-4">
-      <div className="bg-[#1b382b] rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className={`rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-card ${isHost ? "bg-gradient-to-r from-[#1b382b] via-[#214736] to-[#1b382b] border-2 border-amber-400/40" : "bg-[#1b382b]"}`}>
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="relative flex h-3 w-3">
@@ -207,20 +312,60 @@ function RoomPanel({ room, sessions, roomPlayers, recentEvents, isReady, current
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400" />
             </span>
             <span className="text-emerald-300 text-xs font-black uppercase tracking-widest">Live Room</span>
+            {isHost && (
+              <span className="px-2.5 py-0.5 bg-amber-400 text-amber-950 text-[10px] font-black rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                👑 YOU ARE HOST
+              </span>
+            )}
           </div>
           <h2 className="text-xl font-black text-white">{room.name}</h2>
           <p className="text-emerald-200 text-xs mt-0.5">
             {Math.max(roomPlayers.length, sessions.filter((s: any) => s.status !== "disconnected").length, 1)} / {room.max_players} players
+            {room.host_name ? ` · Host: ${isHost ? 'You' : room.host_name}` : ''}
             {room.mission_id ? ` · Mission: ${room.mission_id}` : " · Open Practice"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={onToggleReady} className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${isReady ? "bg-emerald-400 text-white" : "bg-white/20 text-white hover:bg-white/30"}`}>
-            <CheckCircle2 size={13} /> {isReady ? "Ready!" : "Set Ready"}
-          </button>
-          <button onClick={onLeave} className="px-4 py-2 rounded-xl text-xs font-black bg-rose-500/80 hover:bg-rose-500 text-white transition-all cursor-pointer flex items-center gap-1.5">
-            <LeaveIcon size={13} /> Leave
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {isHost ? (
+            <>
+              {room.status === 'waiting' && (
+                <button
+                  onClick={onLaunchGame}
+                  className="px-4 py-2 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-amber-950 transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
+                >
+                  <Sparkles size={13} /> Start Match
+                </button>
+              )}
+              <button
+                onClick={onToggleReady}
+                className={`px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${isReady ? "bg-emerald-400 text-white" : "bg-white/20 text-white hover:bg-white/30"}`}
+              >
+                <CheckCircle2 size={13} /> {isReady ? "Ready!" : "Set Ready"}
+              </button>
+              <button
+                onClick={onCloseRoom}
+                className="px-3.5 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+                title="Close room and return all players to lobby"
+              >
+                <Trash2 size={13} /> Close Room
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onToggleReady}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${isReady ? "bg-emerald-400 text-white" : "bg-white/20 text-white hover:bg-white/30"}`}
+              >
+                <CheckCircle2 size={13} /> {isReady ? "Ready!" : "Set Ready"}
+              </button>
+              <button
+                onClick={onLeave}
+                className="px-4 py-2 rounded-xl text-xs font-black bg-rose-500/80 hover:bg-rose-500 text-white transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <LeaveIcon size={13} /> Leave Room
+              </button>
+            </>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -238,8 +383,13 @@ function RoomPanel({ room, sessions, roomPlayers, recentEvents, isReady, current
                     {p.userId === currentUserId && <span className="absolute -top-1 -right-1 text-[7px] bg-[#2d6a4f] text-white font-black px-0.5 rounded">YOU</span>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="font-extrabold text-xs text-[#1b382b] truncate">{p.username}</p>
+                      {(p.userId === room.host_id || p.userId === room.player_ids?.[0]) && (
+                        <span className="text-[8px] bg-amber-100 text-amber-800 font-bold px-1 rounded border border-amber-200">
+                          👑 Host
+                        </span>
+                      )}
                       <StatusDot status={p.status} />
                       {p.isReady && <span className="text-[8px] text-emerald-600 font-bold">✓ Ready</span>}
                     </div>
@@ -287,13 +437,15 @@ function RoomPanel({ room, sessions, roomPlayers, recentEvents, isReady, current
 type Tab = "arena" | "live" | "leaderboard" | "bugs" | "community";
 
 export function MultiplayerPage() {
+  const { user } = useAuth();
   const { profile, pet, bugExchanges, communityProblems, contacts, solveBug, completeMission } = useGameData();
   const {
     connectionStatus, reconnectCount, isOnline,
     onlinePlayers, liveCount,
     openRooms, loadingRooms, refreshRooms,
     currentRoom, currentSession, roomPlayers, roomSessions, recentEvents,
-    createAndJoinRoom, joinExistingRoom, quickMatch, leaveCurrentRoom, toggleReady,
+    createAndJoinRoom, joinExistingRoom, quickMatch, leaveCurrentRoom,
+    closeCurrentRoom, closeRoomById, launchGame, toggleReady,
     leaderboard, leaderboardType, loadingLb, setLeaderboardType, refreshLeaderboard,
   } = useMultiplayerRoom();
 
@@ -421,7 +573,8 @@ export function MultiplayerPage() {
   const bugActivePos = bugSimSteps.length > 0 && bugSimSteps[bugSimStepIndex] ? bugSimSteps[bugSimStepIndex].petPos : selectedBug?.grid.start ?? { x: 0, y: 0 };
 
   const liveStatusMap = new Map<string, LobbyPresence>(onlinePlayers.map((p) => [p.userId, p]));
-  const myUserId = profile?.id ?? "";
+  const myUserId = user?.id || profile?.id || "";
+  const myUsername = profile?.username || user?.user_metadata?.display_name || user?.email?.split('@')[0] || "";
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-4 max-w-7xl mx-auto w-full">
@@ -492,7 +645,18 @@ export function MultiplayerPage() {
       {activeTab === "arena" && (
         <div className="space-y-4">
           {currentRoom ? (
-            <RoomPanel room={currentRoom} sessions={roomSessions} roomPlayers={roomPlayers} recentEvents={recentEvents} isReady={currentSession?.is_ready ?? false} currentUserId={myUserId} onToggleReady={toggleReady} onLeave={leaveCurrentRoom} />
+            <RoomPanel
+              room={currentRoom}
+              sessions={roomSessions}
+              roomPlayers={roomPlayers}
+              recentEvents={recentEvents}
+              isReady={currentSession?.is_ready ?? false}
+              currentUserId={myUserId}
+              onToggleReady={toggleReady}
+              onLeave={leaveCurrentRoom}
+              onCloseRoom={closeCurrentRoom}
+              onLaunchGame={launchGame}
+            />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
               <div className="lg:col-span-3 space-y-3">
@@ -518,7 +682,18 @@ export function MultiplayerPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {openRooms.map((room) => <RoomCard key={room.room_id} room={room} onJoin={() => handleJoinRoom(room.room_id)} isJoining={joiningRoomId === room.room_id} />)}
+                    {openRooms.map((room) => (
+                      <RoomCard
+                        key={room.room_id}
+                        room={room}
+                        currentUserId={myUserId}
+                        currentUsername={myUsername}
+                        onJoin={() => handleJoinRoom(room.room_id)}
+                        onEnter={() => handleJoinRoom(room.room_id)}
+                        onCloseRoom={closeRoomById}
+                        isJoining={joiningRoomId === room.room_id}
+                      />
+                    ))}
                   </div>
                 )}
               </div>

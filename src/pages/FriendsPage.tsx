@@ -38,6 +38,7 @@ export function FriendsPage() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [requestSent, setRequestSent] = useState(false);
   const [sendingRequest, setSendingRequest] = useState(false);
+  const [sentRequestMap, setSentRequestMap] = useState<Record<string, boolean>>({});
   const [viewingProfile, setViewingProfile] = useState<SafePublicProfile | FriendWithPresence | null>(null);
 
   const handleCopyId = () => {
@@ -73,13 +74,17 @@ export function FriendsPage() {
     }
   };
 
-  const handleSendFriendRequest = async (targetId: string) => {
+  const handleSendFriendRequest = async (targetId: string, itemKey?: string) => {
     setSendingRequest(true);
+    setSearchError(null);
     sound.playClick();
     try {
       const res = await sendRequest(targetId);
       if (res.success) {
         setRequestSent(true);
+        if (itemKey) {
+          setSentRequestMap((prev) => ({ ...prev, [itemKey]: true }));
+        }
         sound.playVictory();
       } else {
         setSearchError(res.error || 'Failed to send request');
@@ -283,20 +288,20 @@ export function FriendsPage() {
         <div className="max-w-xl mx-auto space-y-6">
           <div className="bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-4">
             <h3 className="font-black text-lg text-[#1b382b] flex items-center gap-2">
-              <Search size={18} className="text-[#2d6a4f]" /> Search by Friend ID
+              <Search size={18} className="text-[#2d6a4f]" /> Add Friend
             </h3>
             <p className="text-xs text-[#5b7566]">
-              Enter a 6-character Friend ID (e.g. <span className="font-mono font-bold text-[#1b382b]">PVS-7K4M9Q</span>) to look up a player's safe public profile.
+              Search by Friend ID (e.g. <span className="font-mono font-bold text-[#1b382b]">PVS-XXXXXX</span> or 6 characters) or by player username.
             </p>
 
             <div className="flex gap-2">
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
-                placeholder="PVS-XXXXXX"
-                maxLength={10}
-                className="flex-1 px-4 py-3 border border-[#e2ece5] rounded-2xl text-sm font-mono tracking-wider uppercase focus:border-[#2d6a4f] outline-none"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                placeholder="Friend ID (PVS-XXXXXX) or Username"
+                className="flex-1 px-4 py-3 border border-[#e2ece5] rounded-2xl text-sm focus:border-[#2d6a4f] outline-none"
               />
               <button
                 onClick={handleSearch}
@@ -353,7 +358,7 @@ export function FriendsPage() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => handleSendFriendRequest(searchResult.friend_id)}
+                      onClick={() => handleSendFriendRequest(searchResult.user_id || searchResult.friend_id || searchResult.username)}
                       disabled={sendingRequest}
                       className="px-5 py-2.5 bg-[#2d6a4f] hover:bg-[#22533d] text-white text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
                     >
@@ -365,6 +370,55 @@ export function FriendsPage() {
               </motion.div>
             )}
           </div>
+
+          {/* Online Players Available to Add */}
+          {onlinePlayers.filter((p) => p.userId && p.userId !== profile?.id && !friends.some((f) => f.user_id === p.userId)).length > 0 && (
+            <div className="bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-sm text-[#1b382b] flex items-center gap-2">
+                  <Sparkles size={15} className="text-amber-500" /> Online Players Right Now
+                </h3>
+                <span className="text-[10px] font-bold text-[#2d6a4f] bg-[#eaf2ec] px-2 py-0.5 rounded-full">
+                  Live
+                </span>
+              </div>
+              <p className="text-xs text-[#5b7566]">
+                These explorers are active right now. Send an instant friend request to team up!
+              </p>
+              <div className="space-y-2">
+                {onlinePlayers
+                  .filter((p) => p.userId && p.userId !== profile?.id && !friends.some((f) => f.user_id === p.userId))
+                  .map((p) => (
+                    <div key={p.userId} className="flex items-center gap-3 p-3 bg-[#f4f8f5] rounded-xl border border-[#e2ece5] justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-white border border-[#e2ece5] flex items-center justify-center shrink-0">
+                          <PetSVG type={p.petType as any} stage={p.petStage as any} state="happy" size={30} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-black text-xs text-[#1b382b] truncate">{p.username}</p>
+                          <p className="text-[10px] text-[#7a9386]">
+                            Lv {p.level} · {p.friendId || 'Online Explorer'}
+                          </p>
+                        </div>
+                      </div>
+                      {sentRequestMap[p.userId] ? (
+                        <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl flex items-center gap-1 shrink-0">
+                          <Check size={12} /> Sent!
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleSendFriendRequest(p.userId, p.userId)}
+                          disabled={sendingRequest}
+                          className="px-3.5 py-1.5 bg-[#2d6a4f] hover:bg-[#22533d] disabled:opacity-50 text-white font-black text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-sm shrink-0"
+                        >
+                          <UserPlus size={12} /> Add
+                        </button>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

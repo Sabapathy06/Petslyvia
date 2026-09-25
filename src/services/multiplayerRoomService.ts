@@ -12,6 +12,7 @@
  */
 
 import { supabase } from '../lib/supabase';
+import { broadcastLobbyRoomEvent } from './multiplayerRealtimeService';
 
 // ----------------------------------------------------------------
 // Types
@@ -27,6 +28,8 @@ export interface GameRoom {
   created_at:   string;
   player_count: number;
   player_ids?:  string[];
+  host_id?:     string;
+  host_name?:   string;
 }
 
 export interface GameSession {
@@ -77,9 +80,24 @@ export interface FinishSessionResult {
 }
 
 // ----------------------------------------------------------------
-// ROOMS
-// In-memory / localStorage shared room registry for distributed rooms
+// ROOMS & DISTRIBUTED REGISTRY
+// ----------------------------------------------------------------
+
 const LOCAL_ROOMS_KEY = 'petslyvia_active_rooms';
+const _networkRooms = new Map<string, GameRoom>();
+
+export function registerNetworkRoom(room: GameRoom): void {
+  if (!room || !room.room_id) return;
+  _networkRooms.set(room.room_id, { ...room });
+}
+
+export function unregisterNetworkRoom(roomId: string): void {
+  _networkRooms.delete(roomId);
+}
+
+export function getNetworkRooms(): GameRoom[] {
+  return Array.from(_networkRooms.values());
+}
 
 function getLocalRooms(): GameRoom[] {
   try {
@@ -98,8 +116,28 @@ function saveLocalRooms(rooms: GameRoom[]) {
   }
 }
 
-/** List open rooms available for joining */
-export async function listOpenRooms(): Promise<GameRoom[]> {
+/** List open rooms available for joining (fused from live presence, broadcast memory, DB, & local storage) */
+export async function listOpenRooms(presenceRooms?: GameRoom[]): Promise<GameRoom[]> {
+  const roomMap = new Map<string, GameRoom>();
+
+  // 1. Live presence-hosted rooms (absolute freshest real-time source from online hosts)
+  if (presenceRooms && presenceRooms.length > 0) {
+    for (const r of presenceRooms) {
+      if (r && r.room_id) {
+        roomMap.set(r.room_id, r);
+        _networkRooms.set(r.room_id, r);
+      }
+    }
+  }
+
+  // 2. In-memory network broadcast rooms
+  for (const [id, r] of _networkRooms.entries()) {
+    if (!roomMap.has(id)) {
+      roomMap.set(id, r);
+    }
+  }
+
+  // 3. Try remote Supabase table if available
   try {
     const { data, error } = await supabase
       .from('room_lobby')
@@ -107,18 +145,33 @@ export async function listOpenRooms(): Promise<GameRoom[]> {
       .order('created_at', { ascending: false });
 
     if (!error && data && data.length > 0) {
-      return data as GameRoom[];
+      for (const r of data as GameRoom[]) {
+        if (!roomMap.has(r.room_id)) {
+          roomMap.set(r.room_id, r);
+        }
+      }
     }
   } catch {
     // fallback
   }
 
-  // Fallback: Return active rooms from registry (filtered to last 60 minutes and player_count > 0)
+  // 4. Local storage fallback (filtered to last 60 minutes and player_count > 0)
   const cutoff = Date.now() - 60 * 60 * 1000;
-  const rooms = getLocalRooms().filter(
+  const local = getLocalRooms().filter(
     (r) => new Date(r.created_at).getTime() > cutoff && (r.player_count ?? 1) > 0
   );
-  return rooms;
+  for (const r of local) {
+    if (!roomMap.has(r.room_id)) {
+      roomMap.set(r.room_id, r);
+    }
+  }
+
+  const list = Array.from(roomMap.values());
+  return list.sort((a, b) => {
+    if (a.status === 'waiting' && b.status !== 'waiting') return -1;
+    if (a.status !== 'waiting' && b.status === 'waiting') return 1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 }
 
 /** Create a new room and auto-join as creator */
@@ -127,26 +180,13 @@ export async function createRoom(
   maxPlayers = 8,
   missionId?: string,
   level = 1,
-  creatorUserId?: string
-): Promise<{ roomId: string | null; error?: string }> {
-  try {
-    const { data, error } = await supabase.rpc('create_game_room', {
-      p_name:        name,
-      p_max_players: maxPlayers,
-      p_mission_id:  missionId ?? null,
-      p_level:       level,
-    });
-
-    if (!error && data) {
-      return { roomId: data as string };
-    }
-  } catch {
-    // fallback
-  }
-
-  // Resilient fallback: Create distributed room ID
+  creatorUserId?: string,
+  creatorName?: string
+): Promise<{ roomId: string | null; room?: GameRoom; error?: string }> {
   const roomId = `room_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
   const creatorId = creatorUserId || 'creator';
+  const hostName = creatorName || 'Host';
+
   const newRoom: GameRoom = {
     room_id: roomId,
     name: name.trim() || 'Arena Room',
@@ -157,29 +197,43 @@ export async function createRoom(
     created_at: new Date().toISOString(),
     player_count: 1,
     player_ids: [creatorId],
+    host_id: creatorId,
+    host_name: hostName,
   };
 
+  try {
+    const { data, error } = await supabase.rpc('create_game_room', {
+      p_name:        name,
+      p_max_players: maxPlayers,
+      p_mission_id:  missionId ?? null,
+      p_level:       level,
+    });
+
+    if (!error && data) {
+      newRoom.room_id = data as string;
+    }
+  } catch {
+    // fallback
+  }
+
+  registerNetworkRoom(newRoom);
+
   const currentRooms = getLocalRooms();
-  // Filter out any stale duplicate room with the same name
-  const filtered = currentRooms.filter((r) => r.name !== newRoom.name && (r.player_count ?? 0) > 0);
+  const filtered = currentRooms.filter((r) => r.room_id !== newRoom.room_id && (r.player_count ?? 0) > 0);
   saveLocalRooms([newRoom, ...filtered]);
 
   // Broadcast to arena:lobby so all clients discover this room immediately
-  const lobbyChan = supabase.channel('arena:lobby');
-  lobbyChan.send({
-    type: 'broadcast',
-    event: 'room_created',
-    payload: newRoom,
-  }).catch(() => {});
+  void broadcastLobbyRoomEvent('room_created', newRoom);
 
-  return { roomId };
+  return { roomId: newRoom.room_id, room: newRoom };
 }
 
 /** Join an existing room — returns the session id */
 export async function joinRoom(
   roomId: string,
-  userId?: string
-): Promise<{ sessionId: string | null; error?: string }> {
+  userId?: string,
+  userName?: string
+): Promise<{ sessionId: string | null; room?: GameRoom; error?: string }> {
   try {
     const { data, error } = await supabase.rpc('join_game_room', {
       p_room_id: roomId,
@@ -192,10 +246,10 @@ export async function joinRoom(
     // fallback
   }
 
-  // Fallback: Generate session ID and update player count without duplicates
   const sessionId = `sess_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
   const rooms = getLocalRooms();
-  const room = rooms.find((r) => r.room_id === roomId);
+  let room = rooms.find((r) => r.room_id === roomId) || _networkRooms.get(roomId);
+
   if (room) {
     if (!room.player_ids) {
       room.player_ids = [];
@@ -205,10 +259,24 @@ export async function joinRoom(
       room.player_ids.push(uid);
     }
     room.player_count = Math.min(room.player_ids.length, room.max_players);
-    saveLocalRooms(rooms);
+
+    registerNetworkRoom(room);
+    const existingIdx = rooms.findIndex((r) => r.room_id === roomId);
+    if (existingIdx !== -1) {
+      rooms[existingIdx] = room;
+      saveLocalRooms(rooms);
+    } else {
+      saveLocalRooms([room, ...rooms]);
+    }
+
+    void broadcastLobbyRoomEvent('room_updated', {
+      room_id: roomId,
+      player_count: room.player_count,
+      player_ids: room.player_ids,
+    });
   }
 
-  return { sessionId };
+  return { sessionId, room };
 }
 
 /** Set ready state for the current player in a room */
@@ -220,6 +288,31 @@ export async function setReadyState(roomId: string, ready: boolean): Promise<voi
   }
 }
 
+/** Close a room completely (by host) */
+export async function closeRoom(roomId: string, userId?: string): Promise<void> {
+  unregisterNetworkRoom(roomId);
+
+  const rooms = getLocalRooms().filter((r) => r.room_id !== roomId);
+  saveLocalRooms(rooms);
+
+  try {
+    await supabase.rpc('leave_game_room', { p_room_id: roomId });
+  } catch {
+    // ignore
+  }
+
+  // Broadcast room_closed to arena:lobby so all clients remove this room immediately
+  void broadcastLobbyRoomEvent('room_closed', { room_id: roomId, closed_by: userId });
+
+  // Broadcast to room channel so any connected guests are gracefully returned to lobby
+  const roomChan = supabase.channel(`room:${roomId}`);
+  roomChan.send({
+    type: 'broadcast',
+    event: 'room_closed',
+    payload: { room_id: roomId, closed_by: userId },
+  }).catch(() => {});
+}
+
 /** Leave a room gracefully */
 export async function leaveRoom(roomId: string, userId?: string): Promise<void> {
   try {
@@ -228,11 +321,14 @@ export async function leaveRoom(roomId: string, userId?: string): Promise<void> 
     // ignore
   }
 
-  // Fallback: Remove player from room and clean up empty rooms
   const rooms = getLocalRooms();
   const roomIndex = rooms.findIndex((r) => r.room_id === roomId);
-  if (roomIndex !== -1) {
-    const room = rooms[roomIndex];
+  const networkRoom = _networkRooms.get(roomId);
+
+  if (roomIndex !== -1 || networkRoom) {
+    const room = roomIndex !== -1 ? rooms[roomIndex] : networkRoom!;
+    const isHost = room.host_id === userId || (room.player_ids && room.player_ids[0] === userId);
+
     if (room.player_ids && userId) {
       room.player_ids = room.player_ids.filter((id) => id !== userId);
       room.player_count = room.player_ids.length;
@@ -240,19 +336,23 @@ export async function leaveRoom(roomId: string, userId?: string): Promise<void> 
       room.player_count = Math.max(0, (room.player_count || 1) - 1);
     }
 
-    // If room is empty, remove it completely from the open rooms list!
-    if (room.player_count <= 0) {
-      rooms.splice(roomIndex, 1);
+    // If host left, or room is now empty, close the room completely!
+    if (isHost || room.player_count <= 0) {
+      await closeRoom(roomId, userId);
+      return;
     }
-    saveLocalRooms(rooms);
 
-    // Broadcast room update / removal
-    const lobbyChan = supabase.channel('arena:lobby');
-    lobbyChan.send({
-      type: 'broadcast',
-      event: 'room_updated',
-      payload: { room_id: roomId, player_count: room.player_count },
-    }).catch(() => {});
+    registerNetworkRoom(room);
+    if (roomIndex !== -1) {
+      saveLocalRooms(rooms);
+    }
+
+    // Broadcast room update
+    void broadcastLobbyRoomEvent('room_updated', {
+      room_id: roomId,
+      player_count: room.player_count,
+      player_ids: room.player_ids,
+    });
   }
 }
 

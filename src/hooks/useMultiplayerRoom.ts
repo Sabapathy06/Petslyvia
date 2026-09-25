@@ -33,6 +33,9 @@ import {
   createRoom,
   joinRoom,
   leaveRoom,
+  closeRoom,
+  registerNetworkRoom,
+  unregisterNetworkRoom,
   setReadyState,
   getRoomSessions,
   submitWallSolution,
@@ -76,6 +79,9 @@ export interface UseMultiplayerRoomReturn {
   joinExistingRoom:  (roomId: string) => Promise<{ error?: string }>;
   quickMatch:        () => Promise<{ error?: string }>;
   leaveCurrentRoom:  () => Promise<void>;
+  closeCurrentRoom:  () => Promise<void>;
+  closeRoomById:     (roomId: string) => Promise<void>;
+  launchGame:        () => Promise<void>;
   toggleReady:       () => Promise<void>;
 
   // Gameplay
@@ -144,20 +150,24 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
   const xp        = profile?.total_xp ?? 0;
   const friendId  = profile?.friend_id ?? null;
 
-  const buildLobbyPresence = useCallback((): LobbyPresence => ({
-    userId:    myUserId,
-    username,
-    friendId,
-    petType,
-    petStage,
-    status:    currentRoom ? (currentRoom.status === 'playing' ? 'playing' : 'lobby') : 'online',
-    roomId:    currentRoom?.room_id ?? null,
-    level,
-    missionId: currentRoom?.mission_id ?? null,
-    progress:  currentSession?.progress ?? 0,
-    isReady:   currentSession?.is_ready ?? false,
-    joinedAt:  new Date().toISOString(),
-  }), [myUserId, username, friendId, petType, petStage, level, currentRoom, currentSession]);
+  const buildLobbyPresence = useCallback((): LobbyPresence => {
+    const isHost = currentRoom ? (currentRoom.host_id === myUserId || currentRoom.player_ids?.[0] === myUserId) : false;
+    return {
+      userId:    myUserId,
+      username,
+      friendId,
+      petType,
+      petStage,
+      status:    currentRoom ? (currentRoom.status === 'playing' ? 'playing' : 'lobby') : 'online',
+      roomId:    currentRoom?.room_id ?? null,
+      level,
+      missionId: currentRoom?.mission_id ?? null,
+      progress:  currentSession?.progress ?? 0,
+      isReady:   currentSession?.is_ready ?? false,
+      joinedAt:  new Date().toISOString(),
+      hostedRoom: isHost ? currentRoom : undefined,
+    };
+  }, [myUserId, username, friendId, petType, petStage, level, currentRoom, currentSession]);
 
   const buildRoomPresence = useCallback((): RoomPresence => ({
     ...buildLobbyPresence(),
@@ -165,9 +175,47 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     wallsBroken: currentSession?.walls_broken ?? 0,
   }), [buildLobbyPresence, currentSession]);
 
+  // ── Room list refresh (fuses online hosts presence + local/remote) ─────
+
+  const refreshRooms = useCallback(async () => {
+    setLoadingRooms(true);
+    try {
+      const presenceRooms = onlinePlayers
+        .filter((p) => p.hostedRoom && p.hostedRoom.room_id)
+        .map((p) => p.hostedRoom as GameRoom);
+
+      const rooms = await listOpenRooms(presenceRooms);
+      setOpenRooms(rooms);
+    } finally {
+      setLoadingRooms(false);
+    }
+  }, [onlinePlayers]);
+
   // ── Handlers ────────────────────────────────────────────────
 
   const handleBroadcast = useCallback((event: BroadcastEvent) => {
+    // Host closed the room: return all occupants gracefully to lobby
+    if (event.type === 'room_closed') {
+      void leaveRoomChannel();
+      setCurrentRoom(null);
+      setCurrentSession(null);
+      setRoomPlayers([]);
+      setRoomSessions([]);
+      setRecentEvents([]);
+      seenEventIds.current.clear();
+      void updateLobbyPresence({ status: 'online', roomId: null, hostedRoom: undefined });
+      void refreshRooms();
+      return;
+    }
+
+    // Host launched game match: start gameplay
+    if (event.type === 'host_started_game') {
+      setCurrentRoom((r) => r ? { ...r, status: 'playing' } : r);
+      setCurrentSession((s) => s ? { ...s, status: 'playing' } : s);
+      void updateRoomPresence({ status: 'playing' });
+      void updateLobbyPresence({ status: 'playing' });
+    }
+
     // Deduplicate by ts+userId
     const key = `${event.type}:${event.userId}:${event.ts}`;
     if (seenEventIds.current.has(key)) return;
@@ -179,19 +227,7 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     }
 
     setRecentEvents((prev) => [event, ...prev].slice(0, MAX_EVENTS));
-  }, []);
-
-  // ── Room list refresh ────────────────────────────────────────
-
-  const refreshRooms = useCallback(async () => {
-    setLoadingRooms(true);
-    try {
-      const rooms = await listOpenRooms();
-      setOpenRooms(rooms);
-    } finally {
-      setLoadingRooms(false);
-    }
-  }, []);
+  }, [refreshRooms]);
 
   // ── Leaderboard refresh ──────────────────────────────────────
 
@@ -222,7 +258,13 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
 
     joinLobbyChannel(
       presence,
-      setOnlinePlayers,
+      (players) => {
+        setOnlinePlayers(players);
+        const presenceRooms = players
+          .filter((p) => p.hostedRoom && p.hostedRoom.room_id)
+          .map((p) => p.hostedRoom as GameRoom);
+        listOpenRooms(presenceRooms).then(setOpenRooms).catch(() => {});
+      },
       (status, rc) => {
         setConnectionStatus(
           status === 'connected'    ? 'connected'    :
@@ -230,6 +272,17 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
           'disconnected'
         );
         setReconnectCount(rc);
+      },
+      (event, payload) => {
+        if (event === 'room_created' && payload) {
+          registerNetworkRoom(payload);
+          refreshRooms();
+        } else if (event === 'room_updated' && payload) {
+          refreshRooms();
+        } else if (event === 'room_closed' && payload) {
+          if (payload.room_id) unregisterNetworkRoom(payload.room_id);
+          refreshRooms();
+        }
       }
     );
 
@@ -295,7 +348,12 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     );
 
     void broadcastRoomEvent('player_joined', myUserId, { username, petType, level });
-    void updateLobbyPresence({ ...buildLobbyPresence(), status: 'lobby', roomId: room.room_id });
+    void updateLobbyPresence({
+      ...buildLobbyPresence(),
+      status: 'lobby',
+      roomId: room.room_id,
+      hostedRoom: room.host_id === myUserId ? room : undefined,
+    });
     void sessionId; // stored in DB; local state synced from roomSessions
   }, [myUserId, username, petType, level, buildLobbyPresence, buildRoomPresence, handleBroadcast]);
 
@@ -305,35 +363,40 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     missionId?: string,
     lvl = 1
   ): Promise<{ error?: string }> => {
-    const { roomId, error } = await createRoom(name, maxPlayers, missionId, lvl, myUserId);
+    const { roomId, room: createdRoom, error } = await createRoom(name, maxPlayers, missionId, lvl, myUserId, username);
     if (error || !roomId) return { error: error ?? 'Failed to create room' };
 
-    // Reload room list to get the full GameRoom object
-    await refreshRooms();
-    const rooms = await listOpenRooms();
-    const room  = rooms.find((r) => r.room_id === roomId) ?? {
-      room_id: roomId, name, status: 'waiting' as const,
-      max_players: maxPlayers, mission_id: missionId ?? null,
-      level: lvl, created_at: new Date().toISOString(), player_count: 1,
+    const room: GameRoom = createdRoom ?? {
+      room_id: roomId,
+      name,
+      status: 'waiting' as const,
+      max_players: maxPlayers,
+      mission_id: missionId ?? null,
+      level: lvl,
+      created_at: new Date().toISOString(),
+      player_count: 1,
       player_ids: [myUserId],
+      host_id: myUserId,
+      host_name: username,
     };
 
+    await refreshRooms();
     await enterRoom(room, roomId);
     return {};
-  }, [myUserId, refreshRooms, enterRoom]);
+  }, [myUserId, username, refreshRooms, enterRoom]);
 
   const joinExistingRoom = useCallback(async (roomId: string): Promise<{ error?: string }> => {
-    const { sessionId, error } = await joinRoom(roomId, myUserId);
+    const { sessionId, room: joinedRoom, error } = await joinRoom(roomId, myUserId, username);
     if (error || !sessionId) return { error: error ?? 'Failed to join room' };
 
     await refreshRooms();
     const rooms = await listOpenRooms();
-    const room  = rooms.find((r) => r.room_id === roomId);
+    const room  = joinedRoom ?? rooms.find((r) => r.room_id === roomId);
     if (!room) return { error: 'Room not found after joining' };
 
     await enterRoom(room, sessionId);
     return {};
-  }, [myUserId, refreshRooms, enterRoom]);
+  }, [myUserId, username, refreshRooms, enterRoom]);
 
   const quickMatch = useCallback(async (): Promise<{ error?: string }> => {
     await refreshRooms();
@@ -364,9 +427,43 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     setRoomSessions([]);
     setRecentEvents([]);
     seenEventIds.current.clear();
-    void updateLobbyPresence({ status: 'online', roomId: null });
+    void updateLobbyPresence({ status: 'online', roomId: null, hostedRoom: undefined });
     await refreshRooms();
   }, [currentRoom, myUserId, username, refreshRooms]);
+
+  const closeCurrentRoom = useCallback(async () => {
+    if (!currentRoom) return;
+    const roomId = currentRoom.room_id;
+    await closeRoom(roomId, myUserId);
+    await leaveRoomChannel();
+    setCurrentRoom(null);
+    setCurrentSession(null);
+    setRoomPlayers([]);
+    setRoomSessions([]);
+    setRecentEvents([]);
+    seenEventIds.current.clear();
+    void updateLobbyPresence({ status: 'online', roomId: null, hostedRoom: undefined });
+    await refreshRooms();
+  }, [currentRoom, myUserId, refreshRooms]);
+
+  const closeRoomById = useCallback(async (roomId: string) => {
+    if (currentRoom?.room_id === roomId) {
+      await closeCurrentRoom();
+    } else {
+      await closeRoom(roomId, myUserId);
+      await refreshRooms();
+    }
+  }, [currentRoom, closeCurrentRoom, myUserId, refreshRooms]);
+
+  const launchGame = useCallback(async () => {
+    if (!currentRoom) return;
+    const updatedRoom: GameRoom = { ...currentRoom, status: 'playing' };
+    setCurrentRoom(updatedRoom);
+    setCurrentSession((s) => s ? { ...s, status: 'playing' } : s);
+    void broadcastRoomEvent('host_started_game', myUserId, { roomId: currentRoom.room_id });
+    void updateRoomPresence({ status: 'playing' });
+    void updateLobbyPresence({ status: 'playing', hostedRoom: updatedRoom });
+  }, [currentRoom, myUserId]);
 
   const toggleReady = useCallback(async () => {
     if (!currentRoom || !currentSession) return;
@@ -462,6 +559,9 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     joinExistingRoom,
     quickMatch,
     leaveCurrentRoom,
+    closeCurrentRoom,
+    closeRoomById,
+    launchGame,
     toggleReady,
     submitWall,
     broadcastWallBreak,
