@@ -386,19 +386,19 @@ export function Taskbar() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 30 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="w-84 sm:w-96 max-h-[82vh] bg-slate-900/95 backdrop-blur-2xl border border-slate-700/80 rounded-3xl shadow-2xl shadow-black/80 flex flex-col overflow-hidden mb-3"
+              className="w-84 sm:w-96 max-h-[82vh] bg-white border border-[#e2ece5] rounded-3xl shadow-2xl flex flex-col overflow-hidden mb-3 text-[#1b382b]"
             >
               {/* Header */}
-              <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border-b border-slate-800 flex items-center justify-between">
+              <div className="p-4 bg-[#f4f8f5] border-b border-[#e2ece5] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
+                  <div className="w-8 h-8 rounded-xl bg-[#eaf2ec] border border-[#d8e5dc] flex items-center justify-center text-[#2d6a4f]">
                     <CheckCircle2 size={18} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-slate-100 tracking-wider">
+                    <h3 className="text-sm font-black text-[#1b382b] tracking-wider">
                       COMPANION DOCK
                     </h3>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-[#5b7566]">
                       Productivity Tasks & Focus Partner
                     </p>
                   </div>
@@ -406,14 +406,14 @@ export function Taskbar() {
 
                 <div className="flex items-center gap-1.5">
                   {/* Tab Switcher: Tasks vs Focus Timer */}
-                  <div className="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800">
+                  <div className="flex bg-white p-0.5 rounded-xl border border-[#d8e5dc]">
                     <button
                       onClick={() => {
                         setCurrentTab('tasks');
                         sound.playClick();
                       }}
                       className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                        currentTab === 'tasks' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                        currentTab === 'tasks' ? 'bg-[#2d6a4f] text-white' : 'text-[#5b7566] hover:text-[#1b382b]'
                       }`}
                     >
                       Tasks
@@ -424,7 +424,7 @@ export function Taskbar() {
                         sound.playClick();
                       }}
                       className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                        currentTab === 'focus' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'
+                        currentTab === 'focus' ? 'bg-[#2d6a4f] text-white' : 'text-[#5b7566] hover:text-[#1b382b]'
                       }`}
                     >
                       <Timer size={11} /> Timer
@@ -439,8 +439,8 @@ export function Taskbar() {
                       }}
                       className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
                         isAdding
-                          ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
-                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
+                          ? 'bg-[#2d6a4f] text-white border-[#2d6a4f] font-bold'
+                          : 'bg-white text-[#5b7566] border-[#d8e5dc] hover:bg-[#eaf2ec]'
                       }`}
                       title="Add Custom Task"
                     >
@@ -452,7 +452,7 @@ export function Taskbar() {
                       setIsOpen(false);
                       sound.playClick();
                     }}
-                    className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700 cursor-pointer"
+                    className="p-1.5 rounded-xl bg-white text-[#5b7566] hover:text-[#1b382b] border border-[#d8e5dc] hover:bg-[#eaf2ec] cursor-pointer"
                   >
                     <ChevronDown size={16} />
                   </button>
@@ -647,16 +647,16 @@ export function Taskbar() {
                             onClick={() => handleToggleComplete(t.id)}
                             className={`p-2.5 rounded-2xl border flex items-start gap-2.5 transition-all cursor-pointer group ${
                               t.completed
-                                ? 'bg-slate-950/40 border-slate-800/60 opacity-60'
-                                : `${cfg.bg} ${cfg.border} hover:border-amber-400/50 shadow-sm`
+                                ? 'bg-[#f4f8f5] border-[#e2ece5] opacity-60'
+                                : 'bg-white border-[#e2ece5] hover:border-[#2d6a4f] shadow-sm'
                             }`}
                           >
                             {/* Checkbox Icon */}
                             <div
                               className={`w-5 h-5 rounded-lg flex items-center justify-center mt-0.5 transition-all ${
                                 t.completed
-                                  ? 'bg-emerald-500 text-slate-950 font-black'
-                                  : 'border-2 border-slate-600 group-hover:border-amber-400'
+                                  ? 'bg-[#2d6a4f] text-white font-bold'
+                                  : 'border-2 border-[#d8e5dc] group-hover:border-[#2d6a4f]'
                               }`}
                             >
                               {t.completed && <Check size={13} strokeWidth={3} />}
@@ -666,7 +666,7 @@ export function Taskbar() {
                             <div className="flex-1 min-w-0">
                               <div
                                 className={`text-xs font-bold leading-tight ${
-                                  t.completed ? 'line-through text-slate-500' : 'text-slate-200'
+                                  t.completed ? 'line-through text-[#7a9386]' : 'text-[#1b382b]'
                                 }`}
                               >
                                 {t.title}
@@ -775,7 +775,7 @@ export function Taskbar() {
             setIsOpen(!isOpen);
             sound.playClick();
           }}
-          className="flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 rounded-2xl shadow-xl shadow-amber-500/25 hover:scale-105 active:scale-95 transition-all font-black text-xs border border-amber-300/40 cursor-pointer"
+          className="flex items-center gap-2 px-3.5 py-2.5 bg-white border border-[#d8e5dc] hover:bg-[#eaf2ec] text-[#1b382b] rounded-2xl shadow-card hover:scale-105 active:scale-95 transition-all font-bold text-xs cursor-pointer"
         >
           {pet && (
             <div className="w-5 h-5 flex items-center justify-center shrink-0">
@@ -788,11 +788,11 @@ export function Taskbar() {
               />
             </div>
           )}
-          <span className="tracking-wide">TASKBAR</span>
-          <span className="bg-slate-950/80 text-amber-300 px-2 py-0.5 rounded-full text-[10px] font-mono">
+          <span className="tracking-wide font-extrabold">TASKBAR</span>
+          <span className="bg-[#eaf2ec] text-[#2d6a4f] px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
             {pendingCount}
           </span>
-          {isOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+          {isOpen ? <ChevronDown size={16} className="text-[#7a9386]" /> : <ChevronUp size={16} className="text-[#7a9386]" />}
         </button>
       </div>
     </>

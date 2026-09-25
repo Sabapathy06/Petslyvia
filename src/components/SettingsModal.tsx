@@ -71,24 +71,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-[#163324]/50 backdrop-blur-sm flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 15 }}
-        className="bg-slate-900 border border-slate-700/80 rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-5 relative overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
+        className="bg-white border border-[#e2ece5] rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-5 relative overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar text-[#1b382b]"
       >
-        {/* Glow Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[#e2ece5] pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Settings size={20} className="text-white" />
+            <div className="w-10 h-10 rounded-2xl bg-[#eaf2ec] border border-[#d8e5dc] flex items-center justify-center shadow-soft">
+              <Settings size={20} className="text-[#2d6a4f]" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-white flex items-center gap-1.5">
+              <h2 className="text-lg font-black text-[#1b382b] flex items-center gap-1.5">
                 Account & Settings
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[#5b7566]">
                 Manage your credentials, companion, and preferences
               </p>
             </div>
@@ -99,202 +99,135 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               sound.playClick();
               onClose();
             }}
-            className="text-slate-400 hover:text-white p-1.5 rounded-xl bg-slate-800 border border-slate-700 cursor-pointer transition-colors"
+            className="text-[#5b7566] hover:text-[#1b382b] p-1.5 rounded-xl bg-[#f4f8f5] border border-[#d8e5dc] hover:bg-[#eaf2ec] cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* 1. Logged In Account Card */}
-        <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/40 border border-indigo-500/30 space-y-3 shadow-inner">
+        {/* Section 1: User Profile & Email Authentication Card */}
+        <div className="p-4 bg-[#f8faf8] border border-[#d8e5dc] rounded-2xl space-y-3.5">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
-              <Mail size={13} className="text-indigo-400" /> Logged In Account
+            <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider bg-[#eaf2ec] border border-[#d5e3da] px-2 py-0.5 rounded-full">
+              Authentication Credentials
             </span>
-            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <ShieldCheck size={12} /> Active Session
+            <span className="text-[10px] font-mono text-[#5b7566] flex items-center gap-1">
+              <ShieldCheck size={12} className="text-[#2d6a4f]" /> Provider: {authProvider}
             </span>
           </div>
 
-          {/* Email Address Highlight Box */}
-          <div className="p-3 bg-slate-950/90 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] text-slate-400 font-semibold uppercase">Email Account</div>
-              <div className="text-sm font-black text-amber-300 font-mono truncate">{userEmail}</div>
+          {/* Display Name Edit */}
+          <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-[#e2ece5] shadow-sm">
+            <div className="flex-1 min-w-0 mr-3">
+              <span className="text-[10px] font-bold text-[#7a9386] block uppercase">Player Name</span>
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="bg-[#f4f8f5] text-xs font-bold text-[#1b382b] px-2 py-1 rounded-lg border border-[#2d6a4f] outline-none w-full mt-0.5"
+                  autoFocus
+                />
+              ) : (
+                <span className="text-xs font-bold text-[#1b382b] truncate block">
+                  {profile?.display_name || 'Adventurer'}
+                </span>
+              )}
+            </div>
+
+            {isEditingName ? (
+              <button
+                onClick={handleSaveName}
+                disabled={saveStatus === 'saving'}
+                className="px-3 py-1 bg-[#2d6a4f] text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-[#23533e]"
+              >
+                {saveStatus === 'saving' ? 'Saving...' : 'Save'}
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsEditingName(true)}
+                className="text-[11px] font-bold text-[#2d6a4f] hover:underline cursor-pointer"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+
+          {/* Email Address with Copy */}
+          <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-[#e2ece5] shadow-sm">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Mail size={15} className="text-[#5b7566] shrink-0" />
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-[#7a9386] block uppercase">Logged-In Email</span>
+                <span className="text-xs font-mono text-[#1b382b] truncate block">
+                  {userEmail}
+                </span>
+              </div>
             </div>
 
             <button
               onClick={handleCopyEmail}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-              title="Copy email to clipboard"
+              className="p-1.5 rounded-lg bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] text-[#5b7566] hover:text-[#1b382b] transition-colors cursor-pointer"
+              title="Copy Email"
             >
-              {copiedEmail ? (
-                <>
-                  <Check size={14} className="text-emerald-400" />
-                  <span className="text-[10px] text-emerald-400">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={14} />
-                  <span className="text-[10px]">Copy</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* UID & Provider Meta */}
-          <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 text-slate-400 font-mono">
-            <div className="p-2 bg-slate-950/60 rounded-xl border border-slate-800/80 flex items-center justify-between">
-              <span className="text-slate-500">Method:</span>
-              <span className="text-slate-200 capitalize font-bold">{authProvider}</span>
-            </div>
-
-            <button
-              onClick={handleCopyUid}
-              className="p-2 bg-slate-950/60 hover:bg-slate-850 rounded-xl border border-slate-800/80 flex items-center justify-between cursor-pointer transition-colors text-left"
-            >
-              <span className="text-slate-500">UID:</span>
-              <span className="text-slate-300 truncate max-w-[90px] font-bold">
-                {copiedUid ? 'Copied!' : userId.substring(0, 10) + '...'}
-              </span>
+              {copiedEmail ? <Check size={14} className="text-[#2d6a4f]" /> : <Copy size={14} />}
             </button>
           </div>
         </div>
 
-        {/* 2. Player Profile & Track */}
-        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-              <User size={14} className="text-amber-400" /> Player Profile
-            </span>
-            <span className="text-xs font-mono text-amber-300 font-bold">
-              Level {profile?.current_level ?? 1} • {profile?.coins ?? 100} Coins
-            </span>
-          </div>
+        {/* Section 2: Audio & Exploration Mode Preferences */}
+        <div className="p-4 bg-[#f8faf8] border border-[#d8e5dc] rounded-2xl space-y-3">
+          <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider bg-[#eaf2ec] border border-[#d5e3da] px-2 py-0.5 rounded-full">
+            Preferences & Controls
+          </span>
 
-          {/* Display Name Editor */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Enter player display name"
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold outline-none focus:border-amber-400 transition-colors"
-              />
-            </div>
-            <button
-              onClick={handleSaveName}
-              disabled={saveStatus === 'saving'}
-              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
-            >
-              {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save'}
-            </button>
-          </div>
-
-          {/* Learning Track Switcher */}
-          <div>
-            <div className="text-[11px] text-slate-400 font-semibold mb-1.5">Primary Learning Track:</div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setPlayerRole('non_coder');
-                }}
-                className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  profile?.role === 'non_coder'
-                    ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-amber-400 text-amber-300 font-black shadow-md'
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Compass size={14} /> 🧩 Visual Explorer
-              </button>
-
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setPlayerRole('coder');
-                }}
-                className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  profile?.role === 'coder'
-                    ? 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border-indigo-400 text-indigo-300 font-black shadow-md'
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Code2 size={14} /> 💻 Coder Pioneer
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Pet Companion Summary */}
-        {pet && (
-          <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700/60 flex items-center justify-center shrink-0">
-                <PetSVG
-                  type={pet.pet_type}
-                  stage={pet.stage}
-                  state="happy"
-                  equipped={pet.equipped_items}
-                  size={46}
-                />
-              </div>
-              <div>
-                <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
-                  {pet.pet_name}
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 uppercase">
-                    {pet.stage}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400 capitalize">
-                  Species: <strong className="text-slate-200">{pet.pet_type}</strong> • Level {pet.level}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-right text-[11px] font-mono text-slate-400">
-              <div className="text-amber-400 font-bold">+{profile?.total_xp ?? 50} Total XP</div>
-              <div className="text-[10px] text-emerald-400">⚡ {pet.energy}% Energy</div>
-            </div>
-          </div>
-        )}
-
-        {/* 4. Audio & System Preferences */}
-        <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {soundEnabled ? <Volume2 size={16} className="text-emerald-400" /> : <VolumeX size={16} className="text-slate-500" />}
-              <span className="text-xs font-bold text-slate-200">8-Bit Sound Effects</span>
-            </div>
+          <div className="grid grid-cols-2 gap-2.5 pt-1">
+            {/* Audio Toggle */}
             <button
               onClick={() => {
                 toggleSound();
                 sound.playClick();
               }}
-              className={`px-3 py-1 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                soundEnabled ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400 border border-slate-700'
-              }`}
+              className="p-3 bg-white border border-[#e2ece5] hover:border-[#2d6a4f] rounded-xl flex items-center justify-between transition-all cursor-pointer shadow-sm text-left"
             >
-              {soundEnabled ? 'ENABLED' : 'MUTED'}
+              <div>
+                <span className="text-xs font-bold text-[#1b382b] block">Sound FX</span>
+                <span className="text-[10px] text-[#7a9386]">{soundEnabled ? 'Enabled' : 'Muted'}</span>
+              </div>
+              <div className={`p-1.5 rounded-lg ${soundEnabled ? 'bg-[#eaf2ec] text-[#2d6a4f]' : 'bg-[#f4f8f5] text-[#7a9386]'}`}>
+                {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              </div>
             </button>
-          </div>
 
-          <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[11px] text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <Database size={13} className="text-emerald-400" /> Cloud Database
-            </span>
-            <span className="text-emerald-400 font-mono font-bold">Supabase PostgreSQL Connected</span>
+            {/* Track Switcher */}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setPlayerRole(profile?.role === 'coder' ? 'non_coder' : 'coder');
+              }}
+              className="p-3 bg-white border border-[#e2ece5] hover:border-[#2d6a4f] rounded-xl flex items-center justify-between transition-all cursor-pointer shadow-sm text-left"
+            >
+              <div>
+                <span className="text-xs font-bold text-[#1b382b] block">Mode Track</span>
+                <span className="text-[10px] text-[#2d6a4f] font-semibold">
+                  {profile?.role === 'coder' ? '💻 Coder Pioneer' : '🧩 Visual Explorer'}
+                </span>
+              </div>
+              <div className="p-1.5 rounded-lg bg-[#eaf2ec] text-[#2d6a4f]">
+                {profile?.role === 'coder' ? <Code2 size={16} /> : <Compass size={16} />}
+              </div>
+            </button>
           </div>
         </div>
 
-        {/* 5. Logout & Footer */}
-        <div className="flex items-center gap-3 pt-2">
+        {/* Section 3: Sign Out Button */}
+        <div className="pt-1">
           <button
             onClick={handleLogout}
-            className="w-full py-3 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/40 text-rose-300 hover:text-rose-200 font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            className="w-full py-3 bg-[#ffe4e6] hover:bg-[#fecdd3] border border-[#fecdd3] text-rose-700 font-bold text-xs rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
           >
-            <LogOut size={16} /> Sign Out of Account
+            <LogOut size={15} />
+            <span>Sign Out of Petslyvia</span>
           </button>
         </div>
       </motion.div>

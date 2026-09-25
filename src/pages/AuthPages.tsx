@@ -125,7 +125,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="player@petslyvia.world"
-                className="w-full pl-11 pr-4 py-3 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all placeholder:text-slate-500 text-sm"
+                className="w-full pl-11 pr-4 py-3 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none transition-all placeholder:text-[#7a9386] text-sm font-medium"
               />
             </Field>
 
@@ -136,7 +136,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-11 pr-4 py-3 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all placeholder:text-slate-500 text-sm"
+                className="w-full pl-11 pr-4 py-3 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none transition-all placeholder:text-[#7a9386] text-sm font-medium"
               />
             </Field>
 
@@ -148,7 +148,7 @@ export function LoginPage() {
                     <button
                       type="button"
                       onClick={() => handleRequestOtp()}
-                      className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="w-full py-2.5 px-3 rounded-2xl bg-[#2d6a4f] hover:bg-[#23533e] text-white font-bold text-xs shadow-soft flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <KeyRound size={15} /> Send OTP & Enter with 6-Digit Code ➔
                     </button>
@@ -160,7 +160,7 @@ export function LoginPage() {
                           setError('');
                           setPassword('');
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-300 hover:bg-slate-700 font-semibold cursor-pointer"
+                        className="px-2.5 py-1 rounded-xl bg-[#eaf2ec] text-[#2d6a4f] hover:bg-[#dde8df] font-bold cursor-pointer"
                       >
                         Try Again
                       </button>
@@ -170,13 +170,13 @@ export function LoginPage() {
                           setError('');
                           setMode('otp_request');
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-indigo-900/60 text-indigo-200 hover:bg-indigo-800 font-semibold cursor-pointer"
+                        className="px-2.5 py-1 rounded-xl bg-[#eaf2ec] text-[#2d6a4f] hover:bg-[#dde8df] font-bold cursor-pointer"
                       >
                         Login with OTP
                       </button>
                       <Link
                         to="/reset"
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 font-semibold"
+                        className="px-2.5 py-1 rounded-xl bg-[#f4f8f5] text-[#5b7566] hover:text-[#1b382b] font-semibold border border-[#d8e5dc]"
                       >
                         Forgot Password?
                       </Link>
@@ -193,11 +193,11 @@ export function LoginPage() {
                   setError('');
                   setMode('otp_request');
                 }}
-                className="text-amber-400 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1"
+                className="text-[#2d6a4f] hover:underline font-bold transition-colors flex items-center gap-1"
               >
                 <KeyRound size={13} /> Login with OTP
               </button>
-              <Link to="/reset" className="text-slate-400 hover:text-slate-200 transition-colors">
+              <Link to="/reset" className="text-[#5b7566] hover:text-[#1b382b] font-semibold transition-colors">
                 Forgot password?
               </Link>
             </div>
@@ -205,7 +205,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black tracking-wide rounded-xl shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black tracking-wide rounded-2xl shadow-soft transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
             >
               {loading ? 'Entering Petslyvia...' : <>LOG IN <ArrowRight size={18} /></>}
             </button>
@@ -864,12 +864,7 @@ function AuthShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-10 relative overflow-hidden font-sans">
-      {/* Dynamic Game Background Elements */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl h-full bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" />
-
+    <div className="min-h-screen bg-[#f4f8f5] text-[#1b382b] flex items-center justify-center px-4 py-10 relative overflow-hidden font-sans">
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
@@ -878,24 +873,26 @@ function AuthShell({
       >
         {/* Logo Header */}
         <Link to="/" className="flex flex-col items-center justify-center gap-1.5 mb-6 group">
-          <div className="flex items-center gap-2.5">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:scale-105 transition-transform">
-              <Sparkles className="text-slate-950" size={24} />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-[#1e3a2b] group-hover:scale-110 transition-transform"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#2e6849] group-hover:scale-110 transition-transform"></div>
+              <div className="w-2 h-2 rounded-full bg-[#52936f] group-hover:scale-110 transition-transform"></div>
             </div>
-            <span className="font-black text-2xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-300 to-rose-400">
-              PETSLYVIA
+            <span className="font-black text-2xl tracking-tight text-[#1b382b]">
+              petslyvia<span className="text-[#2d6a4f]">.</span>
             </span>
           </div>
-          <span className="text-[11px] font-semibold text-slate-400 tracking-wide">
-            Raise your pet · Build your logic · Fix the world
+          <span className="text-[10px] font-bold text-[#7a9386] tracking-[0.18em] uppercase">
+            A LITTLE PLAY. A LOT OF POSSIBILITY.
           </span>
         </Link>
 
-        {/* Game Box */}
-        <div className="bg-slate-900/90 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl shadow-black/60 relative">
+        {/* Card Box */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#e2ece5] shadow-card relative">
           <div className="text-center mb-6">
-            <h1 className="text-xl sm:text-2xl font-black text-white">{title}</h1>
-            <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">{subtitle}</p>
+            <h1 className="text-xl sm:text-2xl font-black text-[#1b382b]">{title}</h1>
+            <p className="text-xs text-[#5b7566] mt-1.5 leading-relaxed font-medium">{subtitle}</p>
           </div>
 
           {children}
@@ -916,9 +913,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-slate-300 mb-1.5">{label}</label>
+      <label className="block text-xs font-bold text-[#1b382b] mb-1.5">{label}</label>
       <div className="relative">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7a9386] pointer-events-none">
           {icon}
         </span>
         {children}
@@ -929,8 +926,8 @@ function Field({
 
 function ErrorBanner({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-2 p-3 bg-rose-950/70 border border-rose-500/40 rounded-xl text-xs text-rose-300">
-      <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-400" />
+    <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold">
+      <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-600" />
       <span>{message}</span>
     </div>
   );

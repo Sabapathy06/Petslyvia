@@ -400,7 +400,7 @@ export function DuelArena3D({
 
   return (
     <div
-      className={`relative w-full rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl select-none ${className}`}
+      className={`relative w-full rounded-3xl overflow-hidden bg-[#dce8e0] border border-[#e2ece5] shadow-card select-none ${className}`}
       style={{ height }}
     >
       <div ref={containerRef} className="w-full h-full" />

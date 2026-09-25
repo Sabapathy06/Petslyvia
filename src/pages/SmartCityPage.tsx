@@ -141,15 +141,15 @@ export function SmartCityPage() {
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Header Banner */}
-      <div className="p-6 bg-gradient-to-r from-sky-950/90 via-slate-900 to-indigo-950 rounded-3xl border border-sky-500/30 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="p-6 bg-white rounded-3xl border border-[#e2ece5] shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-sky-500/20 border border-sky-500/40 rounded-full text-xs font-bold text-sky-300 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#eaf2ec] border border-[#d3e2d8] rounded-full text-xs font-bold text-[#2d6a4f] mb-2">
             <Building2 size={14} /> Stage 5: Smart City Automation
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#1b382b] tracking-tight">
             {cityMission.title}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
+          <p className="text-xs sm:text-sm text-[#5b7566] mt-1 font-medium">
             Program sensor triggers and traffic signals to coordinate autonomous city transit!
           </p>
         </div>
@@ -157,27 +157,27 @@ export function SmartCityPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowHintPanel(!showHintPanel)}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-slate-700 cursor-pointer"
+            className="px-3.5 py-2 bg-[#f4f8f5] hover:bg-[#eaf2ec] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#e2ece5] cursor-pointer"
           >
             {showHintPanel ? <EyeOff size={14} /> : <Eye size={14} />}
             {showHintPanel ? 'Hide Hint' : '💡 Show Hint'}
           </button>
           <button
             onClick={() => setShowAiHelper(true)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shrink-0 shadow-lg shadow-indigo-600/20 cursor-pointer"
+            className="px-4 py-2 bg-[#2d6a4f] hover:bg-[#245840] text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shrink-0 shadow-soft cursor-pointer"
           >
             <Bot size={16} /> Signal Assistant
           </button>
         </div>
       </div>
 
-      {/* Humanized Companion Coach Bar */}
+      {/* Companion Coach Bar */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-4 rounded-3xl bg-slate-900/90 border border-sky-500/30 shadow-xl flex items-center gap-3.5"
+        className="p-4 rounded-3xl bg-white border border-[#e2ece5] shadow-card flex items-center gap-3.5"
       >
-        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-500/40 flex items-center justify-center shrink-0">
+        <div className="w-11 h-11 rounded-2xl bg-[#eaf2ec] border border-[#d3e2d8] flex items-center justify-center shrink-0">
           {pet && (
             <PetSVG
               type={pet.pet_type}
@@ -190,19 +190,19 @@ export function SmartCityPage() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-white">{pet?.pet_name || 'Your Pet'} Transit Partner</span>
-            <span className="text-[10px] bg-sky-500/20 text-sky-300 font-bold px-2 py-0.2 rounded-full">
+            <span className="text-xs font-black text-[#1b382b]">{pet?.pet_name || 'Your Pet'} Transit Partner</span>
+            <span className="text-[10px] bg-[#eaf2ec] text-[#2d6a4f] font-bold px-2 py-0.5 rounded-full border border-[#d3e2d8]">
               City Navigator
             </span>
           </div>
-          <p className="text-xs text-sky-200 italic mt-0.5">
+          <p className="text-xs text-[#5b7566] italic mt-0.5 font-medium">
             "{getCompanionCityQuote()}"
           </p>
         </div>
       </motion.div>
 
       {/* Level Selection Tabs */}
-      <div className="flex flex-wrap bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 gap-2">
+      <div className="flex flex-wrap bg-white p-1.5 rounded-2xl border border-[#e2ece5] gap-2 shadow-soft">
         {cityMissions.map((m, idx) => {
           const isSelected = m.id === cityMission.id;
           return (
@@ -214,8 +214,8 @@ export function SmartCityPage() {
               }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 isSelected
-                  ? 'bg-sky-500 text-slate-950 font-black shadow-lg shadow-sky-500/20 scale-105'
-                  : 'bg-slate-950/60 text-slate-400 hover:text-white border border-slate-800'
+                  ? 'bg-[#2d6a4f] text-white font-black shadow-sm scale-105'
+                  : 'bg-[#f4f8f5] text-[#5b7566] hover:text-[#1b382b] hover:bg-[#eaf2ec] border border-[#e2ece5]'
               }`}
             >
               <span>Level {idx + 1}:</span>
@@ -231,12 +231,12 @@ export function SmartCityPage() {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-2 text-xs text-amber-200"
+          className="p-4 bg-[#fbf5e8] border border-[#f0dfba] rounded-2xl space-y-2 text-xs text-[#8c6b2d]"
         >
-          <div className="flex items-center gap-2 font-bold text-amber-300">
+          <div className="flex items-center gap-2 font-bold text-[#74551d]">
             <HelpCircle size={16} /> Transit Engineer's Hint:
           </div>
-          <ul className="list-disc pl-5 space-y-1 text-slate-300">
+          <ul className="list-disc pl-5 space-y-1 text-[#665022]">
             {cityMission.hints.map((h, i) => (
               <li key={i}>{h}</li>
             ))}
@@ -247,8 +247,8 @@ export function SmartCityPage() {
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: 3D City Grid Simulation */}
-        <div className="lg:col-span-7 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 flex flex-col justify-between shadow-2xl">
-          <div className="flex items-center justify-between gap-2 p-3 bg-slate-950/80 rounded-2xl border border-slate-800 text-xs text-slate-300 font-medium mb-4">
+        <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-[#e2ece5] flex flex-col justify-between shadow-card">
+          <div className="flex items-center justify-between gap-2 p-3 bg-[#f4f8f5] rounded-2xl border border-[#e2ece5] text-xs text-[#1b382b] font-medium mb-4">
             <div>
               🚗 <strong>Autonomous Objective:</strong> {cityMission.objective}
             </div>
@@ -261,8 +261,8 @@ export function SmartCityPage() {
               }}
               className={`px-3 py-1 rounded-xl text-xs font-black border flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                 viewMode3D
-                  ? 'bg-gradient-to-r from-sky-500 to-cyan-500 text-slate-950 border-sky-400 shadow-md shadow-sky-500/20'
-                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                  ? 'bg-[#2d6a4f] text-white border-[#2d6a4f] shadow-sm'
+                  : 'bg-white text-[#5b7566] border-[#e2ece5] hover:text-[#1b382b]'
               }`}
             >
               <Box size={14} />
@@ -285,9 +285,9 @@ export function SmartCityPage() {
               height="360px"
             />
           ) : (
-            <div className="flex-1 flex items-center justify-center p-4 bg-slate-950 rounded-2xl border border-slate-800 min-h-[300px]">
+            <div className="flex-1 flex items-center justify-center p-4 bg-[#f4f8f5] rounded-2xl border border-[#e2ece5] min-h-[300px]">
               <div
-                className="grid gap-2 p-3 bg-slate-900 rounded-2xl border border-slate-800 relative shadow-inner"
+                className="grid gap-2 p-3 bg-white rounded-2xl border border-[#e2ece5] relative shadow-soft"
                 style={{
                   gridTemplateColumns: `repeat(${cityMission.gridSize.width}, minmax(0, 1fr))`,
                 }}
@@ -309,16 +309,16 @@ export function SmartCityPage() {
                         key={`city_${col}_${row}`}
                         className={`w-14 h-14 rounded-xl flex items-center justify-center relative transition-all ${
                           isGoal
-                            ? 'bg-emerald-950 border-2 border-emerald-400'
+                            ? 'bg-[#eaf2ec] border-2 border-[#2d6a4f]'
                             : obs?.type === 'gate'
                             ? isGateOpen
-                              ? 'bg-indigo-950/60 border border-emerald-400'
-                              : 'bg-rose-950/80 border-2 border-rose-500'
+                              ? 'bg-[#eaf2ec] border border-[#2d6a4f]'
+                              : 'bg-rose-50 border-2 border-rose-400'
                             : obs?.type === 'wall'
-                            ? 'bg-slate-800/80 border border-slate-700'
+                            ? 'bg-[#e2ece5] border border-[#d3e2d8]'
                             : sw
-                            ? 'bg-emerald-950/60 border border-emerald-400 animate-pulse'
-                            : 'bg-slate-900 border border-slate-800'
+                            ? 'bg-[#eaf2ec] border border-[#2d6a4f] animate-pulse'
+                            : 'bg-[#f4f8f5] border border-[#e2ece5]'
                         }`}
                       >
                         {obs?.type === 'wall' && <span className="text-xl">🏢</span>}
@@ -356,27 +356,27 @@ export function SmartCityPage() {
           )}
 
           <div className="mt-4 flex items-center justify-between text-xs font-mono">
-            <span className="text-slate-400">
+            <span className="text-[#5b7566]">
               Transit Status:{' '}
-              <strong className={activeStep.status === 'collision' ? 'text-rose-400' : 'text-emerald-400'}>
+              <strong className={activeStep.status === 'collision' ? 'text-rose-600' : 'text-[#2d6a4f]'}>
                 {activeStep.message || 'Ready for deployment'}
               </strong>
             </span>
-            <span className="text-amber-400">
+            <span className="text-[#2d6a4f] font-bold">
               Batteries: {activeStep.crystalsCollected.length} / {cityMission.crystals.length}
             </span>
           </div>
         </div>
 
         {/* Right: Automation Logic Controller & Block Builder */}
-        <div className="lg:col-span-5 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
+        <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-              <Activity className="text-sky-400" size={18} /> Signal Automation Program
+            <h3 className="text-sm font-extrabold text-[#1b382b] flex items-center gap-2">
+              <Activity className="text-[#2d6a4f]" size={18} /> Signal Automation Program
             </h3>
             <button
               onClick={handleClear}
-              className="text-[11px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer"
+              className="text-[11px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
             >
               <Trash2 size={12} /> Clear
             </button>
@@ -384,53 +384,53 @@ export function SmartCityPage() {
 
           {/* Action Chips to build logic */}
           <div className="space-y-1.5">
-            <span className="text-[11px] text-slate-400 font-bold block">Add Movement & Signal Actions:</span>
+            <span className="text-[11px] text-[#5b7566] font-bold block">Add Movement & Signal Actions:</span>
             <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => handleAddBlock('move_up')}
-                className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
               >
                 <ArrowUp size={12} /> Up
               </button>
               <button
                 onClick={() => handleAddBlock('move_down')}
-                className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
               >
                 <ArrowDown size={12} /> Down
               </button>
               <button
                 onClick={() => handleAddBlock('move_left')}
-                className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft size={12} /> Left
               </button>
               <button
                 onClick={() => handleAddBlock('move_right')}
-                className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
               >
                 <ArrowRight size={12} /> Right
               </button>
               <button
                 onClick={() => handleAddBlock('move_forward')}
-                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold cursor-pointer"
+                className="px-2.5 py-1.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#e2ece5] text-[#1b382b] rounded-xl text-xs font-bold cursor-pointer"
               >
                 + Forward
               </button>
               <button
                 onClick={() => handleAddBlock('turn_left')}
-                className="px-2.5 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded-xl text-xs font-bold cursor-pointer"
+                className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold cursor-pointer"
               >
                 ↩ Left
               </button>
               <button
                 onClick={() => handleAddBlock('turn_right')}
-                className="px-2.5 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded-xl text-xs font-bold cursor-pointer"
+                className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold cursor-pointer"
               >
                 ↪ Right
               </button>
               <button
                 onClick={() => handleAddBlock('interact')}
-                className="px-2.5 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-bold cursor-pointer"
+                className="px-2.5 py-1.5 bg-[#2d6a4f] hover:bg-[#245840] border border-[#2d6a4f] text-white rounded-xl text-xs font-bold cursor-pointer"
               >
                 📶 Signal Interact
               </button>
@@ -438,9 +438,9 @@ export function SmartCityPage() {
           </div>
 
           {/* Instruction Queue List */}
-          <div className="min-h-[140px] max-h-[200px] overflow-y-auto bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-1.5 custom-scrollbar">
+          <div className="min-h-[140px] max-h-[200px] overflow-y-auto bg-[#f4f8f5] p-3 rounded-2xl border border-[#e2ece5] space-y-1.5 custom-scrollbar">
             {blocks.length === 0 ? (
-              <div className="text-center py-6 text-slate-500 text-xs font-semibold">
+              <div className="text-center py-6 text-[#7a9386] text-xs font-semibold">
                 No instructions added yet. Tap action buttons above to construct your transit route!
               </div>
             ) : (
@@ -449,17 +449,17 @@ export function SmartCityPage() {
                   key={b.id || i}
                   className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
                     simulationResult && currentStepIndex === i + 1
-                      ? 'bg-sky-500 text-slate-950 scale-102 shadow-md shadow-sky-500/20'
-                      : 'bg-slate-900 border-slate-800 text-slate-200'
+                      ? 'bg-[#eaf2ec] border-[#2d6a4f] text-[#2d6a4f] shadow-sm'
+                      : 'bg-white border-[#e2ece5] text-[#1b382b]'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-slate-500">#{i + 1}</span>
+                    <span className="text-[10px] font-mono text-[#7a9386]">#{i + 1}</span>
                     <span className="capitalize">{b.type.replace('_', ' ')}</span>
                   </div>
                   <button
                     onClick={() => handleRemoveBlock(i)}
-                    className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"
+                    className="text-[#7a9386] hover:text-rose-600 p-1 cursor-pointer"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -469,7 +469,7 @@ export function SmartCityPage() {
           </div>
 
           {lastError && (
-            <div className="p-3 bg-rose-950/70 border border-rose-500/40 text-rose-300 text-xs font-bold rounded-xl text-center">
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-xl text-center">
               {lastError}
             </div>
           )}
@@ -477,9 +477,9 @@ export function SmartCityPage() {
           <button
             onClick={handleRunTrafficTest}
             disabled={isPlaying}
-            className="w-full py-3.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-sky-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black text-sm rounded-2xl shadow-card transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Play size={18} className="fill-slate-950" />
+            <Play size={18} className="fill-white" />
             {isPlaying ? 'SIMULATING TRANSIT GRID...' : 'DEPLOY TRANSIT AUTOMATION'}
           </button>
 
@@ -487,15 +487,15 @@ export function SmartCityPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="p-4 bg-emerald-950/70 border border-emerald-500/40 rounded-2xl text-center space-y-2"
+              className="p-4 bg-[#eaf2ec] border border-[#d3e2d8] rounded-2xl text-center space-y-2"
             >
-              <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-extrabold text-sm">
+              <div className="flex items-center justify-center gap-1.5 text-[#2d6a4f] font-extrabold text-sm">
                 <ShieldCheck size={18} /> City Grid Synchronized!
               </div>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-[#5b7566]">
                 You automated dynamic signal switching, ensuring power cells safely reached destination.
               </p>
-              <div className="flex justify-center gap-3 pt-1 text-xs font-bold text-emerald-300">
+              <div className="flex justify-center gap-3 pt-1 text-xs font-bold text-[#2d6a4f]">
                 <span>+{cityMission.xpReward} XP</span>
                 <span>+{cityMission.coinReward} Coins</span>
               </div>

@@ -288,17 +288,17 @@ export function BugDungeonPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
+    <div className="space-y-6 max-w-7xl mx-auto w-full pb-12">
       {/* Header */}
-      <div className="p-6 bg-gradient-to-r from-rose-950/80 via-slate-900 to-indigo-950 rounded-3xl border border-rose-500/30 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="p-6 bg-white rounded-3xl border border-[#e2ece5] shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-500/20 border border-rose-500/40 rounded-full text-xs font-bold text-rose-300 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#ffe4e6] border border-[#fecdd3] rounded-full text-xs font-bold text-rose-700 mb-2">
             <Bug size={14} /> Stage 4: Break & Fix Dungeon
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#1b382b]">
             {breakFixMission.title}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
+          <p className="text-xs sm:text-sm text-[#5b7566] mt-1 font-medium">
             Observe the broken behavior, swap the faulty command or write the code directly to fix the world!
           </p>
         </div>
@@ -314,8 +314,8 @@ export function BugDungeonPage() {
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 m.id === selectedMissionId
-                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30 font-black'
-                  : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800'
+                  ? 'bg-[#2d6a4f] text-white shadow-soft font-black'
+                  : 'bg-[#f8faf8] text-[#5b7566] hover:text-[#1b382b] border border-[#e2ece5]'
               }`}
             >
               Stage {idx + 1}
@@ -328,9 +328,9 @@ export function BugDungeonPage() {
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-4 rounded-3xl bg-slate-900/90 border border-rose-500/30 shadow-xl flex items-center gap-3.5"
+        className="p-4 rounded-3xl bg-white border border-[#e2ece5] shadow-card flex items-center gap-3.5"
       >
-        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-500/20 to-indigo-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+        <div className="w-11 h-11 rounded-2xl bg-[#eaf2ec] border border-[#d8e5dc] flex items-center justify-center shrink-0">
           {pet && (
             <PetSVG
               type={pet.pet_type}
@@ -343,12 +343,12 @@ export function BugDungeonPage() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-white">{pet?.pet_name || 'Your Pet'} Co-Pilot</span>
-            <span className="text-[10px] bg-rose-500/20 text-rose-300 font-bold px-2 py-0.2 rounded-full">
+            <span className="text-xs font-black text-[#1b382b]">{pet?.pet_name || 'Your Pet'} Co-Pilot</span>
+            <span className="text-[10px] bg-[#eaf2ec] text-[#2d6a4f] font-bold px-2 py-0.2 rounded-full">
               Bug Detective Mode
             </span>
           </div>
-          <p className="text-xs text-rose-200 italic mt-0.5">
+          <p className="text-xs text-[#5b7566] italic mt-0.5 font-medium">
             "{getCompanionDungeonQuote()}"
           </p>
         </div>
@@ -357,18 +357,18 @@ export function BugDungeonPage() {
             sound.playClick();
             setShowAiHelper(true);
           }}
-          className="px-3.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-white border border-rose-500/40 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+          className="px-3.5 py-1.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] text-[#1b382b] border border-[#d8e5dc] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
         >
-          <Bot size={14} /> AI Hint
+          <Bot size={14} className="text-[#2d6a4f]" /> AI Hint
         </button>
       </motion.div>
 
       {/* Main Grid: Left Stage (3D/2D) & Right Interactive Stack / Code Editor */}
-      <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-11 gap-6 items-start">
         {/* Left: 3D Engine & Board Viewer */}
-        <div className="lg:col-span-5 bg-slate-900/90 rounded-3xl p-5 border border-slate-800 shadow-2xl flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs text-slate-300">
+        <div className="lg:col-span-5 bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-xs text-[#5b7566]">
               🔍 <strong>The Problem:</strong> {breakFixMission.objective}
             </div>
 
@@ -378,14 +378,10 @@ export function BugDungeonPage() {
                 sound.playClick();
                 setViewMode3D((prev) => !prev);
               }}
-              className={`px-3 py-1 rounded-xl text-xs font-black border flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                viewMode3D
-                  ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white border-rose-400 shadow-md shadow-rose-500/20'
-                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-              }`}
+              className="px-3 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] rounded-xl text-xs font-bold text-[#1b382b] flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <Box size={14} />
-              {viewMode3D ? '3D Cyber' : '2D View'}
+              <Box size={13} className="text-[#5b7566]" />
+              <span>{viewMode3D ? '3D View' : '2D View'}</span>
             </button>
           </div>
 
@@ -502,23 +498,23 @@ export function BugDungeonPage() {
           {/* Header with Visual / Show Code Toggle */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-                <Bug className="text-rose-400" size={18} /> Instruction Stack ({blocks.length} Steps)
+              <h3 className="text-sm font-extrabold text-[#1b382b] flex items-center gap-2">
+                <Bug className="text-rose-600" size={18} /> Instruction Stack ({blocks.length} Steps)
               </h3>
             </div>
 
             {/* Mode Switcher: Visual Blocks vs Show Code */}
             <div className="flex items-center gap-2">
-              <div className="flex bg-slate-950 rounded-xl p-0.5 border border-slate-800 shadow-inner">
+              <div className="flex bg-[#f4f8f5] rounded-2xl p-0.5 border border-[#d8e5dc]">
                 <button
                   onClick={() => {
                     sound.playClick();
                     setWorkspaceMode('visual');
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     workspaceMode === 'visual'
-                      ? 'bg-rose-500 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-[#2d6a4f] text-white shadow-soft font-black'
+                      : 'text-[#5b7566] hover:text-[#1b382b]'
                   }`}
                 >
                   <Box size={13} /> Visual
@@ -528,10 +524,10 @@ export function BugDungeonPage() {
                     sound.playClick();
                     setWorkspaceMode('code');
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     workspaceMode === 'code'
-                      ? 'bg-gradient-to-r from-rose-500 to-indigo-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-[#2d6a4f] text-white shadow-soft font-black'
+                      : 'text-[#5b7566] hover:text-[#1b382b]'
                   }`}
                 >
                   <Code2 size={13} /> Show Code
@@ -540,7 +536,7 @@ export function BugDungeonPage() {
 
               <button
                 onClick={handleResetBug}
-                className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-bold cursor-pointer"
+                className="text-[11px] text-[#5b7566] hover:text-[#1b382b] flex items-center gap-1 font-bold cursor-pointer"
                 title="Reset to default glitched code"
               >
                 <RotateCcw size={12} /> Reset Flaw
@@ -552,50 +548,50 @@ export function BugDungeonPage() {
           {workspaceMode === 'visual' ? (
             <div className="space-y-3">
               {/* PALETTE: Add More Instructions */}
-              <div className="space-y-1.5 bg-slate-950/70 p-3 rounded-2xl border border-slate-800">
-                <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
-                  <Plus size={13} className="text-amber-400" /> Add Missing Instructions:
+              <div className="space-y-1.5 bg-[#f8faf8] p-3 rounded-2xl border border-[#e2ece5]">
+                <span className="text-[11px] font-bold text-[#1b382b] flex items-center gap-1">
+                  <Plus size={13} className="text-[#2d6a4f]" /> Add Missing Instructions:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     onClick={() => handleAddBlock('move_up')}
-                    className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 bg-white hover:bg-[#eaf2ec] border border-[#d8e5dc] text-[#1b382b] rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowUp size={12} /> Up
                   </button>
                   <button
                     onClick={() => handleAddBlock('move_down')}
-                    className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 bg-white hover:bg-[#eaf2ec] border border-[#d8e5dc] text-[#1b382b] rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowDown size={12} /> Down
                   </button>
                   <button
                     onClick={() => handleAddBlock('move_left')}
-                    className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 bg-white hover:bg-[#eaf2ec] border border-[#d8e5dc] text-[#1b382b] rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowLeft size={12} /> Left
                   </button>
                   <button
                     onClick={() => handleAddBlock('move_right')}
-                    className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 bg-white hover:bg-[#eaf2ec] border border-[#d8e5dc] text-[#1b382b] rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowRight size={12} /> Right
                   </button>
                   <button
                     onClick={() => handleAddBlock('move_forward')}
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-[11px] font-bold cursor-pointer"
+                    className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#dde8df] border border-[#dce7df] text-[#1b382b] rounded-lg text-[11px] font-bold cursor-pointer"
                   >
                     + Forward
                   </button>
                   <button
                     onClick={() => handleAddBlock('turn_right')}
-                    className="px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded-lg text-[11px] font-bold cursor-pointer"
+                    className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#dde8df] border border-[#dce7df] text-[#1b382b] rounded-lg text-[11px] font-bold cursor-pointer"
                   >
                     ↪ Turn Right
                   </button>
                   <button
                     onClick={() => handleAddBlock('turn_left')}
-                    className="px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded-lg text-[11px] font-bold cursor-pointer"
+                    className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#dde8df] border border-[#dce7df] text-[#1b382b] rounded-lg text-[11px] font-bold cursor-pointer"
                   >
                     ↩ Turn Left
                   </button>

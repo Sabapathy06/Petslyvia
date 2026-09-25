@@ -189,10 +189,10 @@ export function GameScene3D({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Background and Fog matching themes
-    if (theme === 'forest') {
-      scene.background = new THREE.Color(0x0f172a); // Deep twilight slate
-      scene.fog = new THREE.FogExp2(0x0f172a, 0.035);
+    // Background and Fog matching themes (Mild elegant sage for forest/adventure)
+    if (theme === 'forest' || theme === 'sanctuary') {
+      scene.background = new THREE.Color(0xdce8e0); // Mild elegant sage background matching diorama
+      scene.fog = new THREE.FogExp2(0xdce8e0, 0.018);
     } else if (theme === 'dungeon') {
       scene.background = new THREE.Color(0x180812); // Cyber dark obsidian
       scene.fog = new THREE.FogExp2(0x180812, 0.04);
@@ -203,8 +203,8 @@ export function GameScene3D({
       scene.background = new THREE.Color(0x060919); // Cyber stadium arena
       scene.fog = new THREE.FogExp2(0x060919, 0.025);
     } else {
-      scene.background = new THREE.Color(0x090d16);
-      scene.fog = new THREE.FogExp2(0x090d16, 0.03);
+      scene.background = new THREE.Color(0xdce8e0);
+      scene.fog = new THREE.FogExp2(0xdce8e0, 0.02);
     }
 
     // 2. Camera
@@ -231,12 +231,12 @@ export function GameScene3D({
 
     // 4. Lighting Rig
     const ambientLight = new THREE.AmbientLight(
-      theme === 'dungeon' ? 0xff0055 : theme === 'forest' ? 0xe0f2fe : theme === 'arena' ? 0x818cf8 : 0x38bdf8,
-      theme === 'dungeon' ? 0.7 : 0.95
+      theme === 'dungeon' ? 0xff0055 : theme === 'forest' ? 0xf0fdf4 : theme === 'arena' ? 0x818cf8 : 0xf0fdf4,
+      theme === 'dungeon' ? 0.7 : 1.1
     );
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfff7ed, 1.4);
+    const sunLight = new THREE.DirectionalLight(0xfffef7, 1.4);
     sunLight.position.set(8, 14, 6);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 1024;
@@ -265,8 +265,8 @@ export function GameScene3D({
 
     // Secondary fill light
     const fillLight = new THREE.PointLight(
-      theme === 'forest' ? 0x10b981 : theme === 'dungeon' ? 0xec4899 : 0x06b6d4,
-      1.2,
+      theme === 'forest' ? 0x22c55e : theme === 'dungeon' ? 0xec4899 : 0x06b6d4,
+      0.8,
       18
     );
     fillLight.position.set(-6, 8, -6);
@@ -276,49 +276,49 @@ export function GameScene3D({
     const boardGroup = new THREE.Group();
     scene.add(boardGroup);
 
-    // Base Floating Island Slab
+    // Base Floating Island Slab (Stylized Diorama Base)
     const slabWidth = gridSize.width + 1.2;
     const slabDepth = gridSize.height + 1.2;
-    const slabHeight = 0.5;
+    const slabHeight = 0.55;
     const slabGeo = new THREE.BoxGeometry(slabWidth, slabHeight, slabDepth);
     const slabMat = new THREE.MeshStandardMaterial({
       color:
-        theme === 'forest'
-          ? 0x1e293b
+        theme === 'forest' || theme === 'sanctuary'
+          ? 0x6e8e7c // Soft mossy earth base
           : theme === 'dungeon'
           ? 0x1f1322
           : theme === 'city'
           ? 0x0f172a
           : 0x090d16,
-      roughness: 0.8,
-      metalness: 0.2,
+      roughness: 0.85,
+      metalness: 0.1,
     });
     const slabMesh = new THREE.Mesh(slabGeo, slabMat);
     slabMesh.position.y = -slabHeight / 2 - 0.05;
     slabMesh.receiveShadow = true;
     boardGroup.add(slabMesh);
 
-    // Glowing Board Border Bevel
-    const borderGeo = new THREE.BoxGeometry(slabWidth + 0.1, 0.08, slabDepth + 0.1);
+    // Board Bevel Rim
+    const borderGeo = new THREE.BoxGeometry(slabWidth + 0.08, 0.08, slabDepth + 0.08);
     const borderMat = new THREE.MeshStandardMaterial({
       color:
-        theme === 'forest'
-          ? 0x10b981
+        theme === 'forest' || theme === 'sanctuary'
+          ? 0x4d755f
           : theme === 'dungeon'
           ? 0xf43f5e
           : theme === 'city'
           ? 0x06b6d4
           : 0x6366f1,
       emissive:
-        theme === 'forest'
-          ? 0x059669
+        theme === 'forest' || theme === 'sanctuary'
+          ? 0x1e3a2b
           : theme === 'dungeon'
           ? 0xe11d48
           : theme === 'city'
           ? 0x0891b2
           : 0x4f46e5,
-      emissiveIntensity: 0.6,
-      roughness: 0.3,
+      emissiveIntensity: 0.2,
+      roughness: 0.4,
     });
     const borderMesh = new THREE.Mesh(borderGeo, borderMat);
     borderMesh.position.y = -0.04;
@@ -328,29 +328,29 @@ export function GameScene3D({
     const planes: THREE.Mesh[] = [];
     const tileGeo = new THREE.BoxGeometry(0.92, 0.12, 0.92);
 
-    // Materials per tile pattern
+    // Materials per tile pattern (Soft pastel mint & cream checkered)
     const tileMatA = new THREE.MeshStandardMaterial({
       color:
-        theme === 'forest'
-          ? 0x22c55e // Green lush
+        theme === 'forest' || theme === 'sanctuary'
+          ? 0xbcd6c5 // Soft pastel mint
           : theme === 'dungeon'
           ? 0x331b2c // Dark obsidian
           : theme === 'city'
           ? 0x1e293b // Dark asphalt
           : 0x1e1b4b,
-      roughness: 0.6,
+      roughness: 0.7,
     });
 
     const tileMatB = new THREE.MeshStandardMaterial({
       color:
-        theme === 'forest'
-          ? 0x16a34a // Alternating green
+        theme === 'forest' || theme === 'sanctuary'
+          ? 0xd0e4d7 // Alternating soft light cream mint
           : theme === 'dungeon'
           ? 0x251421
           : theme === 'city'
           ? 0x334155
           : 0x1e293b,
-      roughness: 0.65,
+      roughness: 0.75,
     });
 
     for (let row = 0; row < gridSize.height; row++) {
@@ -398,12 +398,12 @@ export function GameScene3D({
     const sceneryGroup = new THREE.Group();
     scene.add(sceneryGroup);
 
-    if (theme === 'forest') {
+    if (theme === 'forest' || theme === 'sanctuary') {
       // 3D Stylized Low-poly Pine Trees around edges
       const treeCount = Math.max(gridSize.width, gridSize.height) * 2;
-      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 });
-      const foliageMatA = new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.5 });
-      const foliageMatB = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.5 });
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6e523f, roughness: 0.85 });
+      const foliageMatA = new THREE.MeshStandardMaterial({ color: 0x2e6349, roughness: 0.6 });
+      const foliageMatB = new THREE.MeshStandardMaterial({ color: 0x3d7a5c, roughness: 0.6 });
 
       for (let i = 0; i < treeCount; i++) {
         const side = i % 4;
@@ -1085,7 +1085,7 @@ export function GameScene3D({
 
   return (
     <div
-      className={`relative w-full rounded-3xl overflow-hidden select-none border border-slate-800 bg-slate-950 shadow-2xl ${
+      className={`relative w-full rounded-3xl overflow-hidden select-none border border-[#e2ece5] bg-[#dce8e0] shadow-card ${
         isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''
       } ${className}`}
       style={{ height: isFullscreen ? '100vh' : height }}

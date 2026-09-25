@@ -30,61 +30,59 @@ export function AIGameMaster({ mission, currentBlocks, lastError, isOpen, onClos
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 bg-[#163324]/50 backdrop-blur-sm flex items-center justify-center p-4">
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          initial={{ opacity: 0, scale: 0.9, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="bg-slate-900 border border-slate-700/80 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden text-slate-100"
+          exit={{ opacity: 0, scale: 0.9, y: 15 }}
+          className="bg-white border border-[#e2ece5] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden text-[#1b382b]"
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-900 p-5 border-b border-slate-800 flex items-center justify-between">
+          <div className="bg-[#f4f8f5] p-5 border-b border-[#e2ece5] flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-500 p-0.5 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                  <Bot className="text-amber-400" size={20} />
-                </div>
+              <div className="w-10 h-10 rounded-2xl bg-white border border-[#d8e5dc] flex items-center justify-center shadow-soft">
+                <Bot className="text-[#2d6a4f]" size={20} />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-white flex items-center gap-1.5">
-                  AI Game Master <Sparkles size={14} className="text-amber-400" />
+                <h3 className="font-extrabold text-sm text-[#1b382b] flex items-center gap-1.5">
+                  AI Game Master <Sparkles size={14} className="text-[#2d6a4f]" />
                 </h3>
-                <p className="text-[11px] text-slate-400">Adaptive Guide & Logic Mentor</p>
+                <p className="text-[11px] text-[#5b7566]">Adaptive Guide & Logic Mentor</p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+              className="w-8 h-8 rounded-full bg-white border border-[#d8e5dc] hover:bg-[#eaf2ec] flex items-center justify-center text-[#5b7566] hover:text-[#1b382b] transition-colors cursor-pointer"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
 
           <div className="p-6 space-y-4">
             {/* Error diagnosis banner if player encountered a glitch/collision */}
             {lastError && failureExplanation && (
-              <div className="p-3.5 bg-rose-950/40 border border-rose-500/30 rounded-2xl flex items-start gap-3">
-                <ShieldAlert size={18} className="text-rose-400 shrink-0 mt-0.5" />
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3">
+                <ShieldAlert size={18} className="text-rose-600 shrink-0 mt-0.5" />
                 <div className="text-xs">
-                  <p className="font-bold text-rose-300 mb-1">Diagnostic Analysis</p>
-                  <p className="text-rose-200/90 leading-relaxed">{failureExplanation}</p>
+                  <p className="font-bold text-rose-800 mb-1">Diagnostic Analysis</p>
+                  <p className="text-rose-700 leading-relaxed font-medium">{failureExplanation}</p>
                 </div>
               </div>
             )}
 
             {/* Progressive Hint Box */}
-            <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2">
+            <div className="p-4 bg-[#f8faf8] border border-[#d8e5dc] rounded-2xl space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-amber-400 flex items-center gap-1.5">
-                  <Lightbulb size={15} /> {currentHint.title}
+                <span className="font-bold text-[#1b382b] flex items-center gap-1.5">
+                  <Lightbulb size={15} className="text-amber-500" /> {currentHint.title}
                 </span>
-                <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded-full text-slate-400 font-mono">
+                <span className="text-[10px] bg-white border border-[#d8e5dc] px-2 py-0.5 rounded-full text-[#5b7566] font-mono font-bold">
                   Level {hintLevel} / 3
                 </span>
               </div>
-              <p className="text-xs text-slate-200 leading-relaxed">{currentHint.hintText}</p>
+              <p className="text-xs text-[#5b7566] leading-relaxed font-medium">{currentHint.hintText}</p>
               {currentHint.suggestedAction && (
-                <div className="text-[11px] text-indigo-300 font-semibold bg-indigo-950/40 p-2 rounded-xl border border-indigo-500/20">
+                <div className="text-[11px] text-[#2d6a4f] font-bold bg-[#eaf2ec] p-2 rounded-xl border border-[#d5e3da]">
                   Tip: {currentHint.suggestedAction}
                 </div>
               )}
@@ -100,10 +98,10 @@ export function AIGameMaster({ mission, currentBlocks, lastError, isOpen, onClos
                       setHintLevel(lvl);
                       sound.playClick();
                     }}
-                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                    className={`w-7 h-7 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       hintLevel === lvl
-                        ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30'
-                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                        ? 'bg-[#2d6a4f] text-white shadow-soft'
+                        : 'bg-[#f4f8f5] border border-[#d8e5dc] text-[#5b7566] hover:bg-[#eaf2ec]'
                     }`}
                   >
                     {lvl}
@@ -114,14 +112,14 @@ export function AIGameMaster({ mission, currentBlocks, lastError, isOpen, onClos
               {hintLevel < 3 ? (
                 <button
                   onClick={handleNextHint}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg shadow-indigo-600/20"
+                  className="px-4 py-2 bg-[#eaf2ec] hover:bg-[#dde8df] border border-[#d8e5dc] text-[#1b382b] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-soft cursor-pointer"
                 >
                   Need More Clues? <ArrowRight size={14} />
                 </button>
               ) : (
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-2 bg-[#2d6a4f] hover:bg-[#23533e] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   Ready to Try! ✨
                 </button>

@@ -4,10 +4,14 @@
 
 @layer base {
   html {
-    font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Outfit', 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+    color-scheme: light;
   }
   body {
-    @apply bg-slate-950 text-slate-100 antialiased;
+    background-color: #f4f8f5;
+    color: #1b382b;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
@@ -50,11 +54,11 @@
   100% { transform: translateY(-40px) scale(1.4); opacity: 0; }
 }
 
-/* Custom scrollbar */
+/* Custom subtle scrollbar matching mild sage palette */
 .custom-scrollbar::-webkit-scrollbar,
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track,
 ::-webkit-scrollbar-track {
@@ -62,12 +66,17 @@
 }
 .custom-scrollbar::-webkit-scrollbar-thumb,
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  background: #c8dad0;
+  border-radius: 9999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #9cb5a5;
+}
+
+/* Mild elegant transitions */
+button, a {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Reduced motion */

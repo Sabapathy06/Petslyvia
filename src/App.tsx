@@ -23,8 +23,8 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="border-4 border-slate-800 border-t-amber-400 rounded-full w-12 h-12 animate-spin" />
+      <div className="min-h-screen bg-[#f4f8f5] flex items-center justify-center">
+        <div className="border-4 border-[#e2ece5] border-t-[#2d6a4f] rounded-full w-12 h-12 animate-spin" />
       </div>
     );
   }
@@ -38,8 +38,8 @@ function PublicOnlyRoute({ children }: { children: JSX.Element }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="border-4 border-slate-800 border-t-amber-400 rounded-full w-12 h-12 animate-spin" />
+      <div className="min-h-screen bg-[#f4f8f5] flex items-center justify-center">
+        <div className="border-4 border-[#e2ece5] border-t-[#2d6a4f] rounded-full w-12 h-12 animate-spin" />
       </div>
     );
   }

@@ -10,15 +10,17 @@ import { sound } from '@/utils/audio';
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden">
+    <div className="min-h-screen bg-[#f4f8f5] text-[#1b382b] font-sans selection:bg-[#2d6a4f] selection:text-white overflow-x-hidden">
       {/* Navbar */}
       <nav className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between relative z-20">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-400 via-orange-500 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-            <Sparkles className="text-slate-950" size={20} />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-[#1e3a2b]"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-[#2e6849]"></div>
+            <div className="w-2 h-2 rounded-full bg-[#52936f]"></div>
           </div>
-          <span className="font-black text-2xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-300 to-rose-400">
-            PETSLYVIA
+          <span className="font-black text-2xl tracking-tight text-[#1b382b]">
+            petslyvia<span className="text-[#2d6a4f]">.</span>
           </span>
         </div>
 
@@ -26,14 +28,14 @@ export function LandingPage() {
           <Link
             to="/login"
             onClick={() => sound.playClick()}
-            className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white transition-colors"
+            className="px-4 py-2 text-xs font-bold text-[#5b7566] hover:text-[#1b382b] transition-colors"
           >
             LOG IN
           </Link>
           <Link
             to="/signup"
             onClick={() => sound.playClick()}
-            className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs tracking-wide rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+            className="px-5 py-2.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black text-xs tracking-wide rounded-2xl shadow-soft transition-all cursor-pointer"
           >
             PLAY NOW →
           </Link>
@@ -42,28 +44,25 @@ export function LandingPage() {
 
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-6 pt-10 pb-20 grid lg:grid-cols-12 gap-12 items-center relative">
-        <div className="absolute top-20 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="lg:col-span-7 space-y-6 relative z-10"
         >
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full text-xs font-bold text-amber-300">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#eaf2ec] border border-[#d8e5dc] rounded-full text-xs font-bold text-[#2d6a4f]">
             <Sparkles size={14} /> Zero Coding Experience Required
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1b382b] leading-tight tracking-tight">
             Raise your pet. <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-300 to-rose-400">
+            <span className="text-[#2d6a4f]">
               Build your logic.
             </span> <br />
             Fix the world.
           </h1>
 
-          <p className="text-sm sm:text-base text-slate-300 max-w-xl leading-relaxed">
+          <p className="text-sm sm:text-base text-[#5b7566] max-w-xl leading-relaxed font-medium">
             PETSLYVIA is an adventure world where complete beginners start with zero knowledge and naturally learn programming through exploration, debugging battles, and multiplayer collaboration.
           </p>
 
@@ -71,105 +70,66 @@ export function LandingPage() {
             <Link
               to="/signup"
               onClick={() => sound.playClick()}
-              className="inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm tracking-wide rounded-2xl shadow-xl shadow-amber-500/25 transition-all"
+              className="inline-flex items-center gap-2 px-7 py-3.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black text-sm tracking-wide rounded-2xl shadow-soft transition-all"
             >
               Start Adventure Free <ArrowRight size={18} />
             </Link>
             <Link
               to="/login"
               onClick={() => sound.playClick()}
-              className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold text-sm rounded-2xl border border-slate-800 transition-all"
+              className="px-6 py-3.5 bg-white hover:bg-[#eaf2ec] text-[#1b382b] font-bold text-sm rounded-2xl border border-[#d8e5dc] shadow-soft transition-all"
             >
               I Have an Account
             </Link>
           </div>
 
           {/* Feature Highlights */}
-          <div className="grid grid-cols-3 gap-3 pt-6 border-t border-slate-900 text-xs text-slate-400">
+          <div className="grid grid-cols-3 gap-3 pt-6 border-t border-[#e2ece5] text-xs text-[#5b7566] font-semibold">
             <div className="flex items-center gap-2">
-              <Compass size={16} className="text-amber-400" />
+              <Compass size={16} className="text-[#2d6a4f]" />
               <span>Visual Quests</span>
             </div>
             <div className="flex items-center gap-2">
-              <Bug size={16} className="text-rose-400" />
+              <Bug size={16} className="text-[#2d6a4f]" />
               <span>Bug Exchange</span>
             </div>
             <div className="flex items-center gap-2">
-              <Flame size={16} className="text-indigo-400" />
+              <Flame size={16} className="text-[#2d6a4f]" />
               <span>Pet Evolution</span>
             </div>
           </div>
         </motion.div>
 
-        {/* Hero Pet Visual Preview */}
+        {/* Hero Pet Showcase */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          className="lg:col-span-5 flex justify-center relative z-10"
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="lg:col-span-5 relative"
         >
-          <div className="relative bg-slate-900/80 backdrop-blur-xl p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl flex flex-col items-center max-w-sm w-full">
-            <div className="w-full text-center mb-4">
-              <span className="text-[10px] uppercase font-black tracking-widest text-amber-400">
-                Companion Ready
-              </span>
-              <h3 className="text-base font-extrabold text-white mt-0.5">Pixel · Infant Cat</h3>
-            </div>
-
-            <div className="relative my-2">
-              <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/30 to-orange-500/30 rounded-full blur-xl" />
+          <div className="relative bg-white rounded-3xl p-8 border border-[#e2ece5] shadow-card flex flex-col items-center text-center space-y-4">
+            <div className="w-full aspect-square bg-[#dce8e0] rounded-2xl border border-[#d8e5dc] flex items-center justify-center relative overflow-hidden shadow-inner p-4">
               <PetSVG
-                type="cat"
+                type="fox"
                 stage="infant"
                 state="happy"
-                equipped={{ head: 'cap_starter', eyes: 'glasses_round' }}
                 size={180}
               />
             </div>
 
-            <div className="w-full bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 mt-4 text-center">
-              <span className="text-xs font-bold text-slate-300">Ability: Runner ⚡</span>
-              <p className="text-[11px] text-slate-400 mt-0.5">Evolves to Child at Level 3</p>
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#2d6a4f] bg-[#eaf2ec] px-2.5 py-0.5 rounded-full">
+                Your AI Companion
+              </span>
+              <h3 className="text-xl font-black text-[#1b382b] mt-1.5">
+                Meet Maple the Fox
+              </h3>
+              <p className="text-xs text-[#5b7566] mt-1">
+                Evolves dynamically with every line of code and puzzle you conquer.
+              </p>
             </div>
           </div>
         </motion.div>
-      </section>
-
-      {/* The 7 Progression Stages Section */}
-      <section className="max-w-7xl mx-auto px-6 py-16 border-t border-slate-900">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <span className="text-xs font-extrabold uppercase tracking-widest text-amber-400">
-            The Learning Journey
-          </span>
-          <h2 className="text-3xl font-black text-white mt-1">
-            From Zero to Code Without Ever Feeling Bored
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { step: '1. PLAY', title: 'Game Controls', desc: 'Control your pet with simple directional arrows.', icon: '🎮' },
-            { step: '2. DISCOVER', title: 'Code Revealed', desc: 'See how your actions secretly formed a real program.', icon: '💡' },
-            { step: '3. VISUAL LOGIC', title: 'Logic Cards', desc: 'Snap and reorder blocks for Repeat loops & conditionals.', icon: '🧩' },
-            { step: '4. BREAK & FIX', title: 'Bug Hunting', desc: 'Inspect broken systems, replace flawed steps, and debug.', icon: '🐛' },
-            { step: '5. ALTER', title: 'System Modding', desc: 'Modify live traffic grids and see real-time changes.', icon: '🏙️' },
-            { step: '6. CREATE', title: 'Level Designer', desc: 'Build and publish your own puzzles for the world.', icon: '🎨' },
-            { step: '7. REAL CODE', title: 'Python & JS', desc: 'Execute real sandbox code when you feel ready.', icon: '⚡' },
-            { step: '8. MULTIPLAYER', title: 'Bug Exchange', desc: 'Trade intentional bugs with friends worldwide.', icon: '👥' },
-          ].map((item, i) => (
-            <div
-              key={i}
-              className="p-5 bg-slate-900/60 rounded-3xl border border-slate-800/80 space-y-2 hover:border-amber-400/40 transition-all"
-            >
-              <div className="text-2xl">{item.icon}</div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
-                {item.step}
-              </span>
-              <h4 className="font-extrabold text-sm text-white">{item.title}</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">{item.desc}</p>
-            </div>
-          ))}
-        </div>
       </section>
     </div>
   );

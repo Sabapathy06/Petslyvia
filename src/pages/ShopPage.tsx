@@ -60,34 +60,34 @@ export function ShopPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
+    <div className="space-y-6 max-w-7xl mx-auto w-full pb-12">
       {/* Shop Header Banner */}
-      <div className="p-6 bg-gradient-to-r from-fuchsia-950/90 via-slate-900 to-indigo-950 rounded-3xl border border-fuchsia-500/30 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="p-6 bg-white rounded-3xl border border-[#e2ece5] shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-fuchsia-500/20 border border-fuchsia-500/40 rounded-full text-xs font-bold text-fuchsia-300 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#eaf2ec] border border-[#d8e5dc] rounded-full text-xs font-bold text-[#2d6a4f] mb-2">
             <ShoppingBag size={14} /> Cosmetic Bazaar & Wardrobe
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#1b382b]">
             Pet Accessory Emporium
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
+          <p className="text-xs sm:text-sm text-[#5b7566] mt-1">
             Customize your pet's appearance with accessories earned through logic missions!
           </p>
         </div>
 
         {/* Coin Balance Badge */}
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 font-extrabold text-sm shadow-lg shadow-amber-500/10">
-          <Coins size={18} className="text-amber-400" />
-          <span>{profile?.coins ?? 100} Coins</span>
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#d8e5dc] rounded-2xl text-[#1b382b] font-extrabold text-sm shadow-soft">
+          <span className="text-base">💎</span>
+          <span>{profile?.coins ?? 100} Gems / Coins</span>
         </div>
       </div>
 
       {/* Main Grid: Left Items Catalog | Right Live Try-on Dressing Room */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Items Catalog */}
         <div className="lg:col-span-8 space-y-4">
           {/* Category Filter Pills */}
-          <div className="flex flex-wrap gap-2 bg-slate-900/90 p-2 rounded-2xl border border-slate-800">
+          <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl border border-[#e2ece5] shadow-sm">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -95,10 +95,10 @@ export function ShopPage() {
                   setSelectedCategory(cat);
                   sound.playClick();
                 }}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold capitalize transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${
                   selectedCategory === cat
-                    ? 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-600/20'
-                    : 'bg-slate-800/60 text-slate-400 hover:text-white'
+                    ? 'bg-[#2d6a4f] text-white shadow-soft font-black'
+                    : 'text-[#5b7566] hover:text-[#1b382b] hover:bg-[#f4f8f5]'
                 }`}
               >
                 {cat}
@@ -106,90 +106,79 @@ export function ShopPage() {
             ))}
           </div>
 
-          {/* Feedback Toast */}
+          {/* Feedback message */}
           {feedback && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold rounded-2xl text-center"
-            >
+            <div className="p-3 bg-[#eaf2ec] border border-[#c8dad0] text-[#1b382b] text-xs font-bold rounded-2xl text-center shadow-soft">
               {feedback}
-            </motion.div>
+            </div>
           )}
 
           {/* Items Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
             {filteredItems.map((item) => {
               const owned = isItemOwned(item.id);
-              const isEquippedInPreview = previewEquipped[item.category] === item.id;
-              const isLocked = item.requiredLevel && (profile?.current_level ?? 1) < item.requiredLevel;
+              const isEquipped = pet?.equipped_items?.[item.category] === item.id;
+              const isPreviewed = previewEquipped[item.category] === item.id;
 
               return (
                 <div
                   key={item.id}
-                  className={`p-4 rounded-3xl border flex flex-col justify-between transition-all ${
-                    isEquippedInPreview
-                      ? 'bg-gradient-to-br from-fuchsia-950/40 via-purple-950/20 to-slate-900 border-fuchsia-400 shadow-lg shadow-fuchsia-500/10'
-                      : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                  className={`p-4 rounded-3xl border flex flex-col justify-between transition-all bg-white shadow-sm ${
+                    isEquipped
+                      ? 'border-[#2d6a4f] bg-[#f4f8f5]'
+                      : 'border-[#e2ece5] hover:border-[#c8dad0]'
                   }`}
                 >
                   <div>
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-3xl p-2 bg-slate-950 rounded-2xl border border-slate-800">
-                        {item.icon}
-                      </span>
-                      <span
-                        className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full border ${
-                          item.rarity === 'legendary'
-                            ? 'bg-amber-500/20 border-amber-400 text-amber-300'
-                            : item.rarity === 'epic'
-                            ? 'bg-purple-500/20 border-purple-400 text-purple-300'
-                            : 'bg-slate-800 border-slate-700 text-slate-400'
-                        }`}
-                      >
-                        {item.rarity}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-3xl">{item.icon}</span>
+                      <span className="text-[10px] uppercase font-bold text-[#7a9386] bg-[#f4f8f5] px-2 py-0.5 rounded-full border border-[#e2ece5]">
+                        {item.category}
                       </span>
                     </div>
 
-                    <h3 className="font-extrabold text-sm text-white">{item.name}</h3>
-                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                      {item.description}
-                    </p>
+                    <h3 className="font-extrabold text-sm text-[#1b382b]">{item.name}</h3>
+                    <p className="text-[11px] text-[#5b7566] mt-0.5 leading-relaxed">{item.description}</p>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-xs font-black text-amber-400">
-                      <Coins size={14} /> {item.price}
+                  <div className="pt-3 mt-3 border-t border-[#f0f5f1] space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-[#5b7566]">Price:</span>
+                      <span className="text-[#2d6a4f] flex items-center gap-1">
+                        💎 {item.price} Coins
+                      </span>
                     </div>
 
-                    <div className="flex gap-1.5">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleTryOn(item)}
-                        className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 ${
-                          isEquippedInPreview
-                            ? 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                        className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          isPreviewed
+                            ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]'
+                            : 'bg-[#f4f8f5] border-[#d8e5dc] text-[#1b382b] hover:bg-[#eaf2ec]'
                         }`}
-                        title="Try on in Dressing Room"
                       >
-                        <Eye size={12} /> {isEquippedInPreview ? 'Tried' : 'Try'}
+                        {isPreviewed ? 'Previewing' : 'Try On'}
                       </button>
 
                       {owned ? (
-                        <span className="px-2.5 py-1.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 rounded-xl text-[11px] font-bold flex items-center gap-1">
-                          <Check size={12} /> Owned
-                        </span>
-                      ) : isLocked ? (
-                        <span className="px-2.5 py-1.5 bg-slate-800 text-slate-500 rounded-xl text-[11px] font-bold flex items-center gap-1">
-                          <Lock size={12} /> Lv.{item.requiredLevel}
-                        </span>
+                        <button
+                          onClick={() => equipAccessory(item.id, item.category)}
+                          className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            isEquipped
+                              ? 'bg-[#eaf2ec] text-[#2d6a4f] border border-[#d5e3da]'
+                              : 'bg-[#2d6a4f] text-white hover:bg-[#23533e]'
+                          }`}
+                        >
+                          {isEquipped ? 'Equipped ✓' : 'Equip'}
+                        </button>
                       ) : (
                         <button
                           onClick={() => handlePurchase(item)}
                           disabled={buyingId === item.id}
-                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-[11px] font-black transition-all shadow-md shadow-amber-500/20"
+                          className="flex-1 py-1.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white text-xs font-bold rounded-xl shadow-soft transition-all cursor-pointer disabled:opacity-50"
                         >
-                          {buyingId === item.id ? 'Buying...' : 'BUY'}
+                          {buyingId === item.id ? 'Buying...' : 'Buy'}
                         </button>
                       )}
                     </div>
@@ -200,70 +189,33 @@ export function ShopPage() {
           </div>
         </div>
 
-        {/* Right: Live Pet Dressing Room & Wardrobe Mirror */}
-        <div className="lg:col-span-4 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 flex flex-col items-center justify-between shadow-2xl space-y-4">
-          <div className="text-center w-full">
-            <span className="text-[10px] uppercase font-black tracking-widest text-fuchsia-400">
-              Live Dressing Room
-            </span>
-            <h3 className="text-base font-extrabold text-white mt-0.5">
-              {pet?.pet_name || 'Your Pet'}'s Style
-            </h3>
+        {/* Right: Live Try-on Dressing Room */}
+        <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card flex flex-col items-center justify-between space-y-5">
+          <div className="text-center space-y-1">
+            <h2 className="text-base font-extrabold text-[#1b382b]">Dressing Room Mirror</h2>
+            <p className="text-xs text-[#5b7566]">Live preview of active cosmetic gear</p>
           </div>
 
-          {/* Humanized Companion Dressing Dialogue Bubble */}
-          <motion.div
-            key={JSON.stringify(previewEquipped)}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full p-3 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-400/30 text-xs text-fuchsia-200 flex items-center gap-2"
-          >
-            <span className="text-base">💬</span>
-            <p className="italic font-medium leading-tight">
-              {previewEquipped.head
-                ? "\"Ooh, does this headpiece make me look like a mystical coding wizard? ✨\""
-                : previewEquipped.eyes
-                ? "\"Check out these stylish shades! Ready to hack the mainframe! 😎\""
-                : previewEquipped.body
-                ? "\"This outfit is super cozy! I feel unstoppable! 🛡️\""
-                : previewEquipped.back
-                ? "\"Whoa, do these wings let me fly through cyber space? 🚀\""
-                : "\"Pick anything from the emporium! Let's find my signature style! 🐾\""}
-            </p>
-          </motion.div>
-
-          <div className="my-2 relative flex items-center justify-center">
-            <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-500/20 via-pink-500/10 to-indigo-500/20 rounded-full blur-2xl" />
+          <div className="w-full aspect-square bg-[#dce8e0] rounded-2xl border border-[#d8e5dc] flex items-center justify-center relative overflow-hidden shadow-inner p-4">
             {pet && (
               <PetSVG
                 type={pet.pet_type}
                 stage={pet.stage}
                 state="happy"
                 equipped={previewEquipped}
-                size={210}
+                size={160}
               />
             )}
           </div>
 
-          <div className="w-full bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
-            <p className="font-extrabold text-slate-300">Equipped In Dressing Room:</p>
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(previewEquipped).filter(([_, val]) => Boolean(val)).length === 0 ? (
-                <span className="text-slate-500 text-[11px] italic">No accessories equipped yet</span>
-              ) : (
-                Object.entries(previewEquipped).map(([cat, val]) => {
-                  if (!val) return null;
-                  const acc = ACCESSORIES_CATALOG.find((a) => a.id === val);
-                  return (
-                    <span
-                      key={cat}
-                      className="px-2 py-1 bg-fuchsia-500/20 border border-fuchsia-500/40 text-fuchsia-200 rounded-lg text-[10px] font-bold"
-                    >
-                      {acc?.name || val}
-                    </span>
-                  );
-                })
-              )}
+          <div className="w-full space-y-2 text-xs">
+            <div className="flex items-center justify-between text-[#5b7566]">
+              <span>Current Companion:</span>
+              <strong className="text-[#1b382b] capitalize">{pet?.pet_name}</strong>
+            </div>
+            <div className="flex items-center justify-between text-[#5b7566]">
+              <span>Form Stage:</span>
+              <strong className="text-[#1b382b] capitalize">{pet?.stage}</strong>
             </div>
           </div>
         </div>

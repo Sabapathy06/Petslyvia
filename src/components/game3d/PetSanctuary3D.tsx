@@ -73,8 +73,8 @@ export function PetSanctuary3D({
     // 1. Scene
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color(0x0a0f1d);
-    scene.fog = new THREE.FogExp2(0x0a0f1d, 0.04);
+    scene.background = new THREE.Color(0xdce8e0);
+    scene.fog = new THREE.FogExp2(0xdce8e0, 0.02);
 
     // 2. Camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 50);
@@ -91,36 +91,36 @@ export function PetSanctuary3D({
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.15;
     rendererRef.current = renderer;
 
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
     // 4. Lights
-    const ambientLight = new THREE.AmbientLight(0xfff1f2, 0.85);
+    const ambientLight = new THREE.AmbientLight(0xf0fdf4, 1.05);
     scene.add(ambientLight);
 
-    const warmLight = new THREE.DirectionalLight(0xfef08a, 1.4);
+    const warmLight = new THREE.DirectionalLight(0xfffdf5, 1.4);
     warmLight.position.set(4, 7, 4);
     warmLight.castShadow = true;
     warmLight.shadow.mapSize.width = 1024;
     warmLight.shadow.mapSize.height = 1024;
     scene.add(warmLight);
 
-    const rimLight = new THREE.PointLight(0xa855f7, 1.2, 12);
-    rimLight.position.set(-4, 4, -4);
-    scene.add(rimLight);
+    const fillLight = new THREE.PointLight(0x22c55e, 0.6, 12);
+    fillLight.position.set(-4, 4, -4);
+    scene.add(fillLight);
 
     // 5. Floating Sanctuary Island Platform
     const islandGroup = new THREE.Group();
     scene.add(islandGroup);
 
-    // Grassy circular disc
+    // Grassy circular disc (mild sage diorama)
     const grassGeo = new THREE.CylinderGeometry(2.4, 2.2, 0.4, 32);
     const grassMat = new THREE.MeshStandardMaterial({
-      color: 0x10b981,
-      roughness: 0.6,
+      color: 0x98bfa8,
+      roughness: 0.7,
       metalness: 0.1,
     });
     const grassMesh = new THREE.Mesh(grassGeo, grassMat);
@@ -131,8 +131,8 @@ export function PetSanctuary3D({
     // Stone base underside
     const stoneGeo = new THREE.CylinderGeometry(2.2, 0.4, 1.2, 32);
     const stoneMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.9,
+      color: 0x5a7a6a,
+      roughness: 0.85,
     });
     const stoneMesh = new THREE.Mesh(stoneGeo, stoneMat);
     stoneMesh.position.y = -0.8;
@@ -141,7 +141,7 @@ export function PetSanctuary3D({
     // Cozy Cushion / Rug
     const rugGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.05, 32);
     const rugMat = new THREE.MeshStandardMaterial({
-      color: 0xf59e0b,
+      color: 0xeaf2ec,
       roughness: 0.7,
     });
     const rugMesh = new THREE.Mesh(rugGeo, rugMat);
@@ -152,7 +152,7 @@ export function PetSanctuary3D({
     // Bed pillow
     const pillowGeo = new THREE.SphereGeometry(0.35, 16, 16);
     pillowGeo.scale(1.2, 0.4, 0.8);
-    const pillowMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.5 });
+    const pillowMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.5 });
     const pillow = new THREE.Mesh(pillowGeo, pillowMat);
     pillow.position.set(0.9, 0.12, -0.6);
     pillow.rotation.y = -0.4;
@@ -391,7 +391,7 @@ export function PetSanctuary3D({
 
   return (
     <div
-      className={`relative w-full rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl select-none ${className}`}
+      className={`relative w-full rounded-3xl overflow-hidden bg-[#dce8e0] border border-[#e2ece5] shadow-card select-none ${className}`}
       style={{ height }}
     >
       <div

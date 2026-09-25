@@ -22,7 +22,7 @@ export function PetHomePage() {
 
   if (!pet) {
     return (
-      <div className="p-8 text-center text-slate-400">
+      <div className="p-8 text-center text-[#5b7566]">
         Loading Pet Sanctuary...
       </div>
     );
@@ -74,317 +74,300 @@ export function PetHomePage() {
   const hour = new Date().getHours();
   const timeGreeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  const petQuotes = [
-    `I love exploring new coding puzzles with you, ${profile?.display_name || 'friend'}! ✨`,
-    `You're doing fantastic! Let's conquer another 3D level today! 🚀`,
-    `Remember to take little breaks and drink some water! 💧`,
-    `Every line of code makes me stronger and smarter! 🐾`,
-  ];
-  const [randomQuote] = useState(() => petQuotes[Math.floor(Math.random() * petQuotes.length)]);
-
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-6xl mx-auto w-full">
+    <div className="space-y-6 max-w-6xl mx-auto w-full pb-12">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-slate-900 via-slate-850 to-indigo-950 rounded-3xl border border-slate-800 shadow-xl relative overflow-hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 bg-white rounded-3xl border border-[#e2ece5] shadow-card relative overflow-hidden">
         <div className="relative z-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-xs font-bold text-amber-300 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#eaf2ec] border border-[#d8e5dc] rounded-full text-xs font-bold text-[#2d6a4f] mb-2">
             <Sparkles size={13} /> {timeGreeting}, {profile?.display_name || 'Player'}! 🏡
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">
-            {pet.pet_name}'s Cozy Grove
+          <h1 className="text-2xl sm:text-3xl font-black text-[#1b382b]">
+            {pet.pet_name}'s Cozy Sanctuary
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-            {pet.pet_name} is an adorable <strong className="capitalize text-amber-300">{pet.stage} {pet.pet_type}</strong> (Level {pet.level}). Care for your companion and dress them in unique cosmetic styles!
+          <p className="text-xs sm:text-sm text-[#5b7566] mt-1 max-w-xl">
+            {pet.pet_name} is an adorable <strong className="capitalize text-[#1b382b]">{pet.stage} {pet.pet_type}</strong> (Level {pet.level}). Care for your companion and dress them in unique cosmetic styles!
           </p>
         </div>
 
         <Link
-          to="/app/shop"
-          onClick={() => sound.playClick()}
-          className="relative z-10 px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-pink-600/20 flex items-center gap-2 transition-all cursor-pointer shrink-0"
+          to="/app/forest"
+          className="px-5 py-3 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-bold text-xs rounded-2xl shadow-soft flex items-center gap-2 transition-all cursor-pointer shrink-0 active:scale-95"
         >
-          <ShoppingBag size={16} /> Visit Bazaar Shop
+          <Compass size={16} />
+          <span>Go on Adventure</span>
         </Link>
       </div>
 
-      {/* Main Sanctuary Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Interactive 3D / 2D Pet Stage */}
-        <div className="lg:col-span-5 bg-gradient-to-b from-slate-900 to-slate-950 rounded-3xl p-5 border border-slate-800 flex flex-col items-center justify-between shadow-2xl relative overflow-hidden space-y-4">
-          {/* Action floating toast & 3D switch */}
-          <div className="w-full flex items-center justify-between z-20">
-            {actionFeedback ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md"
-              >
-                <span>✨</span> {actionFeedback}
-              </motion.div>
-            ) : (
-              <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800">
-                🏡 Cozy Haven Active
+      {/* Main Sanctuary Stage: 3D / 2D Pet Hub (Left) + Actions/Wardrobe (Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left: 3D Sanctuary Diorama */}
+        <div className="lg:col-span-7 bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#1b382b]">Companion Grove</span>
+              <span className="text-[10px] bg-[#eaf2ec] text-[#2d6a4f] px-2 py-0.5 rounded-full font-bold uppercase">
+                {pet.productivity_state}
               </span>
-            )}
+            </div>
 
             <button
               onClick={() => {
                 sound.playClick();
-                setViewMode3D((prev) => !prev);
+                setViewMode3D(!viewMode3D);
               }}
-              className={`px-3 py-1 rounded-xl text-xs font-black border flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode3D
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
-                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-              }`}
+              className="px-3 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] rounded-xl text-xs font-bold text-[#1b382b] flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <Box size={13} />
-              {viewMode3D ? '3D Playground' : '2D Avatar'}
+              <Box size={13} className="text-[#5b7566]" />
+              <span>{viewMode3D ? '3D Diorama' : '2D View'}</span>
             </button>
           </div>
 
-          {/* Humanized Companion Speech Bubble in Grove */}
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full p-3 rounded-2xl bg-amber-500/10 border border-amber-400/30 flex items-center gap-2.5 text-xs text-amber-200 shadow-sm"
-          >
-            <span className="text-xl shrink-0">💬</span>
-            <p className="italic font-medium leading-tight">
-              {activeActionTrigger === 'feed'
-                ? `\"Yum yum! That was super delicious, thank you so much! ❤️\"`
-                : activeActionTrigger === 'pet'
-                ? `\"*Purrs happily* You're the best coding buddy ever! ✨\"`
-                : activeActionTrigger === 'rest'
-                ? `\"Zzz... recharging my energy for our next adventure! 🌙\"`
-                : `\"${randomQuote}\"`}
-            </p>
-          </motion.div>
-
-          {/* 3D Sanctuary Playground or 2D SVG Avatar */}
-          {viewMode3D ? (
-            <PetSanctuary3D
-              type={pet.pet_type}
-              stage={pet.stage}
-              state={pet.productivity_state}
-              equipped={pet.equipped_items}
-              onPetClick={() => handleAction('pet')}
-              onFeedClick={() => handleAction('feed')}
-              onRestClick={() => handleAction('rest')}
-              actionTrigger={activeActionTrigger}
-              height="290px"
-            />
-          ) : (
-            <div className="relative my-4 flex items-center justify-center min-h-[260px]">
-              <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/20 via-orange-500/10 to-indigo-500/20 rounded-full blur-2xl" />
-              <PetSVG
+          {/* 3D Viewport or 2D Vector display */}
+          <div className="rounded-2xl overflow-hidden relative border border-[#d8e5dc] bg-[#dce8e0] min-h-[380px] flex items-center justify-center">
+            {viewMode3D ? (
+              <PetSanctuary3D
                 type={pet.pet_type}
+                state={pet.productivity_state}
                 stage={pet.stage}
-                state={activeActionTrigger === 'rest' ? 'sleepy' : pet.productivity_state}
                 equipped={pet.equipped_items}
-                size={230}
-                reaction={
-                  activeActionTrigger === 'feed'
-                    ? { config: { expression: 'eat', label: 'Eating', icon: '🍎', sound: 'crystal', duration: 2 }, id: Date.now() }
-                    : activeActionTrigger === 'pet'
-                    ? { config: { expression: 'love', label: 'Purring', icon: '💖', sound: 'step', duration: 2 }, id: Date.now() }
-                    : activeActionTrigger === 'rest'
-                    ? { config: { expression: 'rest', label: 'Sleeping', icon: '💤', sound: 'click', duration: 2 }, id: Date.now() }
-                    : null
-                }
+                actionTrigger={activeActionTrigger}
+                onPetClick={() => handleAction('pet')}
+                onFeedClick={() => handleAction('feed')}
+                onRestClick={() => handleAction('rest')}
+                height="380px"
               />
-            </div>
-          )}
-
-          {/* Vitals Bar */}
-          <div className="w-full space-y-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
-            <div>
-              <div className="flex justify-between text-xs font-bold mb-1">
-                <span className="flex items-center gap-1 text-amber-400">
-                  <Zap size={14} /> Energy
-                </span>
-                <span className="font-mono text-white">{pet.energy} / 100</span>
+            ) : (
+              <div className="p-8 flex flex-col items-center justify-center">
+                <PetSVG
+                  type={pet.pet_type}
+                  stage={pet.stage}
+                  state={pet.productivity_state}
+                  equipped={pet.equipped_items}
+                  size={180}
+                />
               </div>
-              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+            )}
+
+            {/* Floating Toast Notification */}
+            {actionFeedback && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute bottom-4 inset-x-0 mx-auto w-max px-4 py-2 bg-white/95 backdrop-blur-md border border-[#c8dad0] text-[#1b382b] text-xs font-bold rounded-full shadow-card flex items-center gap-2 z-20"
+              >
+                <Sparkles size={14} className="text-[#2d6a4f]" />
+                <span>{actionFeedback}</span>
+              </motion.div>
+            )}
+          </div>
+
+          {/* Pet Vital Status Gauges */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="p-3 bg-[#f8faf8] border border-[#e2ece5] rounded-2xl">
+              <div className="flex items-center justify-between text-xs font-bold text-[#1b382b] mb-1">
+                <span className="flex items-center gap-1.5">
+                  <Zap size={13} className="text-amber-500" /> Energy
+                </span>
+                <span className="font-mono text-[11px]">{pet.energy} / 100</span>
+              </div>
+              <div className="w-full h-2 bg-[#e2ece5] rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-amber-400 to-orange-500 h-full rounded-full transition-all duration-300"
+                  className="bg-amber-500 h-full rounded-full transition-all duration-500"
                   style={{ width: `${pet.energy}%` }}
                 />
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between text-xs font-bold mb-1">
-                <span className="flex items-center gap-1 text-rose-400">
-                  <Heart size={14} /> Happiness
+            <div className="p-3 bg-[#f8faf8] border border-[#e2ece5] rounded-2xl">
+              <div className="flex items-center justify-between text-xs font-bold text-[#1b382b] mb-1">
+                <span className="flex items-center gap-1.5">
+                  <Heart size={13} className="text-rose-500" /> Happiness
                 </span>
-                <span className="font-mono text-white">{pet.happiness} / 100</span>
+                <span className="font-mono text-[11px]">{pet.happiness} / 100</span>
               </div>
-              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-[#e2ece5] rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-rose-400 to-pink-500 h-full rounded-full transition-all duration-300"
+                  className="bg-rose-500 h-full rounded-full transition-all duration-500"
                   style={{ width: `${pet.happiness}%` }}
                 />
               </div>
             </div>
-          </div>
 
-          {/* Care Action Buttons */}
-          <div className="grid grid-cols-3 gap-2 w-full mt-4">
-            <button
-              onClick={() => handleAction('feed')}
-              className="py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl border border-slate-700 flex flex-col items-center gap-1 transition-all"
-            >
-              <span>🍎</span> Feed Pet
-            </button>
-            <button
-              onClick={() => handleAction('pet')}
-              className="py-2.5 bg-slate-800 hover:bg-slate-700 text-rose-300 font-bold text-xs rounded-xl border border-slate-700 flex flex-col items-center gap-1 transition-all"
-            >
-              <span>💖</span> Pet Pet
-            </button>
-            <button
-              onClick={() => handleAction('rest')}
-              className="py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold text-xs rounded-xl border border-slate-700 flex flex-col items-center gap-1 transition-all"
-            >
-              <span>🌙</span> Rest Grove
-            </button>
+            <div className="p-3 bg-[#f8faf8] border border-[#e2ece5] rounded-2xl col-span-2 sm:col-span-1">
+              <div className="flex items-center justify-between text-xs font-bold text-[#1b382b] mb-1">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-[#2d6a4f]" /> Level {pet.level}
+                </span>
+                <span className="font-mono text-[11px] text-[#5b7566] capitalize">{pet.stage}</span>
+              </div>
+              <div className="w-full h-2 bg-[#e2ece5] rounded-full overflow-hidden">
+                <div
+                  className="bg-[#2d6a4f] h-full rounded-full transition-all duration-500"
+                  style={{ width: `${(profile?.total_xp || 50) % 100}%` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Tabbed Modules (Wardrobe, Evolution, Abilities) */}
-        <div className="lg:col-span-7 space-y-4">
-          {/* Navigation Tabs */}
-          <div className="flex bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 gap-2">
+        {/* Right: Care Actions & Wardrobe Styling Panel */}
+        <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card flex flex-col justify-between space-y-5">
+          {/* Tab Selection */}
+          <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#f4f8f5] rounded-2xl border border-[#d8e5dc]">
             <button
               onClick={() => {
+                sound.playClick();
                 setActiveTab('care');
-                sound.playClick();
               }}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 activeTab === 'care'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[#2d6a4f] text-white shadow-soft font-black'
+                  : 'text-[#5b7566] hover:text-[#1b382b]'
               }`}
             >
-              <Smile size={15} /> Companion Care
+              💖 Care
             </button>
             <button
               onClick={() => {
+                sound.playClick();
                 setActiveTab('wardrobe');
-                sound.playClick();
               }}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 activeTab === 'wardrobe'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[#2d6a4f] text-white shadow-soft font-black'
+                  : 'text-[#5b7566] hover:text-[#1b382b]'
               }`}
             >
-              <Shirt size={15} /> Wardrobe ({ownedAccessories.length})
+              👔 Wardrobe
             </button>
             <button
               onClick={() => {
-                setActiveTab('evolution');
                 sound.playClick();
+                setActiveTab('evolution');
               }}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 activeTab === 'evolution'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[#2d6a4f] text-white shadow-soft font-black'
+                  : 'text-[#5b7566] hover:text-[#1b382b]'
               }`}
             >
-              <Flame size={15} /> Evolution & Skills
+              🌟 Evolution
             </button>
           </div>
 
-          {/* TAB 1: CARE & PERSONALITY */}
+          {/* TAB 1: CARE ACTIONS */}
           {activeTab === 'care' && (
-            <div className="bg-slate-900/90 rounded-3xl p-6 border border-slate-800 space-y-4">
-              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                <Smile className="text-amber-400" size={18} /> Personality & Growth Notes
-              </h3>
-              <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
-                "{pet.personality || 'A composed companion who celebrates quiet, steady progress in logic and exploration.'}"
-              </p>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-extrabold text-[#1b382b]">Daily Companion Care</h3>
+                <p className="text-xs text-[#5b7566]">
+                  Interact with {pet.pet_name} to maintain peak productivity & morale:
+                </p>
+              </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="p-4 bg-slate-950/60 rounded-2xl border border-slate-800">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Total Adventure XP</span>
-                  <p className="text-lg font-black text-amber-400 mt-1">{pet.xp} XP</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Earned from mission completions</p>
-                </div>
-                <div className="p-4 bg-slate-950/60 rounded-2xl border border-slate-800">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Active State</span>
-                  <p className="text-lg font-black text-emerald-400 capitalize mt-1">{pet.productivity_state}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Ready for adventure</p>
-                </div>
+              <div className="grid grid-cols-1 gap-2.5">
+                <button
+                  onClick={() => handleAction('feed')}
+                  className="p-3.5 bg-[#f8faf8] hover:bg-[#eaf2ec] border border-[#e2ece5] hover:border-[#2d6a4f] rounded-2xl flex items-center justify-between text-left transition-all cursor-pointer group shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl group-hover:scale-110 transition-transform">🍎</span>
+                    <div>
+                      <span className="text-xs font-bold text-[#1b382b] block">Feed Snack</span>
+                      <span className="text-[11px] text-[#5b7566]">+20 Energy points</span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-[#2d6a4f]">Feed →</span>
+                </button>
+
+                <button
+                  onClick={() => handleAction('pet')}
+                  className="p-3.5 bg-[#f8faf8] hover:bg-[#eaf2ec] border border-[#e2ece5] hover:border-[#2d6a4f] rounded-2xl flex items-center justify-between text-left transition-all cursor-pointer group shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl group-hover:scale-110 transition-transform">🐾</span>
+                    <div>
+                      <span className="text-xs font-bold text-[#1b382b] block">Pet & Cuddle</span>
+                      <span className="text-[11px] text-[#5b7566]">+15 Happiness points</span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-[#2d6a4f]">Pet →</span>
+                </button>
+
+                <button
+                  onClick={() => handleAction('rest')}
+                  className="p-3.5 bg-[#f8faf8] hover:bg-[#eaf2ec] border border-[#e2ece5] hover:border-[#2d6a4f] rounded-2xl flex items-center justify-between text-left transition-all cursor-pointer group shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl group-hover:scale-110 transition-transform">💤</span>
+                    <div>
+                      <span className="text-xs font-bold text-[#1b382b] block">Rest in Cozy Bed</span>
+                      <span className="text-[11px] text-[#5b7566]">Full energy refill</span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-[#2d6a4f]">Rest →</span>
+                </button>
               </div>
             </div>
           )}
 
-          {/* TAB 2: WARDROBE & EQUIPPING ACCESSORIES */}
+          {/* TAB 2: WARDROBE & COSMETICS */}
           {activeTab === 'wardrobe' && (
-            <div className="bg-slate-900/90 rounded-3xl p-6 border border-slate-800 space-y-4">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                    <Shirt className="text-amber-400" size={18} /> Equipped Cosmetics
-                  </h3>
-                  <p className="text-xs text-slate-400">Click any owned item to equip or unequip instantly.</p>
+                  <h3 className="text-sm font-extrabold text-[#1b382b]">Dressing Room</h3>
+                  <p className="text-xs text-[#5b7566]">Equip styles from your collection:</p>
                 </div>
                 <Link
                   to="/app/shop"
-                  className="text-xs font-bold text-amber-400 hover:text-amber-300 underline"
+                  className="text-xs font-bold text-[#2d6a4f] hover:underline flex items-center gap-1"
                 >
-                  Buy More in Shop →
+                  <ShoppingBag size={13} />
+                  <span>Bazaar</span>
                 </Link>
               </div>
 
               {ownedAccessories.length === 0 ? (
-                <div className="text-center py-10 bg-slate-950/40 rounded-2xl border border-slate-800 space-y-3">
-                  <div className="text-4xl">🧢</div>
-                  <p className="text-xs text-slate-400 font-semibold">
-                    You have not purchased any accessories yet!
+                <div className="p-6 bg-[#f8faf8] border border-[#e2ece5] rounded-2xl text-center space-y-2">
+                  <span className="text-2xl">🛍️</span>
+                  <p className="text-xs font-semibold text-[#5b7566]">
+                    No cosmetic accessories owned yet!
                   </p>
                   <Link
                     to="/app/shop"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl"
+                    className="inline-block px-3 py-1.5 bg-[#2d6a4f] text-white text-xs font-bold rounded-xl shadow-soft"
                   >
-                    Open Bazaar Shop (Balance: {profile?.coins ?? 100} Coins)
+                    Visit Cosmetic Bazaar
                   </Link>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {ownedAccessories.map((item) => {
-                    const isEquipped = pet.equipped_items?.[item.category] === item.id;
-
+                <div className="grid grid-cols-2 gap-2.5 max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
+                  {ownedAccessories.map((acc) => {
+                    const isEquipped = pet.equipped_items?.[acc.category] === acc.id;
                     return (
                       <div
-                        key={item.id}
-                        className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
+                        key={acc.id}
+                        onClick={() => handleEquipToggle(acc.id, acc.category)}
+                        className={`p-3 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between shadow-sm ${
                           isEquipped
-                            ? 'bg-amber-500/10 border-amber-400 shadow-lg shadow-amber-500/10'
-                            : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                            ? 'bg-[#eaf2ec] border-[#2d6a4f] text-[#1b382b]'
+                            : 'bg-[#f8faf8] border-[#e2ece5] hover:border-[#c8dad0]'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{item.icon}</span>
-                          <div>
-                            <p className="text-xs font-extrabold text-white">{item.name}</p>
-                            <span className="text-[10px] text-slate-400 capitalize">{item.category} item</span>
-                          </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xl">{acc.icon}</span>
+                          <span className="text-[9px] font-bold uppercase text-[#7a9386]">
+                            {acc.category}
+                          </span>
                         </div>
-
-                        <button
-                          onClick={() => handleEquipToggle(item.id, item.category)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                            isEquipped
-                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
-                              : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                          }`}
-                        >
-                          {isEquipped ? 'Unequip' : 'Equip'}
-                        </button>
+                        <div className="mt-2">
+                          <span className="text-xs font-bold block truncate">{acc.name}</span>
+                          <span className="text-[10px] text-[#2d6a4f] font-semibold block mt-0.5">
+                            {isEquipped ? '✓ Equipped' : 'Click to Equip'}
+                          </span>
+                        </div>
                       </div>
                     );
                   })}
@@ -393,84 +376,51 @@ export function PetHomePage() {
             </div>
           )}
 
-          {/* TAB 3: EVOLUTION & DEMONSTRATED SKILLS */}
+          {/* TAB 3: EVOLUTION PATH */}
           {activeTab === 'evolution' && (
-            <div className="bg-slate-900/90 rounded-3xl p-6 border border-slate-800 space-y-4">
-              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                <Flame className="text-amber-400" size={18} /> Evolution Pathway
-              </h3>
-              <p className="text-xs text-slate-400">
-                In Petslyvia, pet evolution is tied directly to demonstrated problem-solving skills!
-              </p>
+            <div className="space-y-3.5">
+              <div className="space-y-1">
+                <h3 className="text-sm font-extrabold text-[#1b382b]">Growth & Abilities</h3>
+                <p className="text-xs text-[#5b7566]">
+                  Current Stage: <strong className="capitalize text-[#1b382b]">{pet.stage}</strong> (Level {pet.level})
+                </p>
+              </div>
 
-              <div className="space-y-3">
-                {/* Stage 1: Infant */}
-                <div
-                  className={`p-4 rounded-2xl border ${
-                    pet.stage === 'infant'
-                      ? 'bg-amber-500/10 border-amber-400'
-                      : 'bg-slate-950/50 border-slate-800 opacity-80'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-xs text-white">🌱 Stage 1: Infant Companion</span>
-                    <span className="text-[10px] font-bold text-amber-400">Levels 1 - 2</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 mt-1">
-                    Learns directional navigation and sequential actions. Unlocks: <strong>Runner Ability</strong>.
-                  </p>
-                </div>
+              <div className="space-y-2">
+                {Object.entries(STAGE_REQUIREMENTS).map(([stg, info]) => {
+                  const isUnlocked = pet.level >= info.minLevel;
+                  const isCurrent = pet.stage === stg;
 
-                {/* Stage 2: Child */}
-                <div
-                  className={`p-4 rounded-2xl border ${
-                    pet.stage === 'child'
-                      ? 'bg-emerald-500/10 border-emerald-400'
-                      : 'bg-slate-950/50 border-slate-800 opacity-80'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-xs text-white">🌿 Stage 2: Child Adventurer</span>
-                    <span className="text-[10px] font-bold text-emerald-400">Levels 3 - 4</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 mt-1">
-                    Masters Repeat loops and basic debugging. Unlocks: <strong>Repeat Ability & Bug Sense</strong>.
-                  </p>
-                </div>
-
-                {/* Stage 3: Teen */}
-                <div
-                  className={`p-4 rounded-2xl border ${
-                    pet.stage === 'teen'
-                      ? 'bg-indigo-500/10 border-indigo-400'
-                      : 'bg-slate-950/50 border-slate-800 opacity-80'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-xs text-white">⚡ Stage 3: Teen Pathfinder</span>
-                    <span className="text-[10px] font-bold text-indigo-400">Levels 5 - 6</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 mt-1">
-                    Solves complex multi-step systems and conditionals. Unlocks: <strong>Smart Path & Arcane Crest</strong>.
-                  </p>
-                </div>
-
-                {/* Stage 4: Adult */}
-                <div
-                  className={`p-4 rounded-2xl border ${
-                    pet.stage === 'adult'
-                      ? 'bg-amber-500/20 border-amber-400 shadow-lg shadow-amber-500/10'
-                      : 'bg-slate-950/50 border-slate-800 opacity-80'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-xs text-amber-300">👑 Stage 4: Adult Celestial Master</span>
-                    <span className="text-[10px] font-bold text-amber-400">Levels 7+</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 mt-1">
-                    Achieves complete logic synthesis. Unlocks: <strong>Astral Wings, Rune Halo & Master Coding Sandbox</strong>.
-                  </p>
-                </div>
+                  return (
+                    <div
+                      key={stg}
+                      className={`p-3 rounded-2xl border text-xs transition-all ${
+                        isCurrent
+                          ? 'bg-[#eaf2ec] border-[#2d6a4f] text-[#1b382b] font-bold shadow-sm'
+                          : isUnlocked
+                          ? 'bg-[#f8faf8] border-[#e2ece5] text-[#5b7566]'
+                          : 'bg-[#f8faf8] border-[#e2ece5] opacity-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="capitalize font-black flex items-center gap-1.5">
+                          {isCurrent ? '🌟' : isUnlocked ? '✓' : '🔒'} {stg} Form
+                        </span>
+                        <span className="text-[10px] font-mono">Req Lv.{info.minLevel}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {info.abilities.map((ab, i) => (
+                          <span
+                            key={i}
+                            className="text-[10px] bg-white border border-[#d8e5dc] text-[#5b7566] px-1.5 py-0.5 rounded-md"
+                          >
+                            {ab}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

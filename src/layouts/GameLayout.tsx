@@ -1,10 +1,10 @@
-import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Map, Home, Compass, Bug, Building2, ShoppingBag,
-  Sparkles, Users, Award, Code2, LogOut, Volume2, VolumeX, Menu, X, Coins, Zap,
-  Settings, Mail, User, ShieldCheck
+  Sparkles, Users, Award, Code2, LogOut, Volume2, VolumeX, Menu, X,
+  Settings, SlidersHorizontal, Lock, CheckCircle2, ChevronRight, Wand2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useGameData } from '@/hooks/useGameData';
@@ -13,18 +13,22 @@ import { Taskbar } from '@/components/Taskbar';
 import { SettingsModal } from '@/components/SettingsModal';
 import { sound } from '@/utils/audio';
 
-const NAV_ITEMS = [
-  { to: '/app', label: 'World Map', icon: Map, areaKey: 'all' },
-  { to: '/app/sanctuary', label: 'Pet Home', icon: Home, areaKey: 'pet_home' },
-  { to: '/app/forest', label: 'Logic Forest', icon: Compass, areaKey: 'logic_forest' },
-  { to: '/app/dungeon', label: 'Bug Dungeon', icon: Bug, areaKey: 'bug_dungeon' },
-  { to: '/app/city', label: 'Smart City', icon: Building2, areaKey: 'smart_city' },
-  { to: '/app/shop', label: 'Bazaar Shop', icon: ShoppingBag, areaKey: 'shop' },
-  { to: '/app/creator', label: 'Creator World', icon: Sparkles, areaKey: 'creator_world' },
-  { to: '/app/multiplayer', label: 'Bug Exchange', icon: Users, areaKey: 'challenge_arena' },
-  { to: '/app/lab', label: 'Coding Lab', icon: Code2, areaKey: 'coding_lab' },
-  { to: '/app/skills', label: 'Skills & Badges', icon: Award, areaKey: 'all' },
-  { to: '/app/settings', label: 'Account & Settings', icon: Settings, areaKey: 'all' },
+interface JourneyStep {
+  id: string;
+  stepNumber: number;
+  label: string;
+  to: string;
+  areaKey: string;
+}
+
+const JOURNEY_STEPS: JourneyStep[] = [
+  { id: 'step_1', stepNumber: 1, label: 'First steps', to: '/app/forest', areaKey: 'logic_forest' },
+  { id: 'step_2', stepNumber: 2, label: 'Hidden magic', to: '/app/sanctuary', areaKey: 'pet_home' },
+  { id: 'step_3', stepNumber: 3, label: 'Forest of logic', to: '/app/lab', areaKey: 'coding_lab' },
+  { id: 'step_4', stepNumber: 4, label: 'Bug dungeon', to: '/app/dungeon', areaKey: 'bug_dungeon' },
+  { id: 'step_5', stepNumber: 5, label: 'Smart city', to: '/app/city', areaKey: 'smart_city' },
+  { id: 'step_6', stepNumber: 6, label: 'Quantum lab', to: '/app/skills', areaKey: 'all' },
+  { id: 'step_7', stepNumber: 7, label: 'Creator island', to: '/app/creator', areaKey: 'creator_world' },
 ];
 
 export function GameLayout() {
@@ -41,253 +45,313 @@ export function GameLayout() {
     navigate('/login');
   };
 
-  const stageColors: Record<string, string> = {
-    infant: 'from-amber-400 to-orange-400 text-slate-950',
-    child: 'from-emerald-400 to-teal-400 text-slate-950',
-    teen: 'from-indigo-400 to-purple-400 text-white',
-    adult: 'from-rose-400 to-pink-500 text-white',
+  // Determine active breadcrumb based on current path
+  const getBreadcrumbTitle = () => {
+    const p = location.pathname;
+    if (p.includes('/forest')) return 'Adventure';
+    if (p.includes('/sanctuary')) return 'Pet Sanctuary';
+    if (p.includes('/dungeon')) return 'Bug Dungeon';
+    if (p.includes('/city')) return 'Smart City';
+    if (p.includes('/shop')) return 'Bazaar Shop';
+    if (p.includes('/creator')) return 'Creator Island';
+    if (p.includes('/multiplayer')) return 'Bug Exchange';
+    if (p.includes('/lab')) return 'Coding Lab';
+    if (p.includes('/skills')) return 'Skills & Badges';
+    if (p.includes('/settings')) return 'Settings';
+    return 'World Map';
   };
 
-  const currentStage = pet?.stage || 'infant';
-  const stageBadgeStyle = stageColors[currentStage] || stageColors.infant;
-
-  // Level progress percentage (0 - 100)
-  const xpInCurrentLevel = (profile?.total_xp || 50) % 100;
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row font-sans overflow-x-hidden">
-      {/* Top Mobile Bar */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40">
+    <div className="min-h-screen bg-[#f4f8f5] text-[#1b382b] flex flex-col md:flex-row font-sans selection:bg-[#2d6a4f] selection:text-white antialiased">
+      {/* Mobile Top Navbar */}
+      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-md border-b border-[#e2ece5] sticky top-0 z-40">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center font-black text-slate-950 text-sm">
-            P
+          {/* Logo icon dots */}
+          <div className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#1e3a2b]"></span>
+            <span className="w-2 h-2 rounded-full bg-[#3d7a5a]"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#6ba887]"></span>
           </div>
-          <span className="font-extrabold text-sm tracking-wider text-amber-400">PETSLYVIA</span>
+          <span className="font-extrabold text-base tracking-tight text-[#1e3a2b]">petslyvia.</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setPlayerRole(profile?.role === 'coder' ? 'non_coder' : 'coder')}
-            className="px-2 py-1 rounded-lg bg-slate-800 text-[10px] font-bold text-amber-300"
-          >
-            {profile?.role === 'coder' ? '💻 Coder' : '🧩 Visual'}
-          </button>
-          <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20 text-xs font-bold text-amber-300">
-            <Coins size={13} /> {profile?.coins ?? 100}
+          <div className="flex items-center gap-1 bg-[#eaf2ec] px-2.5 py-1 rounded-full text-xs font-semibold text-[#1e3a2b]">
+            <Sparkles size={13} className="text-amber-600" /> {profile?.total_xp ?? 50} XP
+          </div>
+          <div className="flex items-center gap-1 bg-[#eaf2ec] px-2 py-1 rounded-full text-xs font-semibold text-[#1e3a2b]">
+            💎 {profile?.coins ?? 0}
           </div>
           <button
-            onClick={() => {
-              sound.playClick();
-              setShowSettingsModal(true);
-            }}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
-            title="Account Settings"
-          >
-            <Settings size={18} />
-          </button>
-          <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 cursor-pointer"
+            className="p-1.5 rounded-lg bg-[#eaf2ec] text-[#1e3a2b] cursor-pointer"
+            aria-label="Toggle navigation menu"
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </header>
 
-      {/* Sidebar Navigation HUD */}
+      {/* Left Sidebar Navigation HUD */}
       <aside
-        className={`fixed md:sticky top-0 inset-y-0 left-0 z-50 w-64 bg-slate-900/95 backdrop-blur-xl border-r border-slate-800 flex flex-col transition-transform duration-300 ${
+        className={`fixed md:sticky top-0 inset-y-0 left-0 z-50 w-64 bg-white border-r border-[#e2ece5] flex flex-col justify-between transition-transform duration-300 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        {/* Brand Header */}
-        <div className="px-5 py-4 border-b border-slate-800/80 flex items-center justify-between">
-          <Link
-            to="/app"
-            onClick={() => setMobileOpen(false)}
-            className="flex items-center gap-2.5 group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 via-orange-500 to-rose-500 flex items-center justify-center shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
-              <Sparkles className="text-slate-950" size={18} />
-            </div>
-            <div>
-              <span className="font-black text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-300 to-rose-400 block leading-tight">
-                PETSLYVIA
-              </span>
-              <span className="text-[10px] text-slate-400 font-semibold tracking-wide">
-                Logic Adventure World
-              </span>
-            </div>
-          </Link>
-        </div>
-
-        {/* Pet Mini HUD Status Card */}
-        {pet && (
-          <div className="mx-3 my-3 p-3 rounded-2xl bg-slate-950/80 border border-slate-800 relative overflow-hidden space-y-2.5">
-            <div
-              onClick={() => sound.playPet()}
-              className="flex items-center gap-3 cursor-pointer group select-none"
-              title="Click pet to cuddle & hear a cheerful sound!"
+        <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar">
+          {/* Brand Header */}
+          <div className="px-6 pt-6 pb-4 border-b border-[#f0f5f1]">
+            <Link
+              to="/app"
+              onClick={() => setMobileOpen(false)}
+              className="group block"
             >
-              <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden relative group-hover:scale-105 transition-transform group-hover:border-amber-400">
-                <PetSVG
-                  type={pet.pet_type}
-                  stage={pet.stage}
-                  state={pet.productivity_state}
-                  equipped={pet.equipped_items}
-                  size={50}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-xs text-white truncate group-hover:text-amber-300 transition-colors">
-                    {pet.pet_name}
-                  </p>
-                  <span
-                    className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded-full bg-gradient-to-r ${stageBadgeStyle}`}
-                  >
-                    {currentStage}
-                  </span>
+              <div className="flex items-center gap-2">
+                {/* Petslyvia playful 3-dot pebble logo */}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-[#1e3a2b] group-hover:scale-110 transition-transform"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#2e6849] group-hover:scale-110 transition-transform"></div>
+                  <div className="w-2 h-2 rounded-full bg-[#52936f] group-hover:scale-110 transition-transform"></div>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-amber-400 to-orange-400 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${xpInCurrentLevel}%` }}
-                    />
-                  </div>
-                  <span className="text-[10px] font-mono text-amber-300 font-semibold">
-                    Lv.{pet.level}
-                  </span>
-                </div>
+                <span className="font-black text-2xl tracking-tight text-[#1e3a2b]">
+                  petslyvia<span className="text-[#2d6a4f]">.</span>
+                </span>
               </div>
-            </div>
+              <span className="text-[9px] text-[#7a9386] font-bold tracking-[0.18em] uppercase mt-1.5 block">
+                A LITTLE PLAY. A LOT OF POSSIBILITY.
+              </span>
+            </Link>
+          </div>
 
-            {/* Track Switcher Button */}
-            <div className="flex items-center justify-between bg-slate-900/90 px-2.5 py-1.5 rounded-xl border border-slate-800 text-[11px]">
-              <span className="text-slate-400 text-[10px] font-bold">Track:</span>
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setPlayerRole(profile?.role === 'coder' ? 'non_coder' : 'coder');
-                }}
-                className="flex items-center gap-1 font-bold text-amber-300 hover:text-amber-200 transition-colors cursor-pointer"
-                title="Click to switch between Coder and Visual Explorer track"
+          {/* Quick Action Top Menu */}
+          <div className="px-4 py-3 space-y-1">
+            <Link
+              to="/app/multiplayer"
+              onClick={() => {
+                sound.playClick();
+                setMobileOpen(false);
+              }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                location.pathname.includes('/multiplayer')
+                  ? 'bg-[#eaf2ec] text-[#1e3a2b] font-bold'
+                  : 'text-[#5b7566] hover:text-[#1e3a2b] hover:bg-[#f4f8f5]'
+              }`}
+            >
+              <Bug size={16} className="text-[#5b7566]" />
+              <span>Bug exchange</span>
+            </Link>
+
+            <Link
+              to="/app/creator"
+              onClick={() => {
+                sound.playClick();
+                setMobileOpen(false);
+              }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                location.pathname.includes('/creator')
+                  ? 'bg-[#eaf2ec] text-[#1e3a2b] font-bold'
+                  : 'text-[#5b7566] hover:text-[#1e3a2b] hover:bg-[#f4f8f5]'
+              }`}
+            >
+              <Wand2 size={16} className="text-[#5b7566]" />
+              <span>Creator island</span>
+            </Link>
+          </div>
+
+          {/* YOUR JOURNEY Section */}
+          <div className="px-4 pt-3 pb-2 flex-1">
+            <div className="flex items-center justify-between px-3 py-2 text-[#7a9386]">
+              <span className="text-[10px] font-bold tracking-[0.16em] uppercase">
+                YOUR JOURNEY
+              </span>
+              <Link
+                to="/app"
+                title="View World Map"
+                className="hover:text-[#1e3a2b] transition-colors p-1 rounded-md"
               >
-                {profile?.role === 'coder' ? '💻 Coder Pioneer ⇄' : '🧩 Visual Explorer ⇄'}
-              </button>
+                <Map size={14} />
+              </Link>
             </div>
 
-            {/* Currency & XP quick counters */}
-            <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-800/80 text-[11px] font-bold">
-              <div className="flex items-center gap-1.5 bg-amber-500/10 px-2 py-1 rounded-lg text-amber-300">
-                <Coins size={13} /> {profile?.coins ?? 100} Coins
-              </div>
-              <div className="flex items-center gap-1.5 bg-indigo-500/10 px-2 py-1 rounded-lg text-indigo-300">
-                <Zap size={13} /> {profile?.total_xp ?? 50} XP
-              </div>
+            <div className="space-y-1 mt-1">
+              {JOURNEY_STEPS.map((step) => {
+                const isActive =
+                  location.pathname === step.to ||
+                  (step.to === '/app/forest' && location.pathname === '/app/forest') ||
+                  (step.to !== '/app' && location.pathname.startsWith(step.to));
+
+                const isUnlocked =
+                  step.areaKey === 'all' ||
+                  step.stepNumber <= 3 ||
+                  (profile?.unlocked_areas && profile.unlocked_areas.includes(step.areaKey));
+
+                return (
+                  <Link
+                    key={step.id}
+                    to={step.to}
+                    onClick={() => {
+                      sound.playClick();
+                      setMobileOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all ${
+                      isActive
+                        ? 'bg-[#eaf2ec] text-[#1e3a2b] font-bold'
+                        : 'text-[#5b7566] hover:text-[#1e3a2b] hover:bg-[#f4f8f5]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isActive ? (
+                        <div className="w-5 h-5 rounded-full bg-[#1e3a2b] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {step.stepNumber}
+                        </div>
+                      ) : !isUnlocked ? (
+                        <div className="w-5 h-5 rounded-full bg-[#f0f5f1] text-[#9cb5a5] flex items-center justify-center shrink-0">
+                          <Lock size={11} />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full border border-[#d8e5dc] text-[#5b7566] flex items-center justify-center text-[10px] font-semibold shrink-0">
+                          {step.stepNumber}
+                        </div>
+                      )}
+                      <span className={isActive ? 'font-bold text-[#1e3a2b]' : 'font-medium'}>
+                        {step.label}
+                      </span>
+                    </div>
+
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f] shrink-0" />
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Navigation Regions List */}
-        <nav className="flex-1 overflow-y-auto px-3 space-y-1 py-1 custom-scrollbar">
-          {NAV_ITEMS.map((item) => {
-            const isUnlocked =
-              item.areaKey === 'all' || (profile?.unlocked_areas && profile.unlocked_areas.includes(item.areaKey));
-            const isActive =
-              location.pathname === item.to || (item.to !== '/app' && location.pathname.startsWith(item.to));
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => {
-                  sound.playClick();
-                  setMobileOpen(false);
-                }}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  isActive
-                    ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 text-amber-300 shadow-md shadow-amber-500/10'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                } ${!isUnlocked ? 'opacity-60' : ''}`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Icon size={16} className={isActive ? 'text-amber-400' : 'text-slate-400'} />
-                  <span>{item.label}</span>
-                </div>
-                {!isUnlocked && (
-                  <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-mono">
-                    Locked
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Bottom User Account & Utility Controls */}
-        <div className="p-3 border-t border-slate-800/80 space-y-2">
-          {/* Logged in Email Account Card */}
+        {/* Bottom Profile & Companion Card */}
+        <div className="p-3 border-t border-[#e2ece5] bg-white">
           <div
             onClick={() => {
               sound.playClick();
               setShowSettingsModal(true);
             }}
-            className="p-2.5 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-indigo-500/50 flex items-center justify-between gap-2.5 transition-all cursor-pointer group shadow-sm"
-            title="Click to view Account Settings & Email Details"
+            className="p-2.5 rounded-2xl bg-[#f4f8f5] border border-[#e2ece5] hover:border-[#c8dad0] flex items-center justify-between gap-2.5 transition-all cursor-pointer group shadow-sm"
+            title="Click to view Pet Status and Account Settings"
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-md">
-                <User size={15} />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sound.playPet();
+                }}
+                className="w-9 h-9 rounded-xl bg-white border border-[#dbe7df] flex items-center justify-center shrink-0 overflow-hidden shadow-sm group-hover:scale-105 transition-transform"
+              >
+                <PetSVG
+                  type={pet?.pet_type || 'fox'}
+                  stage={pet?.stage || 'infant'}
+                  state={pet?.productivity_state || 'happy'}
+                  equipped={pet?.equipped_items}
+                  size={36}
+                />
               </div>
+
               <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-black text-white truncate group-hover:text-amber-300 transition-colors">
-                  {profile?.display_name || 'Player'}
-                </div>
-                <div className="text-[9px] text-slate-400 truncate font-mono">
-                  {user?.email || profile?.email || 'player@petslyvia.world'}
-                </div>
+                <p className="font-bold text-xs text-[#1e3a2b] truncate group-hover:text-[#2d6a4f] transition-colors">
+                  {pet?.pet_name || 'Maple'} & you
+                </p>
+                <p className="text-[10px] text-[#7a9386] truncate font-medium">
+                  Level {pet?.level || 1} {profile?.role === 'coder' ? 'coder' : 'explorer'}
+                </p>
               </div>
             </div>
 
-            <div className="p-1.5 rounded-lg bg-slate-900 group-hover:bg-indigo-600/30 text-slate-400 group-hover:text-indigo-300 transition-colors">
-              <Settings size={14} />
+            <div className="p-1.5 rounded-lg text-[#7a9386] group-hover:text-[#1e3a2b] group-hover:bg-white transition-all">
+              <SlidersHorizontal size={14} />
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              toggleSound();
-              sound.playClick();
-            }}
-            className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              {soundEnabled ? <Volume2 size={15} className="text-emerald-400" /> : <VolumeX size={15} />}
-              <span>Sound FX</span>
-            </div>
-            <span className="text-[10px] font-mono text-slate-500">
-              {soundEnabled ? 'ON' : 'OFF'}
+          {/* Sync status indicator */}
+          <div className="flex items-center justify-between px-2 pt-2 text-[10px] text-[#7a9386]">
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
+              Progress synced
             </span>
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition-colors cursor-pointer"
-          >
-            <LogOut size={15} />
-            <span>Sign Out</span>
-          </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                setPlayerRole(profile?.role === 'coder' ? 'non_coder' : 'coder');
+              }}
+              className="text-[9px] font-bold text-[#2d6a4f] hover:underline"
+            >
+              {profile?.role === 'coder' ? '💻 Coder' : '🧩 Visual'}
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Main Game Page Content Area */}
-      <main className="flex-1 min-w-0 bg-slate-950 flex flex-col relative">
-        <Outlet />
+      <div className="flex-1 min-w-0 flex flex-col bg-[#f4f8f5]">
+        {/* Top Header Breadcrumb & Status HUD */}
+        <header className="hidden md:flex items-center justify-between px-8 py-4 bg-[#f4f8f5] border-b border-[#e2ece5]/60 sticky top-0 z-30">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#7a9386]">
+            <Link to="/app" className="hover:text-[#1e3a2b] transition-colors">
+              Your world
+            </Link>
+            <ChevronRight size={13} className="text-[#a4bcad]" />
+            <span className="text-[#1e3a2b] font-bold">{getBreadcrumbTitle()}</span>
+          </div>
+
+          {/* Right Status Badges */}
+          <div className="flex items-center gap-3">
+            {/* XP Counter */}
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#e2ece5] rounded-full text-xs font-bold text-[#1e3a2b] shadow-soft">
+              <Sparkles size={13} className="text-amber-500" />
+              <span>{profile?.total_xp ?? 50} XP</span>
+            </div>
+
+            {/* Gems / Diamond Counter */}
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#e2ece5] rounded-full text-xs font-bold text-[#1e3a2b] shadow-soft">
+              <span className="text-xs">💎</span>
+              <span>{profile?.coins ?? 0}</span>
+            </div>
+
+            {/* Sound Toggle */}
+            <button
+              onClick={() => {
+                toggleSound();
+                sound.playClick();
+              }}
+              className="p-1.5 rounded-full bg-white border border-[#e2ece5] text-[#7a9386] hover:text-[#1e3a2b] shadow-soft cursor-pointer transition-colors"
+              title={soundEnabled ? 'Mute sound' : 'Enable sound'}
+            >
+              {soundEnabled ? <Volume2 size={14} className="text-[#2d6a4f]" /> : <VolumeX size={14} />}
+            </button>
+
+            {/* Profile Avatar */}
+            <Link
+              to="/app/sanctuary"
+              className="w-8 h-8 rounded-full bg-white border border-[#d8e5dc] flex items-center justify-center overflow-hidden shadow-soft hover:scale-105 transition-transform"
+              title="View Companion Sanctuary"
+            >
+              <PetSVG
+                type={pet?.pet_type || 'fox'}
+                stage={pet?.stage || 'infant'}
+                state="happy"
+                size={28}
+              />
+            </Link>
+          </div>
+        </header>
+
+        {/* Dynamic Nested Page Content */}
+        <main className="flex-1 px-4 md:px-8 py-6 max-w-7xl w-full mx-auto">
+          <Outlet />
+        </main>
+
+        {/* Sticky Productivity & Habit Mini-Taskbar */}
         <Taskbar />
-      </main>
+      </div>
 
       {/* Account Settings & Profile Modal */}
       <SettingsModal

@@ -265,21 +265,21 @@ export function CreatorPage() {
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Header Banner */}
-      <div className="p-6 bg-gradient-to-r from-violet-950/90 via-slate-900 to-indigo-950 rounded-3xl border border-violet-500/30 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="p-6 bg-white rounded-3xl border border-[#e2ece5] shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-500/20 border border-violet-500/40 rounded-full text-xs font-bold text-violet-300 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#eaf2ec] border border-[#d3e2d8] rounded-full text-xs font-bold text-[#2d6a4f] mb-2">
             <Sparkles size={14} /> Stage 6: Creator World & Level Designer
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#1b382b] tracking-tight">
             Design, Simulate & Publish Systems
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
+          <p className="text-xs sm:text-sm text-[#5b7566] mt-1 font-medium">
             Build playable grid challenges, test live pet simulations, or craft intentional bugs for the community!
           </p>
         </div>
 
         {/* Mode Selector */}
-        <div className="flex bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800 gap-2 shrink-0">
+        <div className="flex bg-[#f4f8f5] p-1.5 rounded-2xl border border-[#e2ece5] gap-2 shrink-0">
           <button
             onClick={() => {
               setMode('problem');
@@ -288,8 +288,8 @@ export function CreatorPage() {
             }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               mode === 'problem'
-                ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20 scale-105'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-[#2d6a4f] text-white shadow-sm scale-105'
+                : 'text-[#5b7566] hover:text-[#1b382b]'
             }`}
           >
             Create Level
@@ -302,8 +302,8 @@ export function CreatorPage() {
             }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               mode === 'bug'
-                ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20 scale-105'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-rose-600 text-white shadow-sm scale-105'
+                : 'text-[#5b7566] hover:text-[#1b382b]'
             }`}
           >
             Craft Bug 🐛
@@ -315,7 +315,7 @@ export function CreatorPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-emerald-950/80 border border-emerald-500/40 rounded-2xl text-emerald-300 font-bold text-xs text-center flex items-center justify-center gap-2"
+          className="p-4 bg-[#eaf2ec] border border-[#d3e2d8] rounded-2xl text-[#2d6a4f] font-bold text-xs text-center flex items-center justify-center gap-2"
         >
           <CheckCircle2 size={16} /> {publishedToast}
         </motion.div>
@@ -324,11 +324,11 @@ export function CreatorPage() {
       {/* Main Designer Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Interactive Grid Canvas with Live Simulation */}
-        <div className="lg:col-span-7 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4 flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-4 flex flex-col justify-between">
           {/* Tool Palette & 3D Toggle */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
-              <span className="text-[11px] uppercase font-bold text-slate-400 block mb-2">
+              <span className="text-[11px] uppercase font-bold text-[#5b7566] block mb-2">
                 Select Placement Brush:
               </span>
               <div className="flex flex-wrap gap-2">
@@ -348,8 +348,8 @@ export function CreatorPage() {
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
                       activeTool === tool.id
-                        ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-md shadow-amber-500/20'
-                        : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                        ? 'bg-[#2d6a4f] border-[#2d6a4f] text-white shadow-sm'
+                        : 'bg-[#f4f8f5] border-[#e2ece5] text-[#1b382b] hover:bg-[#eaf2ec]'
                     }`}
                   >
                     {tool.label}
@@ -366,8 +366,8 @@ export function CreatorPage() {
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-black border flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                 viewMode3D
-                  ? 'bg-gradient-to-r from-violet-500 to-indigo-500 text-white border-violet-400 shadow-md shadow-violet-500/20'
-                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                  ? 'bg-[#2d6a4f] text-white border-[#2d6a4f] shadow-sm'
+                  : 'bg-[#f4f8f5] text-[#5b7566] border-[#e2ece5] hover:text-[#1b382b]'
               }`}
             >
               <Box size={14} />
@@ -392,9 +392,9 @@ export function CreatorPage() {
               height="360px"
             />
           ) : (
-            <div className="flex-1 flex items-center justify-center p-4 bg-slate-950 rounded-2xl border border-slate-800 min-h-[300px]">
+            <div className="flex-1 flex items-center justify-center p-4 bg-[#f4f8f5] rounded-2xl border border-[#e2ece5] min-h-[300px]">
               <div
-                className="grid gap-2 p-3 bg-slate-900 rounded-2xl border border-slate-800"
+                className="grid gap-2 p-3 bg-white rounded-2xl border border-[#e2ece5] shadow-soft"
                 style={{
                   gridTemplateColumns: `repeat(${gridSize.width}, minmax(0, 1fr))`,
                 }}
@@ -413,14 +413,14 @@ export function CreatorPage() {
                         onClick={() => handleTileClick(col, row)}
                         className={`w-14 h-14 rounded-xl flex items-center justify-center relative transition-all border cursor-pointer ${
                           isGoal
-                            ? 'bg-emerald-950/60 border-emerald-400'
+                            ? 'bg-[#eaf2ec] border-[#2d6a4f]'
                             : obs?.type === 'wall'
-                            ? 'bg-slate-800 border-slate-700'
+                            ? 'bg-[#e2ece5] border-[#d3e2d8]'
                             : obs?.type === 'water'
-                            ? 'bg-sky-950/80 border-sky-600'
+                            ? 'bg-sky-50 border-sky-300'
                             : crystal && !isCollected
-                            ? 'bg-cyan-950/60 border-cyan-400'
-                            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                            ? 'bg-[#eaf2ec] border-[#2d6a4f]'
+                            : 'bg-[#f4f8f5] border-[#e2ece5] hover:border-[#2d6a4f]'
                         }`}
                       >
                         {obs?.type === 'wall' && <span className="text-xl">🧱</span>}
@@ -446,90 +446,90 @@ export function CreatorPage() {
           )}
 
           {/* Simulation Telemetry Bar */}
-          <div className="p-3 bg-slate-950/90 rounded-2xl border border-slate-800 flex items-center justify-between text-xs font-mono">
-            <span className="text-slate-400">
+          <div className="p-3 bg-[#f4f8f5] rounded-2xl border border-[#e2ece5] flex items-center justify-between text-xs font-mono">
+            <span className="text-[#5b7566]">
               Simulation Status:{' '}
               <strong
                 className={
                   activeStep.status === 'collision'
-                    ? 'text-rose-400'
+                    ? 'text-rose-600'
                     : activeStep.status === 'success'
-                    ? 'text-emerald-400'
-                    : 'text-amber-300'
+                    ? 'text-[#2d6a4f]'
+                    : 'text-[#2d6a4f]'
                 }
               >
                 {activeStep.message || 'Ready'}
               </strong>
             </span>
-            <span className="text-amber-400">
+            <span className="text-[#2d6a4f] font-bold">
               Crystals: {activeStep.crystalsCollected.length} / {crystals.length}
             </span>
           </div>
         </div>
 
         {/* Right: Test Instructions Builder & Publish Form */}
-        <div className="lg:col-span-5 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
+        <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-              <Play className="text-amber-400" size={16} /> Test Sequence ({testBlocks.length} Steps)
+            <h3 className="text-sm font-extrabold text-[#1b382b] flex items-center gap-2">
+              <Play className="text-[#2d6a4f]" size={16} /> Test Sequence ({testBlocks.length} Steps)
             </h3>
             <button
               onClick={handleClearTestBlocks}
-              className="text-[11px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer"
+              className="text-[11px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
             >
               <Trash2 size={12} /> Clear
             </button>
           </div>
 
           {/* Action Chips to build test instructions */}
-          <div className="space-y-1.5 bg-slate-950/70 p-3 rounded-2xl border border-slate-800">
-            <span className="text-[11px] text-slate-400 font-bold block">Add Test Commands:</span>
+          <div className="space-y-1.5 bg-[#f4f8f5] p-3 rounded-2xl border border-[#e2ece5]">
+            <span className="text-[11px] text-[#5b7566] font-bold block">Add Test Commands:</span>
             <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => handleAddTestBlock('move_up')}
-                className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
               >
                 <ArrowUp size={12} /> Up
               </button>
               <button
                 onClick={() => handleAddTestBlock('move_down')}
-                className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
               >
                 <ArrowDown size={12} /> Down
               </button>
               <button
                 onClick={() => handleAddTestBlock('move_left')}
-                className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft size={12} /> Left
               </button>
               <button
                 onClick={() => handleAddTestBlock('move_right')}
-                className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
               >
                 <ArrowRight size={12} /> Right
               </button>
               <button
                 onClick={() => handleAddTestBlock('move_forward')}
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-[11px] font-bold cursor-pointer"
+                className="px-2.5 py-1 bg-white hover:bg-[#eaf2ec] border border-[#e2ece5] text-[#1b382b] rounded-lg text-[11px] font-bold cursor-pointer"
               >
                 + Forward
               </button>
               <button
                 onClick={() => handleAddTestBlock('turn_right')}
-                className="px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded-lg text-[11px] font-bold cursor-pointer"
+                className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-lg text-[11px] font-bold cursor-pointer"
               >
                 ↪ Turn Right
               </button>
               <button
                 onClick={() => handleAddTestBlock('turn_left')}
-                className="px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded-lg text-[11px] font-bold cursor-pointer"
+                className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-lg text-[11px] font-bold cursor-pointer"
               >
                 ↩ Turn Left
               </button>
               <button
                 onClick={() => handleAddTestBlock('interact')}
-                className="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 rounded-lg text-[11px] font-bold cursor-pointer"
+                className="px-2.5 py-1 bg-[#2d6a4f] hover:bg-[#245840] border border-[#2d6a4f] text-white rounded-lg text-[11px] font-bold cursor-pointer"
               >
                 🔘 Interact
               </button>
@@ -537,9 +537,9 @@ export function CreatorPage() {
           </div>
 
           {/* Test Sequence Steps List */}
-          <div className="min-h-[110px] max-h-[160px] overflow-y-auto bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 space-y-1 custom-scrollbar">
+          <div className="min-h-[110px] max-h-[160px] overflow-y-auto bg-[#f4f8f5] p-2.5 rounded-xl border border-[#e2ece5] space-y-1 custom-scrollbar">
             {testBlocks.length === 0 ? (
-              <div className="text-center py-4 text-slate-500 text-xs">
+              <div className="text-center py-4 text-[#7a9386] text-xs">
                 Add movement commands above to test-drive your level!
               </div>
             ) : (
@@ -548,14 +548,14 @@ export function CreatorPage() {
                   key={b.id || i}
                   className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold border ${
                     simulationResult && currentStepIndex === i + 1
-                      ? 'bg-amber-500 text-slate-950 font-black'
-                      : 'bg-slate-900 border-slate-800 text-slate-200'
+                      ? 'bg-[#eaf2ec] border-[#2d6a4f] text-[#2d6a4f] font-black shadow-sm'
+                      : 'bg-white border-[#e2ece5] text-[#1b382b]'
                   }`}
                 >
                   <span>#{i + 1} {b.type.replace('_', ' ')}</span>
                   <button
                     onClick={() => handleRemoveTestBlock(i)}
-                    className="text-slate-500 hover:text-rose-400 p-0.5 cursor-pointer"
+                    className="text-[#7a9386] hover:text-rose-600 p-0.5 cursor-pointer"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -568,8 +568,8 @@ export function CreatorPage() {
             <div
               className={`p-3 rounded-xl text-xs font-bold text-center ${
                 testFeedback.success
-                  ? 'bg-emerald-950/70 border border-emerald-500/40 text-emerald-300'
-                  : 'bg-rose-950/70 border border-rose-500/40 text-rose-300'
+                  ? 'bg-[#eaf2ec] border border-[#d3e2d8] text-[#2d6a4f]'
+                  : 'bg-rose-50 border border-rose-200 text-rose-700'
               }`}
             >
               {testFeedback.message}
@@ -577,20 +577,20 @@ export function CreatorPage() {
           )}
 
           {/* Metadata Form */}
-          <div className="space-y-3 pt-1 border-t border-slate-800">
+          <div className="space-y-3 pt-1 border-t border-[#e2ece5]">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Title</label>
+              <label className="block text-xs font-semibold text-[#1b382b] mb-1">Title</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={mode === 'problem' ? 'e.g. Crystal Labyrinth' : 'e.g. The Reversed Gear'}
-                className="w-full px-3 py-2 bg-slate-950 text-white rounded-xl border border-slate-800 text-xs focus:border-amber-400 outline-none"
+                className="w-full px-3 py-2 bg-[#f4f8f5] text-[#1b382b] rounded-xl border border-[#e2ece5] text-xs focus:border-[#2d6a4f] outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-[#1b382b] mb-1">
                 {mode === 'problem' ? 'Objective Story' : 'Intended Goal'}
               </label>
               <textarea
@@ -598,13 +598,13 @@ export function CreatorPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe what the solver must achieve..."
-                className="w-full px-3 py-2 bg-slate-950 text-white rounded-xl border border-slate-800 text-xs focus:border-amber-400 outline-none resize-none"
+                className="w-full px-3 py-2 bg-[#f4f8f5] text-[#1b382b] rounded-xl border border-[#e2ece5] text-xs focus:border-[#2d6a4f] outline-none resize-none"
               />
             </div>
 
             {mode === 'bug' && (
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-[#1b382b] mb-1">
                   Subtle Bug Clue
                 </label>
                 <input
@@ -612,7 +612,7 @@ export function CreatorPage() {
                   value={bugClue}
                   onChange={(e) => setBugClue(e.target.value)}
                   placeholder="e.g. Look closely at turn block #3"
-                  className="w-full px-3 py-2 bg-slate-950 text-white rounded-xl border border-slate-800 text-xs focus:border-amber-400 outline-none"
+                  className="w-full px-3 py-2 bg-[#f4f8f5] text-[#1b382b] rounded-xl border border-[#e2ece5] text-xs focus:border-[#2d6a4f] outline-none"
                 />
               </div>
             )}
@@ -622,15 +622,15 @@ export function CreatorPage() {
             <button
               onClick={handleTestPlay}
               disabled={isPlaying}
-              className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-amber-300 font-black text-xs rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="flex-1 py-3 bg-[#f4f8f5] hover:bg-[#eaf2ec] text-[#2d6a4f] font-black text-xs rounded-xl border border-[#e2ece5] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              <Play size={14} className="fill-amber-300" />
+              <Play size={14} className="fill-[#2d6a4f]" />
               {isPlaying ? 'SIMULATING...' : 'TEST SIMULATION'}
             </button>
             <button
               onClick={handlePublish}
               disabled={isPlaying}
-              className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 font-black text-slate-950 text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
+              className="flex-1 py-3 bg-[#2d6a4f] hover:bg-[#245840] font-black text-white text-xs rounded-xl shadow-card flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Upload size={14} /> PUBLISH GLOBALLY
             </button>
@@ -645,49 +645,49 @@ export function CreatorPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.85, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.85, y: 20 }}
-              className="bg-slate-900 border border-amber-500/50 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl space-y-5"
+              className="bg-white border border-[#e2ece5] rounded-3xl p-8 max-w-md w-full text-center shadow-card space-y-5"
             >
-              <div className="w-16 h-16 bg-amber-500/20 border border-amber-500/40 rounded-2xl mx-auto flex items-center justify-center">
+              <div className="w-16 h-16 bg-[#eaf2ec] border border-[#d3e2d8] rounded-2xl mx-auto flex items-center justify-center">
                 {publishedModalData.type === 'bug' ? (
-                  <Bug size={32} className="text-amber-400 animate-bounce" />
+                  <Bug size={32} className="text-[#2d6a4f] animate-bounce" />
                 ) : (
-                  <CheckCircle2 size={32} className="text-emerald-400 animate-bounce" />
+                  <CheckCircle2 size={32} className="text-[#2d6a4f] animate-bounce" />
                 )}
               </div>
 
               <div>
-                <span className="text-xs uppercase font-extrabold tracking-wider text-amber-400">
+                <span className="text-xs uppercase font-extrabold tracking-wider text-[#2d6a4f]">
                   {publishedModalData.type === 'bug' ? 'Bug Challenge Deployed!' : 'Level Published Live!'}
                 </span>
-                <h3 className="text-2xl font-black text-white mt-1">
+                <h3 className="text-2xl font-black text-[#1b382b] mt-1">
                   {publishedModalData.title}
                 </h3>
-                <p className="text-xs text-slate-400 mt-2">
+                <p className="text-xs text-[#5b7566] mt-2">
                   {publishedModalData.type === 'bug'
                     ? 'Your bug puzzle has been uploaded to the Bug Exchange. Other coders can now debug it in multiplayer arena!'
                     : 'Your custom puzzle is now live for adventurers to explore across the world.'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+              <div className="grid grid-cols-2 gap-3 bg-[#f4f8f5] p-4 rounded-2xl border border-[#e2ece5]">
                 <div className="flex items-center gap-2 justify-center">
-                  <Sparkles size={16} className="text-purple-400" />
+                  <Sparkles size={16} className="text-[#2d6a4f]" />
                   <div className="text-left">
-                    <p className="text-[10px] text-slate-500 font-bold">REWARD</p>
-                    <p className="text-sm font-black text-purple-300">+{publishedModalData.xp} XP</p>
+                    <p className="text-[10px] text-[#7a9386] font-bold">REWARD</p>
+                    <p className="text-sm font-black text-[#1b382b]">+{publishedModalData.xp} XP</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 justify-center">
-                  <Coins size={16} className="text-amber-400" />
+                  <Coins size={16} className="text-[#2d6a4f]" />
                   <div className="text-left">
-                    <p className="text-[10px] text-slate-500 font-bold">BOUNTY</p>
-                    <p className="text-sm font-black text-amber-300">+{publishedModalData.coins} Coins</p>
+                    <p className="text-[10px] text-[#7a9386] font-bold">BOUNTY</p>
+                    <p className="text-sm font-black text-[#1b382b]">+{publishedModalData.coins} Coins</p>
                   </div>
                 </div>
               </div>
@@ -695,13 +695,13 @@ export function CreatorPage() {
               <div className="flex flex-col gap-2 pt-2">
                 <Link
                   to="/multiplayer"
-                  className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg"
+                  className="w-full py-3 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-card"
                 >
                   View in Bug Exchange <ArrowRight size={14} />
                 </Link>
                 <button
                   onClick={() => setPublishedModalData(null)}
-                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs cursor-pointer"
+                  className="w-full py-2.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] text-[#5b7566] font-bold rounded-xl text-xs cursor-pointer border border-[#e2ece5]"
                 >
                   Create Another Level
                 </button>

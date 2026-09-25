@@ -362,34 +362,34 @@ export function MultiplayerPage() {
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Header Banner */}
-      <div className="p-6 bg-gradient-to-r from-pink-950/90 via-slate-900 to-indigo-950 rounded-3xl border border-pink-500/30 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="p-6 bg-white rounded-3xl border border-[#e2ece5] shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-pink-500/20 border border-pink-500/40 rounded-full text-xs font-bold text-pink-300 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#eaf2ec] border border-[#d3e2d8] rounded-full text-xs font-bold text-[#2d6a4f] mb-2">
             <Users size={14} /> Global Multiplayer Arena
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#1b382b] tracking-tight">
             Bug Exchange & Community
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
+          <p className="text-xs sm:text-sm text-[#5b7566] mt-1 font-medium">
             Exchange intentional bugs with other players, solve community puzzles, and challenge companions to live logic duels!
           </p>
         </div>
 
         {/* Global Debugging Stats */}
-        <div className="flex gap-2 bg-slate-950/80 p-3 rounded-2xl border border-slate-800 text-xs">
-          <div className="text-center px-3 border-r border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Bugs Solved</span>
-            <span className="text-base font-black text-emerald-400">{profile?.bugs_solved ?? 0}</span>
+        <div className="flex gap-2 bg-[#f4f8f5] p-3 rounded-2xl border border-[#e2ece5] text-xs">
+          <div className="text-center px-3 border-r border-[#e2ece5]">
+            <span className="text-[#5b7566] block text-[10px] uppercase font-bold">Bugs Solved</span>
+            <span className="text-base font-black text-[#2d6a4f]">{profile?.bugs_solved ?? 0}</span>
           </div>
           <div className="text-center px-3">
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Bugs Created</span>
-            <span className="text-base font-black text-amber-400">{profile?.bugs_created ?? 0}</span>
+            <span className="text-[#5b7566] block text-[10px] uppercase font-bold">Bugs Created</span>
+            <span className="text-base font-black text-[#1b382b]">{profile?.bugs_created ?? 0}</span>
           </div>
         </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 gap-2 max-w-lg">
+      <div className="flex bg-white p-1.5 rounded-2xl border border-[#e2ece5] gap-2 max-w-lg shadow-soft">
         <button
           onClick={() => {
             setActiveTab('friends');
@@ -397,8 +397,8 @@ export function MultiplayerPage() {
           }}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'friends'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-[#2d6a4f] text-white shadow-sm'
+              : 'text-[#5b7566] hover:text-[#1b382b]'
           }`}
         >
           <Swords size={14} /> Challenge Arena ({contacts.length})
@@ -410,8 +410,8 @@ export function MultiplayerPage() {
           }}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'bug_exchange'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-[#2d6a4f] text-white shadow-sm'
+              : 'text-[#5b7566] hover:text-[#1b382b]'
           }`}
         >
           <Bug size={14} /> Bug Exchange ({bugExchanges.length})
@@ -423,25 +423,25 @@ export function MultiplayerPage() {
           }}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'community'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-[#2d6a4f] text-white shadow-sm'
+              : 'text-[#5b7566] hover:text-[#1b382b]'
           }`}
         >
-          <Sparkles size={14} /> Community Levels ({communityProblems.length})
+          <Sparkles size={14} /> Community ({communityProblems.length})
         </button>
       </div>
 
       {/* TAB 1: CONTACTS & LIVE CHALLENGE ARENA */}
       {activeTab === 'friends' && (
-        <div className="bg-slate-900/90 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
+        <div className="bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-              <Swords className="text-amber-400" size={18} /> Companion Explorer Network & Duels
+            <h3 className="text-sm font-extrabold text-[#1b382b] flex items-center gap-2">
+              <Swords className="text-[#2d6a4f]" size={18} /> Companion Explorer Network & Duels
             </h3>
-            <span className="text-xs text-slate-400 font-mono">{contacts.length} Connections Ready</span>
+            <span className="text-xs text-[#5b7566] font-mono">{contacts.length} Connections Ready</span>
           </div>
 
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[#5b7566] font-medium">
             Click <strong>Challenge</strong> on any player to enter the live head-to-head algorithm race arena!
           </p>
 
@@ -449,7 +449,7 @@ export function MultiplayerPage() {
             {contacts.map((c) => (
               <div
                 key={c.id}
-                className="p-4 bg-slate-950/70 rounded-2xl border border-slate-800 flex items-center justify-between hover:border-slate-700 transition-all"
+                className="p-4 bg-[#f4f8f5] rounded-2xl border border-[#e2ece5] flex items-center justify-between hover:border-[#2d6a4f] transition-all"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -460,16 +460,16 @@ export function MultiplayerPage() {
                       size={44}
                     />
                     {c.is_online && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-slate-950" />
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#2d6a4f] border border-white" />
                     )}
                   </div>
                   <div>
-                    <p className="font-extrabold text-xs text-white">{c.friend_name}</p>
+                    <p className="font-extrabold text-xs text-[#1b382b]">{c.friend_name}</p>
                     <div className="flex flex-col gap-0.5 mt-0.5">
-                      <span className="text-[10px] text-slate-400 capitalize">
+                      <span className="text-[10px] text-[#5b7566] capitalize">
                         {c.friend_pet_stage} {c.friend_pet_type}
                       </span>
-                      <span className="text-[9px] px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 rounded font-mono font-bold w-fit">
+                      <span className="text-[9px] px-1.5 py-0.5 bg-[#eaf2ec] text-[#2d6a4f] rounded font-mono font-bold w-fit border border-[#d3e2d8]">
                         {getArenaForContact(c).arenaName}
                       </span>
                     </div>
@@ -478,7 +478,7 @@ export function MultiplayerPage() {
 
                 <button
                   onClick={() => handleOpenChallenge(c)}
-                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 rounded-xl text-xs font-black shadow-md shadow-amber-500/20 transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-2 bg-[#2d6a4f] hover:bg-[#245840] text-white rounded-xl text-xs font-black shadow-card transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Swords size={13} /> Challenge
                 </button>
@@ -494,13 +494,13 @@ export function MultiplayerPage() {
           {/* Left: Bug List with Challenge Actions */}
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-                <Bug className="text-rose-400" size={16} /> Open Bug Bounties
+              <h3 className="text-sm font-extrabold text-[#1b382b] flex items-center gap-2">
+                <Bug className="text-[#2d6a4f]" size={16} /> Open Bug Bounties
               </h3>
               <Link
                 to="/app/creator"
                 onClick={() => sound.playClick()}
-                className="px-3 py-1 bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/40 text-rose-300 rounded-xl text-xs font-bold flex items-center gap-1 transition-all"
+                className="px-3 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 transition-all"
               >
                 <Plus size={13} /> Create Bug
               </Link>
@@ -516,29 +516,29 @@ export function MultiplayerPage() {
                     onClick={() => handleSelectBug(b)}
                     className={`w-full text-left p-4 rounded-3xl border transition-all cursor-pointer space-y-2 ${
                       isSelected
-                        ? 'bg-rose-950/40 border-rose-500 shadow-lg shadow-rose-500/10'
-                        : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                        ? 'bg-[#eaf2ec] border-[#2d6a4f] shadow-card'
+                        : 'bg-white border-[#e2ece5] hover:border-[#2d6a4f]'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-[#eaf2ec] text-[#2d6a4f] border border-[#d3e2d8]">
                           ⚡ Bug Challenge
                         </span>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          by <strong className="text-white">{b.creatorName}</strong>
+                        <span className="text-[10px] font-bold text-[#5b7566]">
+                          by <strong className="text-[#1b382b]">{b.creatorName}</strong>
                         </span>
                       </div>
-                      <span className="text-[10px] bg-slate-800 text-slate-300 font-mono px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] bg-[#f4f8f5] text-[#5b7566] font-mono px-2 py-0.5 rounded-full border border-[#e2ece5]">
                         {b.solversCount} Solves
                       </span>
                     </div>
 
-                    <h4 className="font-extrabold text-sm text-white">{b.title}</h4>
-                    <p className="text-xs text-slate-300/80 line-clamp-2">{b.intendedGoal}</p>
+                    <h4 className="font-extrabold text-sm text-[#1b382b]">{b.title}</h4>
+                    <p className="text-xs text-[#5b7566] line-clamp-2">{b.intendedGoal}</p>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px] font-bold">
-                      <span className="text-amber-300 font-black">+{b.rewardCoins} Coins</span>
+                    <div className="flex items-center justify-between pt-2 border-t border-[#e2ece5] text-[11px] font-bold">
+                      <span className="text-[#2d6a4f] font-black">+{b.rewardCoins} Coins</span>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -546,7 +546,7 @@ export function MultiplayerPage() {
                             e.stopPropagation();
                             handleChallengeCreator(b.creatorName);
                           }}
-                          className="px-2.5 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-300 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition-colors"
+                          className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#e2ece5] text-[#2d6a4f] rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition-colors"
                           title={`Duel ${b.creatorName} in Live Arena`}
                         >
                           <Swords size={11} /> Duel Creator
@@ -554,7 +554,7 @@ export function MultiplayerPage() {
                         <button
                           type="button"
                           onClick={() => handleSelectBug(b)}
-                          className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition-colors"
+                          className="px-2.5 py-1 bg-[#2d6a4f] hover:bg-[#245840] text-white rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           ⚔️ Challenge
                         </button>
@@ -567,22 +567,22 @@ export function MultiplayerPage() {
           </div>
 
           {/* Right: Selected Bug Sandbox with 2D Visual Grid */}
-          <div className="lg:col-span-7 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
+          <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card space-y-4">
             {selectedBug ? (
               <>
                 <div className="space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <h3 className="font-black text-lg text-white">{selectedBug.title}</h3>
-                      <p className="text-xs text-slate-300 mt-0.5">{selectedBug.intendedGoal}</p>
+                      <h3 className="font-black text-lg text-[#1b382b]">{selectedBug.title}</h3>
+                      <p className="text-xs text-[#5b7566] mt-0.5">{selectedBug.intendedGoal}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/30">
+                      <span className="text-xs font-mono font-bold text-[#2d6a4f] bg-[#eaf2ec] px-2.5 py-1 rounded-xl border border-[#d3e2d8]">
                         +{selectedBug.rewardCoins} Coins
                       </span>
                       <button
                         onClick={() => handleChallengeCreator(selectedBug.creatorName)}
-                        className="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        className="px-3 py-1.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#e2ece5] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                       >
                         <Swords size={12} /> Duel Creator
                       </button>
@@ -596,7 +596,7 @@ export function MultiplayerPage() {
                         sound.playClick();
                         setShowBugClue(!showBugClue);
                       }}
-                      className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                      className="text-xs font-bold text-[#2d6a4f] hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       💡 {showBugClue ? 'Hide Creator Clue' : 'Show Creator Clue'}
                     </button>
@@ -606,7 +606,7 @@ export function MultiplayerPage() {
                     <motion.div
                       initial={{ opacity: 0, y: -5 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="p-3 bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs rounded-xl"
+                      className="p-3 bg-[#fbf5e8] border border-[#f0dfba] text-[#74551d] text-xs rounded-xl"
                     >
                       <strong>Creator's Note ({selectedBug.creatorName}):</strong> {selectedBug.clue}
                     </motion.div>
@@ -614,9 +614,9 @@ export function MultiplayerPage() {
                 </div>
 
                 {/* VISUAL 3D / 2D BUG SIMULATION ARENA GRID */}
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col items-center justify-between">
-                  <div className="flex items-center justify-between w-full mb-3 px-1 text-[11px] text-slate-400 font-mono">
-                    <span className="text-indigo-300 font-bold">
+                <div className="bg-[#f4f8f5] p-4 rounded-2xl border border-[#e2ece5] flex flex-col items-center justify-between">
+                  <div className="flex items-center justify-between w-full mb-3 px-1 text-[11px] text-[#5b7566] font-mono">
+                    <span className="text-[#2d6a4f] font-bold">
                       Bug Matrix: {selectedBug.grid.width}x{selectedBug.grid.height}
                     </span>
                     <button
@@ -626,8 +626,8 @@ export function MultiplayerPage() {
                       }}
                       className={`px-2.5 py-1 rounded-xl text-xs font-black border flex items-center gap-1 transition-all cursor-pointer ${
                         viewMode3D
-                          ? 'bg-rose-500 text-white border-rose-400'
-                          : 'bg-slate-800 text-slate-300 border-slate-700'
+                          ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]'
+                          : 'bg-white text-[#5b7566] border-[#e2ece5]'
                       }`}
                     >
                       <Box size={13} />
@@ -663,7 +663,7 @@ export function MultiplayerPage() {
                     />
                   ) : (
                     <div
-                      className="grid gap-1.5 p-2 bg-slate-900 rounded-2xl border border-slate-800 shadow-inner"
+                      className="grid gap-1.5 p-2 bg-white rounded-2xl border border-[#e2ece5] shadow-soft"
                       style={{
                         gridTemplateColumns: `repeat(${selectedBug.grid.width}, minmax(0, 1fr))`,
                       }}
@@ -681,14 +681,14 @@ export function MultiplayerPage() {
                               key={`bug_grid_${col}_${row}`}
                               className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center relative transition-all ${
                                 isGoal
-                                  ? 'bg-emerald-950/70 border-2 border-emerald-400 shadow-lg shadow-emerald-500/20'
+                                  ? 'bg-[#eaf2ec] border-2 border-[#2d6a4f]'
                                   : obs?.type === 'wall'
-                                  ? 'bg-slate-800 border border-slate-700'
+                                  ? 'bg-[#e2ece5] border border-[#d3e2d8]'
                                   : obs?.type === 'water'
-                                  ? 'bg-cyan-950/60 border border-cyan-500/40'
+                                  ? 'bg-sky-50 border border-sky-300'
                                   : crystal && !isCollected
-                                  ? 'bg-amber-950/40 border border-amber-500/50'
-                                  : 'bg-slate-900 border border-slate-800/80'
+                                  ? 'bg-[#eaf2ec] border border-[#2d6a4f]'
+                                  : 'bg-[#f4f8f5] border border-[#e2ece5]'
                               }`}
                             >
                               {obs?.type === 'wall' && <span className="text-base">🧱</span>}
@@ -731,12 +731,12 @@ export function MultiplayerPage() {
                 </div>
 
                 {/* Bug Sequence Editor */}
-                <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="bg-[#f4f8f5] p-4 rounded-2xl border border-[#e2ece5] space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">
+                    <span className="text-[11px] uppercase font-bold text-[#5b7566] block">
                       Inspect & Fix Broken Sequence:
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
+                    <span className="text-[10px] text-[#7a9386] font-mono">
                       {bugBlocks.length} Steps in Program
                     </span>
                   </div>
@@ -746,35 +746,35 @@ export function MultiplayerPage() {
                     <button
                       type="button"
                       onClick={() => handleAddBugBlock('move_forward')}
-                      className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 rounded-lg text-xs font-bold"
+                      className="px-2.5 py-1 bg-white hover:bg-[#eaf2ec] border border-[#e2ece5] text-[#1b382b] rounded-lg text-xs font-bold cursor-pointer"
                     >
                       + forward
                     </button>
                     <button
                       type="button"
                       onClick={() => handleAddBugBlock('turn_right')}
-                      className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-indigo-300 rounded-lg text-xs font-bold"
+                      className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-lg text-xs font-bold cursor-pointer"
                     >
                       + turn_right
                     </button>
                     <button
                       type="button"
                       onClick={() => handleAddBugBlock('turn_left')}
-                      className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-indigo-300 rounded-lg text-xs font-bold"
+                      className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-lg text-xs font-bold cursor-pointer"
                     >
                       + turn_left
                     </button>
                     <button
                       type="button"
                       onClick={() => handleAddBugBlock('move_down')}
-                      className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-blue-300 rounded-lg text-xs font-bold"
+                      className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-lg text-xs font-bold cursor-pointer"
                     >
                       + move_down
                     </button>
                     <button
                       type="button"
                       onClick={() => handleAddBugBlock('interact')}
-                      className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-300 rounded-lg text-xs font-bold"
+                      className="px-2.5 py-1 bg-[#2d6a4f] hover:bg-[#245840] border border-[#2d6a4f] text-white rounded-lg text-xs font-bold cursor-pointer"
                     >
                       + interact
                     </button>
@@ -784,13 +784,13 @@ export function MultiplayerPage() {
                     {bugBlocks.map((blk, idx) => (
                       <div
                         key={blk.id || idx}
-                        className="flex items-center justify-between bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs"
+                        className="flex items-center justify-between bg-white p-2 rounded-xl border border-[#e2ece5] text-xs shadow-soft"
                       >
-                        <span className="font-mono text-slate-500 w-6">#{idx + 1}</span>
+                        <span className="font-mono text-[#7a9386] w-6">#{idx + 1}</span>
                         <select
                           value={blk.type}
                           onChange={(e) => handleSwapBlock(idx, e.target.value as any)}
-                          className="bg-slate-950 text-amber-300 font-bold px-3 py-1 rounded-lg border border-slate-700 outline-none text-xs flex-1 mx-2"
+                          className="bg-[#f4f8f5] text-[#1b382b] font-bold px-3 py-1 rounded-lg border border-[#e2ece5] outline-none text-xs flex-1 mx-2"
                         >
                           <option value="move_forward">move_forward()</option>
                           <option value="turn_right">turn_right()</option>
@@ -804,7 +804,7 @@ export function MultiplayerPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveBugBlock(idx)}
-                          className="text-slate-400 hover:text-rose-400 text-sm px-1.5 py-0.5 rounded cursor-pointer"
+                          className="text-[#7a9386] hover:text-rose-600 text-sm px-1.5 py-0.5 rounded cursor-pointer"
                           title="Delete instruction"
                         >
                           ×
@@ -820,8 +820,8 @@ export function MultiplayerPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className={`p-3 rounded-xl text-xs font-bold text-center ${
                       solveResult.includes('Claimed')
-                        ? 'bg-emerald-950/70 border border-emerald-500/40 text-emerald-300'
-                        : 'bg-rose-950/70 border border-rose-500/40 text-rose-300'
+                        ? 'bg-[#eaf2ec] border border-[#d3e2d8] text-[#2d6a4f]'
+                        : 'bg-rose-50 border border-rose-200 text-rose-700'
                     }`}
                   >
                     {solveResult}
@@ -831,14 +831,14 @@ export function MultiplayerPage() {
                 <button
                   onClick={handleRunSolve}
                   disabled={solving}
-                  className="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 text-white font-black text-sm rounded-2xl shadow-xl shadow-rose-600/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black text-sm rounded-2xl shadow-card transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Play size={18} className="fill-white" />
                   {solving ? 'SIMULATING PATCH ON GRID...' : 'RUN BUG CHALLENGE TEST & CLAIM BOUNTY'}
                 </button>
               </>
             ) : (
-              <div className="text-center py-20 text-slate-500 text-sm">
+              <div className="text-center py-20 text-[#7a9386] text-sm font-medium">
                 Select a bug from the bounties list to debug!
               </div>
             )}
@@ -852,29 +852,29 @@ export function MultiplayerPage() {
           {communityProblems.map((p) => (
             <div
               key={p.id}
-              className="bg-slate-900/90 rounded-3xl p-5 border border-slate-800 space-y-3 flex flex-col justify-between shadow-xl"
+              className="bg-white rounded-3xl p-5 border border-[#e2ece5] space-y-3 flex flex-col justify-between shadow-card"
             >
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-bold text-slate-400">
-                    By <strong className="text-white">{p.creatorName}</strong>
+                  <span className="text-[10px] font-bold text-[#5b7566]">
+                    By <strong className="text-[#1b382b]">{p.creatorName}</strong>
                   </span>
-                  <span className="text-[10px] uppercase font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] uppercase font-bold text-[#2d6a4f] bg-[#eaf2ec] px-2 py-0.5 rounded-full border border-[#d3e2d8]">
                     {p.difficulty}
                   </span>
                 </div>
-                <h4 className="font-extrabold text-sm text-white">{p.title}</h4>
-                <p className="text-xs text-slate-300/80 mt-1 line-clamp-3">{p.description}</p>
+                <h4 className="font-extrabold text-sm text-[#1b382b]">{p.title}</h4>
+                <p className="text-xs text-[#5b7566] mt-1 line-clamp-3 font-medium">{p.description}</p>
               </div>
 
-              <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="text-slate-400 text-[11px]">
-                  Plays: <strong className="text-white">{p.playsCount}</strong> · Solves:{' '}
-                  <strong className="text-emerald-400">{p.solvesCount}</strong>
+              <div className="pt-3 border-t border-[#e2ece5] flex items-center justify-between text-xs">
+                <span className="text-[#5b7566] text-[11px]">
+                  Plays: <strong className="text-[#1b382b]">{p.playsCount}</strong> · Solves:{' '}
+                  <strong className="text-[#2d6a4f]">{p.solvesCount}</strong>
                 </span>
                 <button
                   onClick={() => handlePlayCommunityLevel(p)}
-                  className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  className="px-3 py-1.5 bg-[#2d6a4f] hover:bg-[#245840] text-white rounded-xl text-xs font-bold cursor-pointer shadow-soft"
                 >
                   Play Level
                 </button>
@@ -893,19 +893,19 @@ export function MultiplayerPage() {
                 handleCloseDuel();
               }
             }}
-            className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-slate-900 border border-slate-700 rounded-3xl p-5 sm:p-6 max-w-2xl w-full space-y-4 shadow-2xl relative my-6"
+              className="bg-white border border-[#e2ece5] rounded-3xl p-5 sm:p-6 max-w-2xl w-full space-y-4 shadow-card relative my-6"
             >
               {/* Top Close Button */}
               <button
                 onClick={handleCloseDuel}
-                className="absolute top-4 right-4 px-3 py-1.5 text-xs font-extrabold text-slate-300 hover:text-white rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 flex items-center gap-1.5 cursor-pointer z-10 transition-colors shadow-md"
+                className="absolute top-4 right-4 px-3 py-1.5 text-xs font-extrabold text-[#5b7566] hover:text-[#1b382b] rounded-xl bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#e2ece5] flex items-center gap-1.5 cursor-pointer z-10 transition-colors shadow-soft"
                 title="Close Duel"
               >
                 <X size={15} /> Close
@@ -913,25 +913,25 @@ export function MultiplayerPage() {
 
               {/* Match Versus Banner */}
               <div className="text-center space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] uppercase font-black tracking-widest">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#eaf2ec] text-[#2d6a4f] border border-[#d3e2d8] text-[10px] uppercase font-black tracking-widest">
                   {currentArena?.arenaName || 'Logic Duel Arena'} · {currentArena?.themeTag}
                 </div>
-                <h3 className="text-lg sm:text-xl font-black text-white flex items-center justify-center gap-2">
-                  <span className="text-amber-400">{pet?.pet_name || 'Your Pet'}</span>
-                  <span className="text-slate-500 text-sm">VS</span>
-                  <span className="text-indigo-400">{selectedOpponent.friend_name}</span>
+                <h3 className="text-lg sm:text-xl font-black text-[#1b382b] flex items-center justify-center gap-2">
+                  <span className="text-[#2d6a4f]">{pet?.pet_name || 'Your Pet'}</span>
+                  <span className="text-[#7a9386] text-sm">VS</span>
+                  <span className="text-[#1b382b]">{selectedOpponent.friend_name}</span>
                 </h3>
               </div>
 
               {/* Competitor Status Bars */}
-              <div className="grid grid-cols-2 gap-3 bg-slate-950/80 p-3 rounded-2xl border border-slate-800 text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-[#f4f8f5] p-3 rounded-2xl border border-[#e2ece5] text-xs">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-white border border-[#e2ece5] flex items-center justify-center shrink-0 shadow-soft">
                     {pet && <PetSVG type={pet.pet_type} stage={pet.stage} state="happy" size={28} />}
                   </div>
                   <div className="min-w-0">
-                    <span className="font-extrabold text-amber-300 block truncate">{pet?.pet_name} (You)</span>
-                    <span className="text-[10px] text-slate-400 font-mono">
+                    <span className="font-extrabold text-[#2d6a4f] block truncate">{pet?.pet_name} (You)</span>
+                    <span className="text-[10px] text-[#5b7566] font-mono">
                       Pos: ({playerActivePos.x}, {playerActivePos.y})
                     </span>
                   </div>
@@ -939,12 +939,12 @@ export function MultiplayerPage() {
 
                 <div className="flex items-center gap-2 justify-end text-right">
                   <div className="min-w-0">
-                    <span className="font-extrabold text-indigo-300 block truncate">{selectedOpponent.friend_name}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">
+                    <span className="font-extrabold text-[#1b382b] block truncate">{selectedOpponent.friend_name}</span>
+                    <span className="text-[10px] text-[#5b7566] font-mono">
                       Pos: ({opponentActivePos.x}, {opponentActivePos.y})
                     </span>
                   </div>
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-white border border-[#e2ece5] flex items-center justify-center shrink-0 shadow-soft">
                     <PetSVG type={selectedOpponent.friend_pet_type} stage={selectedOpponent.friend_pet_stage} state="happy" size={28} />
                   </div>
                 </div>
@@ -952,13 +952,13 @@ export function MultiplayerPage() {
 
               {/* VISUAL 3D / 2D DUEL ARENA GRID */}
               {currentArena && (
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col items-center justify-center">
-                  <div className="flex items-center justify-between w-full mb-3 px-1 text-[11px] text-slate-400 font-mono">
-                    <span className="text-indigo-300 font-bold">
+                <div className="bg-[#f4f8f5] p-4 rounded-2xl border border-[#e2ece5] flex flex-col items-center justify-center">
+                  <div className="flex items-center justify-between w-full mb-3 px-1 text-[11px] text-[#5b7566] font-mono">
+                    <span className="text-[#2d6a4f] font-bold">
                       {currentArena.arenaName} ({currentArena.gridSize.width}x{currentArena.gridSize.height})
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="text-amber-400">
+                      <span className="text-[#2d6a4f] font-bold">
                         Crystals: {playerCrystals.length} / {currentArena.crystals.length}
                       </span>
                       <button
@@ -968,8 +968,8 @@ export function MultiplayerPage() {
                         }}
                         className={`px-2.5 py-1 rounded-xl text-xs font-black border flex items-center gap-1 transition-all cursor-pointer ${
                           viewMode3D
-                            ? 'bg-amber-500 text-slate-950 border-amber-400'
-                            : 'bg-slate-800 text-slate-300 border-slate-700'
+                            ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]'
+                            : 'bg-white text-[#5b7566] border-[#e2ece5]'
                         }`}
                       >
                         <Box size={13} />
@@ -1020,7 +1020,7 @@ export function MultiplayerPage() {
                     />
                   ) : (
                     <div
-                      className="grid gap-1.5 p-2 bg-slate-900 rounded-2xl border border-slate-800 shadow-inner"
+                      className="grid gap-1.5 p-2 bg-white rounded-2xl border border-[#e2ece5] shadow-soft"
                       style={{
                         gridTemplateColumns: `repeat(${currentArena.gridSize.width}, minmax(0, 1fr))`,
                       }}
@@ -1040,18 +1040,18 @@ export function MultiplayerPage() {
                               key={`duel_${col}_${row}`}
                               className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center relative transition-all ${
                                 isGoal
-                                  ? 'bg-emerald-950/70 border-2 border-emerald-400 shadow-lg shadow-emerald-500/20'
+                                  ? 'bg-[#eaf2ec] border-2 border-[#2d6a4f]'
                                   : obs?.type === 'wall'
-                                  ? 'bg-slate-800 border border-slate-700'
+                                  ? 'bg-[#e2ece5] border border-[#d3e2d8]'
                                   : obs?.type === 'water'
-                                  ? 'bg-cyan-950/60 border border-cyan-500/40'
+                                  ? 'bg-sky-50 border border-sky-300'
                                   : obs?.type === 'gate'
-                                  ? 'bg-rose-950/80 border-2 border-rose-500'
+                                  ? 'bg-rose-50 border-2 border-rose-400'
                                   : sw
-                                  ? 'bg-emerald-950/60 border border-emerald-400'
+                                  ? 'bg-[#eaf2ec] border border-[#2d6a4f]'
                                   : crystal && !isCrystalCollected
-                                  ? 'bg-amber-950/40 border border-amber-500/50'
-                                  : 'bg-slate-900 border border-slate-800/80'
+                                  ? 'bg-[#eaf2ec] border border-[#2d6a4f]'
+                                  : 'bg-[#f4f8f5] border border-[#e2ece5]'
                               }`}
                             >
                               {obs?.type === 'wall' && <span className="text-base">🧱</span>}
@@ -1086,7 +1086,7 @@ export function MultiplayerPage() {
                                         : null
                                     }
                                   />
-                                  <span className="absolute -bottom-1 text-[8px] bg-amber-500 text-slate-950 font-black px-1 rounded-full">
+                                  <span className="absolute -bottom-1 text-[8px] bg-[#2d6a4f] text-white font-black px-1 rounded-full">
                                     You
                                   </span>
                                 </div>
@@ -1113,7 +1113,7 @@ export function MultiplayerPage() {
                                         : null
                                     }
                                   />
-                                  <span className="absolute -bottom-1 text-[8px] bg-indigo-500 text-white font-black px-1 rounded-full">
+                                  <span className="absolute -bottom-1 text-[8px] bg-[#1b382b] text-white font-black px-1 rounded-full">
                                     Bot
                                   </span>
                                 </div>
@@ -1130,12 +1130,12 @@ export function MultiplayerPage() {
               {/* Arena Controls & Instruction Sequence */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-300">
+                  <span className="text-[11px] font-bold text-[#5b7566]">
                     Snap Directional Moves to Race:
                   </span>
                   <button
                     onClick={() => setDuelBlocks([])}
-                    className="text-[11px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer"
+                    className="text-[11px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <Trash2 size={12} /> Clear
                   </button>
@@ -1145,50 +1145,50 @@ export function MultiplayerPage() {
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     onClick={() => handleAddDuelBlock('move_up')}
-                    className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowUp size={13} /> Up
                   </button>
                   <button
                     onClick={() => handleAddDuelBlock('move_down')}
-                    className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowDown size={13} /> Down
                   </button>
                   <button
                     onClick={() => handleAddDuelBlock('move_left')}
-                    className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowLeft size={13} /> Left
                   </button>
                   <button
                     onClick={() => handleAddDuelBlock('move_right')}
-                    className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowRight size={13} /> Right
                   </button>
                   <button
                     onClick={() => handleAddDuelBlock('interact')}
-                    className="px-2.5 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-[#2d6a4f] hover:bg-[#245840] border border-[#2d6a4f] text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <Hand size={13} /> Interact
                   </button>
                 </div>
 
                 {/* Duel Logic Queue */}
-                <div className="min-h-[55px] max-h-[85px] overflow-y-auto bg-slate-950/70 p-2 rounded-xl border border-slate-800 flex flex-wrap gap-1.5 items-center custom-scrollbar">
+                <div className="min-h-[55px] max-h-[85px] overflow-y-auto bg-[#f4f8f5] p-2 rounded-xl border border-[#e2ece5] flex flex-wrap gap-1.5 items-center custom-scrollbar">
                   {duelBlocks.length === 0 ? (
-                    <span className="text-xs text-slate-500">Tap buttons above to plan your moves...</span>
+                    <span className="text-xs text-[#7a9386]">Tap buttons above to plan your moves...</span>
                   ) : (
                     duelBlocks.map((b, i) => (
                       <span
                         key={i}
-                        className="px-2 py-0.5 bg-slate-900 border border-slate-700 text-[11px] font-bold text-white rounded-lg flex items-center gap-1"
+                        className="px-2 py-0.5 bg-white border border-[#e2ece5] text-[11px] font-bold text-[#1b382b] rounded-lg flex items-center gap-1 shadow-soft"
                       >
                         #{i + 1} {b.type.replace('move_', '')}
                         <button
                           onClick={() => handleRemoveDuelBlock(i)}
-                          className="text-slate-400 hover:text-rose-400 text-[10px]"
+                          className="text-[#7a9386] hover:text-rose-600 text-[10px]"
                         >
                           ×
                         </button>
@@ -1203,10 +1203,10 @@ export function MultiplayerPage() {
                 <motion.div
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`p-4 rounded-2xl text-xs font-bold text-center space-y-2 shadow-lg ${
+                  className={`p-4 rounded-2xl text-xs font-bold text-center space-y-2 shadow-card ${
                     duelResult.winner === 'player'
-                      ? 'bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 shadow-emerald-950/40'
-                      : 'bg-rose-950/90 border border-rose-500/50 text-rose-300 shadow-rose-950/40'
+                      ? 'bg-[#eaf2ec] border border-[#d3e2d8] text-[#2d6a4f]'
+                      : 'bg-rose-50 border border-rose-200 text-rose-700'
                   }`}
                 >
                   <div className="text-sm font-black flex items-center justify-center gap-1.5">
@@ -1222,7 +1222,7 @@ export function MultiplayerPage() {
                   <>
                     <button
                       onClick={handleCloseDuel}
-                      className="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      className="flex-1 py-3.5 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black text-sm rounded-2xl shadow-card transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <CheckCircle2 size={18} />
                       CLOSE ARENA & RETURN
@@ -1230,7 +1230,7 @@ export function MultiplayerPage() {
                     <button
                       onClick={handleStartDuelRace}
                       disabled={duelRacing || duelBlocks.length === 0}
-                      className="px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 font-black text-sm rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                      className="px-6 py-3.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] text-[#2d6a4f] border border-[#e2ece5] font-black text-sm rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Play size={16} />
                       RETRY RACE
@@ -1241,7 +1241,7 @@ export function MultiplayerPage() {
                     <button
                       onClick={handleCloseDuel}
                       disabled={duelRacing}
-                      className="px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold text-sm rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                      className="px-6 py-3.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] text-[#5b7566] hover:text-[#1b382b] border border-[#e2ece5] font-bold text-sm rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <X size={16} />
                       CLOSE
@@ -1249,9 +1249,9 @@ export function MultiplayerPage() {
                     <button
                       onClick={handleStartDuelRace}
                       disabled={duelRacing || duelBlocks.length === 0}
-                      className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                      className="flex-1 py-3.5 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black text-sm rounded-2xl shadow-card transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      <Play size={18} className="fill-slate-950" />
+                      <Play size={18} className="fill-white" />
                       {duelRacing ? 'RACING IN LIVE ARENA...' : 'START DUEL RACE!'}
                     </button>
                   </>

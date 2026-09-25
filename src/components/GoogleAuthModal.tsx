@@ -81,12 +81,12 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
           initial={{ opacity: 0, scale: 0.94, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.94, y: 20 }}
-          className="relative w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden text-slate-100"
+          className="relative w-full max-w-md bg-white border border-[#e2ece5] rounded-3xl shadow-card overflow-hidden text-[#1b382b]"
         >
           {/* Top Google Header */}
-          <div className="p-6 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border-b border-slate-800 flex items-center justify-between">
+          <div className="p-6 bg-[#f4f8f5] border-b border-[#e2ece5] flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-white p-2 flex items-center justify-center shadow-md shrink-0">
+              <div className="w-10 h-10 rounded-2xl bg-white p-2 flex items-center justify-center shadow-soft shrink-0 border border-[#e2ece5]">
                 <svg className="w-6 h-6" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -95,10 +95,10 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
                 </svg>
               </div>
               <div>
-                <h3 className="text-base font-black text-white flex items-center gap-1.5">
+                <h3 className="text-base font-black text-[#1b382b] flex items-center gap-1.5">
                   Sign in with Google
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-[#5b7566] font-medium">
                   Connect your Google account to Petslyvia
                 </p>
               </div>
@@ -109,7 +109,7 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
                 sound.playClick();
                 onClose();
               }}
-              className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white border border-slate-700 cursor-pointer"
+              className="p-2 rounded-xl bg-white text-[#5b7566] hover:text-[#1b382b] border border-[#e2ece5] cursor-pointer shadow-soft"
             >
               <X size={18} />
             </button>
@@ -118,14 +118,14 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
           {/* Body */}
           <div className="p-6 space-y-5">
             {error && (
-              <div className="p-3 bg-rose-950/80 border border-rose-500/50 text-rose-300 text-xs rounded-xl font-bold">
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-bold">
                 {error}
               </div>
             )}
 
             {/* Quick 1-Click Select Cards */}
             <div className="space-y-2">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-[#5b7566] uppercase tracking-wider">
                 Instant Demo Access
               </span>
 
@@ -134,83 +134,83 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
                 type="button"
                 onClick={() => handleQuickSelect('demo.player@gmail.com', 'Demo Explorer')}
                 disabled={loading}
-                className="w-full p-3 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-500/40 hover:border-indigo-400 rounded-2xl flex items-center justify-between transition-all cursor-pointer group text-left shadow-sm"
+                className="w-full p-3 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#e2ece5] hover:border-[#2d6a4f] rounded-2xl flex items-center justify-between transition-all cursor-pointer group text-left shadow-soft"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white text-xs">
+                  <div className="w-9 h-9 rounded-full bg-[#2d6a4f] flex items-center justify-center font-bold text-white text-xs">
                     G
                   </div>
                   <div>
-                    <div className="text-xs font-black text-white group-hover:text-amber-300 transition-colors">
+                    <div className="text-xs font-black text-[#1b382b] group-hover:text-[#2d6a4f] transition-colors">
                       Demo Explorer
                     </div>
-                    <div className="text-[10px] text-slate-400 font-mono">
+                    <div className="text-[10px] text-[#5b7566] font-mono">
                       demo.player@gmail.com
                     </div>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-indigo-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                <span className="text-xs font-bold text-[#2d6a4f] group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
                   Try Demo ➔
                 </span>
               </button>
             </div>
 
             <div className="relative flex py-1 items-center">
-              <div className="flex-grow border-t border-slate-800"></div>
-              <span className="flex-shrink mx-3 text-[10px] text-slate-500 uppercase font-mono font-bold">
+              <div className="flex-grow border-t border-[#e2ece5]"></div>
+              <span className="flex-shrink mx-3 text-[10px] text-[#7a9386] uppercase font-mono font-bold">
                 or enter your google email
               </span>
-              <div className="flex-grow border-t border-slate-800"></div>
+              <div className="flex-grow border-t border-[#e2ece5]"></div>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-[#1b382b] mb-1">
                   Google Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                  <Mail className="absolute left-3 top-2.5 text-[#7a9386]" size={16} />
                   <input
                     type="email"
                     required
                     placeholder="e.g. yourname@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    className="w-full pl-9 pr-3 py-2.5 bg-[#f4f8f5] border border-[#e2ece5] rounded-xl text-xs text-[#1b382b] placeholder-[#7a9386] focus:outline-none focus:border-[#2d6a4f]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-[#1b382b] mb-1">
                     Your Nickname
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <User className="absolute left-3 top-2.5 text-[#7a9386]" size={16} />
                     <input
                       type="text"
                       placeholder="e.g. Alex"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      className="w-full pl-9 pr-3 py-2.5 bg-[#f4f8f5] border border-[#e2ece5] rounded-xl text-xs text-[#1b382b] placeholder-[#7a9386] focus:outline-none focus:border-[#2d6a4f]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-[#1b382b] mb-1">
                     Pet Name
                   </label>
                   <div className="relative">
-                    <Heart className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <Heart className="absolute left-3 top-2.5 text-[#7a9386]" size={16} />
                     <input
                       type="text"
                       placeholder="e.g. Sparky"
                       value={petName}
                       onChange={(e) => setPetName(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      className="w-full pl-9 pr-3 py-2.5 bg-[#f4f8f5] border border-[#e2ece5] rounded-xl text-xs text-[#1b382b] placeholder-[#7a9386] focus:outline-none focus:border-[#2d6a4f]"
                     />
                   </div>
                 </div>
@@ -218,9 +218,9 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
 
               {/* Starter Companion Choice */}
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-bold text-[#1b382b] mb-1.5 flex items-center justify-between">
                   <span>Companion Species (If new account):</span>
-                  <span className="text-[10px] text-amber-400 capitalize">{selectedPet}</span>
+                  <span className="text-[10px] text-[#2d6a4f] capitalize font-bold">{selectedPet}</span>
                 </label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {PET_LIST.map((p) => (
@@ -233,8 +233,8 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
                       }}
                       className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                         selectedPet === p.type
-                          ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black'
-                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
+                          ? 'bg-[#eaf2ec] text-[#2d6a4f] border-[#2d6a4f] shadow-sm font-black'
+                          : 'bg-[#f4f8f5] text-[#5b7566] border-[#e2ece5] hover:border-[#2d6a4f]'
                       }`}
                     >
                       <span>{p.emoji}</span>
@@ -247,7 +247,7 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer mt-2"
+                className="w-full py-3 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black text-xs rounded-xl shadow-card transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer mt-2"
               >
                 <Sparkles size={16} />
                 {loading ? 'CONNECTING GOOGLE ACCOUNT...' : 'CONTINUE WITH THIS GOOGLE ACCOUNT'}

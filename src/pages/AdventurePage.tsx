@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Play, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
   Hand, Sparkles, CheckCircle2, AlertCircle, Bot, HelpCircle,
-  Code2, Plus, Trash2, ChevronRight, Zap, Coins, Terminal, Layout, Box
+  Code2, Plus, Trash2, ChevronRight, Zap, Coins, Terminal, Layout, Box,
+  Volume2, VolumeX, Mic, Send, CornerUpLeft, CornerUpRight, Map, ChevronDown
 } from 'lucide-react';
 import { MISSIONS_LIST } from '@/data/missions';
 import type { MissionDefinition, VisualBlock, SimulationResult, SimulationStep, Direction } from '@/types/game';
@@ -119,14 +121,16 @@ const parseCodeToBlocks = (source: string): VisualBlock[] => {
 };
 
 export function AdventurePage() {
-  const { profile, pet, progress, completeMission, setPlayerRole } = useGameData();
+  const { profile, pet, progress, completeMission, setPlayerRole, soundEnabled, toggleSound } = useGameData();
+  const navigate = useNavigate();
 
   const [customAiMission, setCustomAiMission] = useState<MissionDefinition | null>(null);
   const [selectedMissionId, setSelectedMissionId] = useState<string>('mission_1');
   const mission = customAiMission || MISSIONS_LIST.find((m) => m.id === selectedMissionId) || MISSIONS_LIST[0];
 
-  // 3D vs 2D Display mode (Default 3D!)
-  const [viewMode3D, setViewMode3D] = useState<boolean>(true);
+  // 3D vs 2D Display mode & Camera Preset
+  const [cameraMode, setCameraMode] = useState<'iso' | 'perspective' | 'top'>('iso');
+  const [showCameraDropdown, setShowCameraDropdown] = useState<boolean>(false);
 
   // Logic Blocks / Sequence in workspace
   const [blocks, setBlocks] = useState<VisualBlock[]>([]);
@@ -137,6 +141,10 @@ export function AdventurePage() {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'visual' | 'code'>('visual');
   const [coderLanguage, setCoderLanguage] = useState<'python' | 'javascript'>('python');
   const [rawCodeInput, setRawCodeInput] = useState<string>('');
+
+  // AI Prompt bar state ("Do anything")
+  const [aiPromptInput, setAiPromptInput] = useState<string>('');
+  const [aiPromptResponse, setAiPromptResponse] = useState<string | null>(null);
 
   // Simulation execution state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -197,22 +205,6 @@ export function AdventurePage() {
     setBlocks(parsed);
   };
 
-  // Helper to insert snippet in code editor
-  const handleInsertSnippet = (snippet: string) => {
-    sound.playSnap();
-    const updated = `${rawCodeInput.trimEnd()}\n${snippet}\n`;
-    setRawCodeInput(updated);
-    const parsed = parseCodeToBlocks(updated);
-    setBlocks(parsed);
-  };
-
-  // Switch programming language
-  const handleSwitchLanguage = (newLang: 'python' | 'javascript') => {
-    sound.playClick();
-    setCoderLanguage(newLang);
-    setRawCodeInput(blocksToCode(blocks, newLang));
-  };
-
   // Handle Add Block from UI Buttons / D-Pad
   const handleAddBlock = (type: VisualBlock['type']) => {
     sound.playSnap();
@@ -226,37 +218,37 @@ export function AdventurePage() {
     setRawCodeInput(blocksToCode(nextBlocks, coderLanguage));
   };
 
-  // Direct 2D Directional Controls (Up -> move_up, Down -> move_down, Left -> move_left, Right -> move_right)
-  const handleDirectControl = (controlType: 'up' | 'down' | 'left' | 'right' | 'interact') => {
+  // Directional Controls
+  const handleDirectMove = (type: 'forward' | 'turn_left' | 'turn_right' | 'back' | 'jump' | 'interact') => {
     sound.playStep();
-    if (controlType === 'up') handleAddBlock('move_up');
-    else if (controlType === 'down') handleAddBlock('move_down');
-    else if (controlType === 'left') handleAddBlock('move_left');
-    else if (controlType === 'right') handleAddBlock('move_right');
-    else if (controlType === 'interact') handleAddBlock('interact');
+    if (type === 'forward') handleAddBlock('move_forward');
+    else if (type === 'turn_left') handleAddBlock('turn_left');
+    else if (type === 'turn_right') handleAddBlock('turn_right');
+    else if (type === 'back') handleAddBlock('move_down');
+    else if (type === 'jump') handleAddBlock('jump');
+    else if (type === 'interact') handleAddBlock('interact');
   };
 
-  // Keyboard navigation listener (Arrow keys)
+  // Keyboard navigation listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept when typing in text fields or textarea
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
 
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        handleDirectControl('up');
+        handleDirectMove('forward');
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        handleDirectControl('down');
+        handleDirectMove('back');
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        handleDirectControl('left');
+        handleDirectMove('turn_left');
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        handleDirectControl('right');
+        handleDirectMove('turn_right');
       } else if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
-        handleDirectControl('interact');
+        handleDirectMove('interact');
       }
     };
 
@@ -282,11 +274,83 @@ export function AdventurePage() {
     setLastErrorMsg(undefined);
   };
 
+  // Handle Natural Language / AI Prompt Bar Submission
+  const handleAiPromptSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const prompt = aiPromptInput.trim().toLowerCase();
+    if (!prompt) return;
+
+    sound.playSparkle();
+
+    // Check if it's a movement command
+    if (prompt.includes('forward') || prompt.includes('walk') || prompt.includes('step') || prompt.includes('ahead')) {
+      const matchNum = prompt.match(/\d+/);
+      const count = matchNum ? parseInt(matchNum[0], 10) : 1;
+      for (let i = 0; i < Math.min(count, 5); i++) {
+        handleAddBlock('move_forward');
+      }
+      setAiPromptResponse(`Added ${count} forward step${count > 1 ? 's' : ''}! 🐾`);
+      setAiPromptInput('');
+      setTimeout(() => setAiPromptResponse(null), 3500);
+      return;
+    }
+
+    if (prompt.includes('left') || prompt.includes('turn left')) {
+      handleAddBlock('turn_left');
+      setAiPromptResponse('Turned left! ↩');
+      setAiPromptInput('');
+      setTimeout(() => setAiPromptResponse(null), 3000);
+      return;
+    }
+
+    if (prompt.includes('right') || prompt.includes('turn right')) {
+      handleAddBlock('turn_right');
+      setAiPromptResponse('Turned right! ↪');
+      setAiPromptInput('');
+      setTimeout(() => setAiPromptResponse(null), 3000);
+      return;
+    }
+
+    if (prompt.includes('back') || prompt.includes('reverse')) {
+      handleAddBlock('move_down');
+      setAiPromptResponse('Added backward step! ⬇');
+      setAiPromptInput('');
+      setTimeout(() => setAiPromptResponse(null), 3000);
+      return;
+    }
+
+    if (prompt.includes('collect') || prompt.includes('gem') || prompt.includes('crystal') || prompt.includes('interact')) {
+      handleAddBlock('interact');
+      setAiPromptResponse('Added interact command! 💎');
+      setAiPromptInput('');
+      setTimeout(() => setAiPromptResponse(null), 3000);
+      return;
+    }
+
+    if (prompt.includes('play') || prompt.includes('run') || prompt.includes('go')) {
+      setAiPromptInput('');
+      handleRunSimulation();
+      return;
+    }
+
+    if (prompt.includes('clear') || prompt.includes('reset')) {
+      handleClearWorkspace();
+      setAiPromptResponse('Cleared logic workspace!');
+      setAiPromptInput('');
+      setTimeout(() => setAiPromptResponse(null), 3000);
+      return;
+    }
+
+    // Otherwise, open AI Game Master with query
+    setShowAiHelper(true);
+    setAiPromptInput('');
+  };
+
   // Run Simulation
   const handleRunSimulation = () => {
     if (blocks.length === 0) {
       sound.playError();
-      setLastErrorMsg('Your logic workspace is empty! Use the directional controls, palette, or code editor to write instructions.');
+      setLastErrorMsg('Your logic sequence is empty! Add moves in order above.');
       return;
     }
 
@@ -324,8 +388,7 @@ export function AdventurePage() {
             logic: 30,
           });
 
-          // If Explorer, show Stage 2 Code Reveal modal
-          if (profile?.role === 'explorer') {
+          if (profile?.role === 'non_coder' || profile?.role === 'explorer') {
             setTimeout(() => {
               setShowRevealModal(true);
             }, 500);
@@ -335,7 +398,7 @@ export function AdventurePage() {
           setLastErrorMsg(result.message);
         }
       }
-    }, 400);
+    }, 450);
   };
 
   const activeStep: SimulationStep =
@@ -348,148 +411,190 @@ export function AdventurePage() {
           petAction: 'idle',
           crystalsCollected: [],
           openGates: [],
-          status: 'running',
-          message: 'Ready for simulation',
+          status: 'idle',
+          message: 'Ready to explore',
         };
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
-      {/* Header Banner */}
-      <div className="p-6 bg-gradient-to-r from-indigo-950/80 via-slate-900 to-slate-900 rounded-3xl border border-indigo-500/30 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="space-y-6 pb-12">
+      {/* Top Breadcrumb & Stage Title Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/20 border border-indigo-500/40 rounded-full text-xs font-bold text-indigo-300 mb-2">
-            <Sparkles size={14} /> Mission Arena
-            {customAiMission && (
-              <span className="ml-1.5 px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-300 text-[10px] font-black uppercase">
-                AI Custom Stage
-              </span>
-            )}
+          {/* Category Eyebrow */}
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#5b7566] tracking-[0.2em] uppercase mb-1">
+            <span className="text-xs">🧭</span>
+            <span>THE WHISPERING WOODS</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">{mission.title}</h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">{mission.story || (mission as any).description}</p>
+
+          {/* Main Title & Stage Badge */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-black text-[#1b382b] tracking-tight">
+              First steps
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full bg-[#e2ece5] text-[#2d6a4f] text-[11px] font-bold border border-[#d5e3da]">
+              Stage 1
+            </span>
+          </div>
+
+          <p className="text-xs text-[#5b7566] font-medium mt-1">
+            Small moves. Big adventures. Your pet is ready when you are.
+          </p>
         </div>
 
-        {/* Mission Switcher Pills & AI Generator Button */}
-        <div className="flex flex-wrap items-center gap-2">
-          {customAiMission && (
-            <button
-              onClick={() => {
-                sound.playClick();
-                setSelectedMissionId(customAiMission.id);
-              }}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400 flex items-center gap-1.5 cursor-pointer"
-            >
-              <Bot size={13} className="text-amber-300 animate-pulse" />
-              AI Active Stage
-            </button>
-          )}
+        {/* World Map & Level Architect Actions */}
+        <div className="flex items-center gap-2">
+          <Link
+            to="/app"
+            className="px-4 py-2 bg-white border border-[#d8e5dc] rounded-2xl text-xs font-bold text-[#1b382b] hover:bg-[#eaf2ec] shadow-soft flex items-center gap-2 transition-all cursor-pointer group"
+          >
+            <Map size={14} className="text-[#5b7566] group-hover:text-[#1b382b]" />
+            <span>World map</span>
+          </Link>
 
-          {MISSIONS_LIST.filter((m) => m.worldArea === 'logic_forest').map((m, idx) => (
-            <button
-              key={m.id}
-              onClick={() => {
-                sound.playClick();
-                setCustomAiMission(null);
-                setSelectedMissionId(m.id);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                m.id === selectedMissionId && !customAiMission
-                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30 font-black'
-                  : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              Mission {idx + 1}
-            </button>
-          ))}
-
-          {/* AI Level Architect Trigger Button */}
           <button
             onClick={() => {
               sound.playClick();
               setShowAiLevelModal(true);
             }}
-            className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-400 hover:to-pink-400 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-500/25 border border-indigo-400/50 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+            className="px-3.5 py-2 bg-[#eaf2ec] hover:bg-[#dde8df] border border-[#d8e5dc] text-[#1b382b] text-xs font-bold rounded-2xl shadow-soft flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Create or generate custom logic puzzles"
           >
-            <Sparkles size={14} className="text-amber-300 animate-bounce" />
-            AI Level Architect
+            <Sparkles size={13} className="text-[#2d6a4f]" />
+            <span>AI Architect</span>
           </button>
         </div>
       </div>
 
-      {/* Main Game Grid: 3D Scene (Left) + Direct Controls / Logic Workspace (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: 3D WebGL Canvas or 2D Interactive Grid */}
-        <div className="lg:col-span-7 bg-slate-900/90 rounded-3xl p-5 border border-slate-800 shadow-2xl flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs text-slate-300 font-medium">
-              🎯 <strong>Mission Goal:</strong> {mission.objective}
+      {/* Main Grid: Center 3D Diorama (Left) + Right Action Panel ("Make your move") */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* CENTER / LEFT: 3D Mission Diorama Card */}
+        <div className="lg:col-span-8 bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card flex flex-col space-y-4 relative">
+          {/* Card Top Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold text-[#1b382b]">
+                Mission 01
+              </span>
+              <span className="text-xs text-[#7a9386]">|</span>
+              <span className="text-xs text-[#5b7566] font-medium">
+                {mission.objective || 'A little way home'}
+              </span>
             </div>
 
+            {/* Viewport Action Controls */}
             <div className="flex items-center gap-2">
-              {/* AI Helper Button */}
+              {/* Camera Preset Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowCameraDropdown(!showCameraDropdown)}
+                  className="px-3 py-1 bg-[#f4f8f5] border border-[#d8e5dc] hover:bg-[#eaf2ec] rounded-xl text-xs font-bold text-[#1b382b] flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Box size={13} className="text-[#5b7566]" />
+                  <span>{cameraMode === 'iso' ? 'Iso 3D' : cameraMode === 'perspective' ? 'Perspective' : 'Top View'}</span>
+                  <ChevronDown size={12} className="text-[#7a9386]" />
+                </button>
+
+                {showCameraDropdown && (
+                  <div className="absolute right-0 top-full mt-1.5 bg-white border border-[#e2ece5] rounded-2xl p-1.5 shadow-lg z-30 min-w-[130px] space-y-1">
+                    <button
+                      onClick={() => {
+                        setCameraMode('iso');
+                        setShowCameraDropdown(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                        cameraMode === 'iso' ? 'bg-[#eaf2ec] text-[#1b382b] font-bold' : 'text-[#5b7566] hover:bg-[#f4f8f5]'
+                      }`}
+                    >
+                      Iso 3D
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCameraMode('perspective');
+                        setShowCameraDropdown(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                        cameraMode === 'perspective' ? 'bg-[#eaf2ec] text-[#1b382b] font-bold' : 'text-[#5b7566] hover:bg-[#f4f8f5]'
+                      }`}
+                    >
+                      Perspective
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCameraMode('top');
+                        setShowCameraDropdown(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                        cameraMode === 'top' ? 'bg-[#eaf2ec] text-[#1b382b] font-bold' : 'text-[#5b7566] hover:bg-[#f4f8f5]'
+                      }`}
+                    >
+                      Top View
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Audio Toggle */}
               <button
                 onClick={() => {
+                  toggleSound();
                   sound.playClick();
-                  setShowAiHelper(true);
                 }}
-                className="px-2.5 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                className="p-1.5 bg-[#f4f8f5] border border-[#d8e5dc] hover:bg-[#eaf2ec] text-[#5b7566] hover:text-[#1b382b] rounded-xl transition-all cursor-pointer"
+                title={soundEnabled ? 'Mute sound' : 'Enable sound'}
               >
-                <Bot size={14} /> AI Hint
+                {soundEnabled ? <Volume2 size={14} className="text-[#2d6a4f]" /> : <VolumeX size={14} />}
               </button>
 
-              {/* 3D / 2D Mode Switcher */}
+              {/* Reset / Restart Workspace */}
               <button
-                onClick={() => {
-                  sound.playClick();
-                  setViewMode3D((prev) => !prev);
-                }}
-                className={`px-3 py-1 rounded-xl text-xs font-black border flex items-center gap-1.5 transition-all cursor-pointer ${
-                  viewMode3D
-                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-indigo-400 shadow-md shadow-indigo-500/20'
-                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-                }`}
+                onClick={handleClearWorkspace}
+                className="p-1.5 bg-[#f4f8f5] border border-[#d8e5dc] hover:bg-[#eaf2ec] text-[#5b7566] hover:text-rose-600 rounded-xl transition-all cursor-pointer"
+                title="Restart & clear moves"
               >
-                <Box size={14} />
-                {viewMode3D ? '3D Engine' : '2D View'}
+                <RotateCcw size={14} />
               </button>
             </div>
           </div>
 
-          {/* Humanized Companion Speech Bubble */}
-          {pet && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-3 p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border border-amber-400/30 flex items-center gap-3 shadow-inner"
-            >
-              <div className="w-9 h-9 rounded-xl bg-slate-950 border border-amber-400/40 flex items-center justify-center shrink-0 shadow-sm">
-                <PetSVG
-                  type={pet.pet_type}
-                  stage={pet.stage}
-                  state={isPlaying ? 'excited' : simulationResult?.success ? 'celebrating' : lastErrorMsg ? 'thinking' : 'happy'}
-                  equipped={pet.equipped_items}
-                  size={38}
+          {/* 3D Diorama Canvas Container */}
+          <div className="rounded-2xl overflow-hidden relative border border-[#d8e5dc] bg-[#dce8e0] min-h-[410px] flex items-center justify-center">
+            {/* Top-Left Status Pill Badge */}
+            <div className="absolute top-3 left-3 z-20">
+              <div className="px-3 py-1 bg-white/90 backdrop-blur-md border border-[#c8dad0] rounded-full text-xs font-bold text-[#1b382b] flex items-center gap-2 shadow-soft">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    isPlaying
+                      ? 'bg-amber-500 animate-pulse'
+                      : activeStep.status === 'success'
+                      ? 'bg-[#10b981]'
+                      : activeStep.status === 'collision'
+                      ? 'bg-rose-500'
+                      : 'bg-[#2d6a4f]'
+                  }`}
                 />
-              </div>
-              <div className="min-w-0 flex-1">
-                <span className="text-[10px] font-bold text-amber-300 flex items-center gap-1">
-                  🐾 {pet.pet_name} whispers:
-                </span>
-                <p className="text-xs text-slate-100 font-medium italic mt-0.5">
+                <span>
                   {isPlaying
-                    ? `Running our code step by step... cheering you on! ⚡`
-                    : simulationResult?.success
-                    ? `Woohoo! We did it, ${profile?.display_name || 'friend'}! That was brilliant! 🌟`
-                    : lastErrorMsg
-                    ? `Don't worry! Mistakes help us learn. Let's tweak our path and try again! 💪`
-                    : `Ready when you are! Tap arrow buttons or write code to guide me! 🚀`}
-                </p>
+                    ? `Running move ${currentStepIndex + 1} of ${blocks.length}...`
+                    : activeStep.status === 'success'
+                    ? 'Mission accomplished! 🌟'
+                    : activeStep.status === 'collision'
+                    ? 'Obstacle hit!'
+                    : 'Ready to explore'}
+                </span>
               </div>
-            </motion.div>
-          )}
+            </div>
 
-          {/* 3D vs 2D Engine Rendering */}
-          {viewMode3D ? (
+            {/* Top-Right Gem Progress Pill Badge */}
+            <div className="absolute top-3 right-3 z-20">
+              <div className="px-3 py-1 bg-white/90 backdrop-blur-md border border-[#c8dad0] rounded-full text-xs font-bold text-[#1b382b] flex items-center gap-1.5 shadow-soft">
+                <span className="text-xs">💎</span>
+                <span>
+                  {activeStep.crystalsCollected.length} / {mission.crystals.length}
+                </span>
+              </div>
+            </div>
+
+            {/* 3D WebGL Diorama Canvas */}
             <GameScene3D
               gridSize={mission.gridSize}
               startPos={mission.startPos}
@@ -498,491 +603,367 @@ export function AdventurePage() {
               crystals={mission.crystals}
               switches={mission.switches}
               activeStep={activeStep}
-              petType={pet?.pet_type || 'cat'}
+              petType={pet?.pet_type || 'fox'}
               equipped={pet?.equipped_items}
-              theme={mission.worldArea === 'logic_forest' ? 'forest' : 'arena'}
-              height="380px"
+              theme="forest"
+              cameraPreset={cameraMode}
+              showControls={false}
+              height="410px"
             />
-          ) : (
-            <div className="flex-1 flex items-center justify-center p-4 bg-slate-950 rounded-2xl border border-slate-800 min-h-[340px]">
-              <div
-                className="grid gap-2 p-3 bg-slate-900 rounded-2xl border border-slate-800 relative shadow-inner"
-                style={{
-                  gridTemplateColumns: `repeat(${mission.gridSize.width}, minmax(0, 1fr))`,
-                }}
+
+            {/* Bottom Floating AI Command Bar ("Do anything") */}
+            <div className="absolute bottom-4 inset-x-0 mx-auto w-11/12 max-w-md z-20">
+              <form
+                onSubmit={handleAiPromptSubmit}
+                className="bg-[#1c2821] text-white px-4 py-2.5 rounded-full shadow-float border border-[#2f4236] flex items-center justify-between gap-3 transition-all focus-within:ring-2 focus-within:ring-[#2d6a4f]"
               >
-                {Array.from({ length: mission.gridSize.height }).map((_, row) =>
-                  Array.from({ length: mission.gridSize.width }).map((__, col) => {
-                    const isPetHere = activeStep.petPos.x === col && activeStep.petPos.y === row;
-                    const isGoal = mission.goalPos.x === col && mission.goalPos.y === row;
-                    const obstacle = mission.obstacles.find((o) => o.x === col && o.y === row);
-                    const isGateOpen =
-                      obstacle?.type === 'gate' &&
-                      activeStep.openGates.includes(obstacle.id || `${col},${row}`);
-                    const crystal = mission.crystals.find((c) => c.x === col && c.y === row);
-                    const isCrystalCollected = activeStep.crystalsCollected.some(
-                      (c) => c.x === col && c.y === row
-                    );
-                    const sw = mission.switches?.find((s) => s.x === col && s.y === row);
+                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                  <div className="w-5 h-5 rounded-full bg-[#2d6a4f]/40 flex items-center justify-center shrink-0">
+                    <Sparkles size={13} className="text-[#a7f3d0]" />
+                  </div>
+                  <input
+                    type="text"
+                    value={aiPromptInput}
+                    onChange={(e) => setAiPromptInput(e.target.value)}
+                    placeholder="Do anything"
+                    className="bg-transparent text-xs text-white placeholder:text-[#7a9386] outline-none flex-1 font-medium"
+                  />
+                </div>
 
-                    return (
-                      <div
-                        key={`cell_${col}_${row}`}
-                        className={`w-14 h-14 rounded-xl flex items-center justify-center relative transition-all duration-200 ${
-                          isGoal
-                            ? 'bg-emerald-950/80 border-2 border-emerald-400 shadow-md shadow-emerald-500/20'
-                            : obstacle?.type === 'gate'
-                            ? isGateOpen
-                              ? 'bg-indigo-950/60 border border-emerald-400'
-                              : 'bg-rose-950/80 border-2 border-rose-500'
-                            : obstacle?.type === 'wall'
-                            ? 'bg-slate-800 border border-slate-700'
-                            : obstacle?.type === 'water'
-                            ? 'bg-sky-950/80 border border-sky-600'
-                            : sw
-                            ? 'bg-amber-950/60 border border-amber-400'
-                            : 'bg-slate-900/90 border border-slate-800 hover:border-slate-700'
-                        }`}
-                      >
-                        {/* Obstacles */}
-                        {obstacle?.type === 'wall' && (
-                          <span className="text-xl select-none">🧱</span>
-                        )}
-                        {obstacle?.type === 'water' && (
-                          <span className="text-xl select-none">🌊</span>
-                        )}
-                        {obstacle?.type === 'gate' && (
-                          <span className="text-lg">{isGateOpen ? '🟢' : '🔒'}</span>
-                        )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playSparkle();
+                      setShowAiHelper(true);
+                    }}
+                    className="p-1 text-[#7a9386] hover:text-white transition-colors cursor-pointer"
+                    title="Speak or trigger AI Hint"
+                  >
+                    <Mic size={14} />
+                  </button>
 
-                        {/* Switch */}
-                        {sw && (
-                          <span className="text-sm font-mono text-amber-300">🔘</span>
-                        )}
+                  <button
+                    type="submit"
+                    className="p-1.5 bg-[#2d6a4f] hover:bg-[#387a5b] text-white rounded-full transition-all cursor-pointer active:scale-95"
+                    title="Execute instruction"
+                  >
+                    <Send size={12} />
+                  </button>
+                </div>
+              </form>
 
-                        {/* Crystal */}
-                        {crystal && !isCrystalCollected && !isPetHere && (
-                          <span className="text-lg animate-bounce drop-shadow-md">💎</span>
-                        )}
-
-                        {/* Goal Tile */}
-                        {isGoal && !isPetHere && (
-                          <span className="text-lg">🌟</span>
-                        )}
-
-                        {/* Active Pet Companion */}
-                        {isPetHere && pet && (
-                          <div className="absolute inset-0 flex items-center justify-center z-10">
-                            <PetSVG
-                              type={pet.pet_type}
-                              stage={pet.stage}
-                              state={activeStep.status === 'collision' ? 'tired' : activeStep.status === 'success' ? 'excited' : 'happy'}
-                              equipped={pet.equipped_items}
-                              size={44}
-                              reaction={
-                                activeStep.status === 'success'
-                                  ? { config: { expression: 'victory', label: 'Victory', icon: '🌟', sound: 'victory', duration: 2 }, id: 1 }
-                                  : activeStep.status === 'collision' || activeStep.status === 'failed'
-                                  ? { config: { expression: 'hurt', label: 'Ouch!', icon: '💥', sound: 'hurt', duration: 2 }, id: 2 }
-                                  : null
-                              }
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+              {/* Instant feedback notification from AI Prompt */}
+              {aiPromptResponse && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1.5 text-center text-[11px] font-bold text-[#1b382b] bg-white/95 px-3 py-1 rounded-full border border-[#c8dad0] shadow-soft max-w-xs mx-auto"
+                >
+                  {aiPromptResponse}
+                </motion.div>
+              )}
             </div>
-          )}
-
-          {/* Status & Telemetry Bar */}
-          <div className="mt-4 p-3 bg-slate-950/90 rounded-2xl border border-slate-800 flex items-center justify-between text-xs font-mono">
-            <span className="text-slate-400">
-              Status:{' '}
-              <strong
-                className={
-                  activeStep.status === 'collision'
-                    ? 'text-rose-400'
-                    : activeStep.status === 'success'
-                    ? 'text-emerald-400'
-                    : 'text-indigo-400'
-                }
-              >
-                {activeStep.message || 'Ready for simulation'}
-              </strong>
-            </span>
-            <span className="text-amber-400">
-              Crystals: {activeStep.crystalsCollected.length} / {mission.crystals.length}
-            </span>
           </div>
         </div>
 
-        {/* Right: Direct Controls & Logic Workspace */}
-        <div className="lg:col-span-5 space-y-4">
-          {/* SECTION A: DIRECT DIRECTIONAL D-PAD (STAGE 1: UP / DOWN / LEFT / RIGHT) */}
-          <div className="bg-slate-900/90 rounded-3xl p-5 border border-slate-800 shadow-xl space-y-3">
+        {/* RIGHT: "Make your move" Action Panel */}
+        <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-[#e2ece5] shadow-card flex flex-col justify-between space-y-5">
+          {/* Card Header */}
+          <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase text-amber-400 tracking-wide flex items-center gap-1.5">
-                <Sparkles size={14} /> Stage 1: Directional Controls
-              </span>
-              <span className="text-[10px] text-slate-400 font-mono">Arrow keys or click</span>
-            </div>
-
-            {/* D-Pad Layout */}
-            <div className="flex flex-col items-center justify-center gap-2 py-2">
+              <h2 className="text-base font-black text-[#1b382b]">
+                Make your move
+              </h2>
               <button
-                onClick={() => handleDirectControl('up')}
-                className="w-12 h-12 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-700 hover:from-amber-500 hover:to-amber-400 hover:text-slate-950 text-white font-black shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                title="Move Up ⬆️ (ArrowUp)"
+                onClick={handleRunSimulation}
+                disabled={isPlaying || blocks.length === 0}
+                className="px-3.5 py-1 bg-[#2d6a4f] hover:bg-[#23533e] text-white rounded-lg text-xs font-black tracking-wider uppercase shadow-sm transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1"
               >
-                <ArrowUp size={22} />
-              </button>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleDirectControl('left')}
-                  className="w-12 h-12 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-700 hover:from-amber-500 hover:to-amber-400 hover:text-slate-950 text-white font-black shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                  title="Move Left ⬅️ (ArrowLeft)"
-                >
-                  <ArrowLeft size={22} />
-                </button>
-                <button
-                  onClick={() => handleDirectControl('interact')}
-                  className="w-12 h-12 rounded-2xl bg-gradient-to-b from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-black shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                  title="Interact / Switch ✋ (Space)"
-                >
-                  <Hand size={20} />
-                </button>
-                <button
-                  onClick={() => handleDirectControl('right')}
-                  className="w-12 h-12 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-700 hover:from-amber-500 hover:to-amber-400 hover:text-slate-950 text-white font-black shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                  title="Move Right ➡️ (ArrowRight)"
-                >
-                  <ArrowRight size={22} />
-                </button>
-              </div>
-              <button
-                onClick={() => handleDirectControl('down')}
-                className="w-12 h-12 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-700 hover:from-amber-500 hover:to-amber-400 hover:text-slate-950 text-white font-black shadow-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                title="Move Down ⬇️ (ArrowDown)"
-              >
-                <ArrowDown size={22} />
+                <Play size={11} className="fill-white" />
+                <span>{isPlaying ? 'RUNNING' : 'PLAY'}</span>
               </button>
             </div>
+            <p className="text-xs text-[#5b7566] font-medium">
+              Add moves in order, then watch your pet go.
+            </p>
           </div>
 
-          {/* SECTION B: LOGIC BLOCKS WORKSPACE (STAGE 3: VISUAL LOGIC / CODER MODE) */}
-          <div className="bg-slate-900/90 rounded-3xl p-5 border border-slate-800 shadow-xl space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+          {/* Directional Move Buttons Grid (2x2) matching screenshot */}
+          <div className="grid grid-cols-2 gap-2.5">
+            {/* Forward Button */}
+            <button
+              onClick={() => handleDirectMove('forward')}
+              className="p-3 bg-[#eaf2ec] hover:bg-[#dde8df] border border-[#dce7df] text-[#1b382b] rounded-xl flex items-center justify-between font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-sm group"
+            >
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase text-indigo-400 tracking-wide flex items-center gap-1.5">
-                  <Code2 size={14} /> Logic Workspace ({blocks.length} Blocks)
-                </span>
-                <div className="flex bg-slate-950 rounded-xl p-0.5 border border-slate-800">
+                <ArrowUp size={15} className="text-[#2d6a4f] group-hover:-translate-y-0.5 transition-transform" />
+                <span>Forward</span>
+              </div>
+              <span className="text-[10px] font-mono text-[#7a9386]">↑</span>
+            </button>
+
+            {/* Turn Left Button */}
+            <button
+              onClick={() => handleDirectMove('turn_left')}
+              className="p-3 bg-[#eaf2ec] hover:bg-[#dde8df] border border-[#dce7df] text-[#1b382b] rounded-xl flex items-center justify-between font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-sm group"
+            >
+              <div className="flex items-center gap-2">
+                <CornerUpLeft size={15} className="text-[#2d6a4f] group-hover:-translate-x-0.5 transition-transform" />
+                <span>Turn left</span>
+              </div>
+              <span className="text-[10px] font-mono text-[#7a9386]">←</span>
+            </button>
+
+            {/* Turn Right Button */}
+            <button
+              onClick={() => handleDirectMove('turn_right')}
+              className="p-3 bg-[#eaf2ec] hover:bg-[#dde8df] border border-[#dce7df] text-[#1b382b] rounded-xl flex items-center justify-between font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-sm group"
+            >
+              <div className="flex items-center gap-2">
+                <CornerUpRight size={15} className="text-[#2d6a4f] group-hover:translate-x-0.5 transition-transform" />
+                <span>Turn right</span>
+              </div>
+              <span className="text-[10px] font-mono text-[#7a9386]">→</span>
+            </button>
+
+            {/* Back Button */}
+            <button
+              onClick={() => handleDirectMove('back')}
+              className="p-3 bg-[#eaf2ec] hover:bg-[#dde8df] border border-[#dce7df] text-[#1b382b] rounded-xl flex items-center justify-between font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-sm group"
+            >
+              <div className="flex items-center gap-2">
+                <ArrowDown size={15} className="text-[#2d6a4f] group-hover:translate-y-0.5 transition-transform" />
+                <span>Back</span>
+              </div>
+              <span className="text-[10px] font-mono text-[#7a9386]">↓</span>
+            </button>
+          </div>
+
+          {/* Secondary Action Toolbar: Jump / Collect / Repeat / Code Mode Toggle */}
+          <div className="flex items-center justify-between pt-1 border-t border-[#f0f5f1] text-xs">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleDirectMove('interact')}
+                className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] text-[#1b382b] rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                title="Interact or Collect Gem"
+              >
+                <Hand size={12} className="text-[#2d6a4f]" />
+                <span>Collect</span>
+              </button>
+
+              <button
+                onClick={() => handleDirectMove('jump')}
+                className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] text-[#1b382b] rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+                title="Jump forward"
+              >
+                🦘 Jump
+              </button>
+
+              <button
+                onClick={() => handleAddBlock('repeat')}
+                className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] text-[#1b382b] rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+                title="Repeat Loop x3"
+              >
+                🔁 Loop(3)
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                sound.playClick();
+                setActiveWorkspaceTab(activeWorkspaceTab === 'code' ? 'visual' : 'code');
+              }}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                activeWorkspaceTab === 'code'
+                  ? 'bg-[#1b382b] text-white'
+                  : 'text-[#5b7566] hover:text-[#1b382b]'
+              }`}
+            >
+              <Code2 size={12} />
+              <span>Code</span>
+            </button>
+          </div>
+
+          {/* Coder Mode Textarea OR Next Moves Visual Queue */}
+          {activeWorkspaceTab === 'code' ? (
+            <div className="bg-[#f4f8f5] p-3 rounded-2xl border border-[#d8e5dc] space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-mono text-[#5b7566]">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-[#1b382b]">Language:</span>
                   <button
                     onClick={() => {
-                      sound.playClick();
-                      setActiveWorkspaceTab('visual');
+                      setCoderLanguage('python');
+                      setRawCodeInput(blocksToCode(blocks, 'python'));
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      activeWorkspaceTab === 'visual'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      coderLanguage === 'python' ? 'bg-[#1b382b] text-white' : 'text-[#7a9386]'
                     }`}
                   >
-                    Visual
+                    Python
                   </button>
                   <button
                     onClick={() => {
-                      sound.playClick();
-                      setActiveWorkspaceTab('code');
+                      setCoderLanguage('javascript');
+                      setRawCodeInput(blocksToCode(blocks, 'javascript'));
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      activeWorkspaceTab === 'code'
-                        ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      coderLanguage === 'javascript' ? 'bg-[#1b382b] text-white' : 'text-[#7a9386]'
                     }`}
                   >
-                    Show Code
+                    JS
                   </button>
                 </div>
+                <span className="text-[10px] text-[#2d6a4f] font-bold">
+                  ✓ {blocks.length} commands
+                </span>
               </div>
-              <button
-                onClick={handleClearWorkspace}
-                className="text-[11px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <Trash2 size={12} /> Clear
-              </button>
+
+              <textarea
+                value={rawCodeInput}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                placeholder={
+                  coderLanguage === 'python'
+                    ? '# Type Python instructions:\nmove_forward()\nturn_left()\nmove_forward()'
+                    : '// Type JS instructions:\nmove_forward();\nturn_left();\nmove_forward();'
+                }
+                className="w-full h-36 bg-white text-[#1b382b] font-mono text-xs p-3 rounded-xl border border-[#d8e5dc] outline-none resize-none focus:ring-1 focus:ring-[#2d6a4f] leading-relaxed custom-scrollbar"
+                spellCheck={false}
+              />
             </div>
-
-            {/* Block Palette Chips */}
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => handleAddBlock('move_up')}
-                className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              >
-                <ArrowUp size={13} /> Up
-              </button>
-              <button
-                onClick={() => handleAddBlock('move_down')}
-                className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              >
-                <ArrowDown size={13} /> Down
-              </button>
-              <button
-                onClick={() => handleAddBlock('move_left')}
-                className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              >
-                <ArrowLeft size={13} /> Left
-              </button>
-              <button
-                onClick={() => handleAddBlock('move_right')}
-                className="px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              >
-                <ArrowRight size={13} /> Right
-              </button>
-              <button
-                onClick={() => handleAddBlock('move_forward')}
-                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              >
-                + Forward
-              </button>
-              <button
-                onClick={() => handleAddBlock('turn_left')}
-                className="px-2.5 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              >
-                ↩ Left
-              </button>
-              <button
-                onClick={() => handleAddBlock('turn_right')}
-                className="px-2.5 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              >
-                ↪ Right
-              </button>
-              <button
-                onClick={() => handleAddBlock('interact')}
-                className="px-2.5 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              >
-                <Hand size={13} /> Interact
-              </button>
-              {mission.allowedBlocks.includes('repeat') && (
-                <button
-                  onClick={() => handleAddBlock('repeat')}
-                  className="px-2.5 py-1.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                >
-                  + Repeat (x{repeatCount})
-                </button>
-              )}
-            </div>
-
-            {/* Active Sequence Cards List OR Interactive Code Editor */}
-            {activeWorkspaceTab === 'code' ? (
-              <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
-                {/* Header with Language Selector & Count */}
-                <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-300">Language:</span>
-                    <div className="flex bg-slate-900 rounded-lg p-0.5 border border-slate-700">
-                      <button
-                        onClick={() => handleSwitchLanguage('python')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                          coderLanguage === 'python'
-                            ? 'bg-indigo-600 text-white font-black'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        Python
-                      </button>
-                      <button
-                        onClick={() => handleSwitchLanguage('javascript')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                          coderLanguage === 'javascript'
-                            ? 'bg-amber-500 text-slate-950 font-black'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        JavaScript
-                      </button>
-                    </div>
-                  </div>
-
-                  <span className="text-[10px] font-mono text-emerald-400 font-bold">
-                    ✓ {blocks.length} commands parsed
+          ) : (
+            /* "Your next moves" Queue Section */
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-extrabold text-[#1b382b]">
+                    Your next moves
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#eaf2ec] text-[10px] font-bold text-[#2d6a4f]">
+                    {blocks.length}
                   </span>
                 </div>
 
-                {/* Quick Code Snippet Palette */}
-                <div className="flex flex-wrap gap-1 bg-slate-900/60 p-2 rounded-xl border border-slate-800/80">
+                {blocks.length > 0 && (
                   <button
-                    onClick={() => handleInsertSnippet(coderLanguage === 'python' ? 'move_up()' : 'move_up();')}
-                    className="px-2 py-0.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded text-[10px] font-mono cursor-pointer"
+                    onClick={handleClearWorkspace}
+                    className="text-[11px] font-semibold text-[#7a9386] hover:text-rose-600 transition-colors cursor-pointer"
                   >
-                    + move_up()
+                    Clear
                   </button>
-                  <button
-                    onClick={() => handleInsertSnippet(coderLanguage === 'python' ? 'move_down()' : 'move_down();')}
-                    className="px-2 py-0.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded text-[10px] font-mono cursor-pointer"
-                  >
-                    + move_down()
-                  </button>
-                  <button
-                    onClick={() => handleInsertSnippet(coderLanguage === 'python' ? 'move_left()' : 'move_left();')}
-                    className="px-2 py-0.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded text-[10px] font-mono cursor-pointer"
-                  >
-                    + move_left()
-                  </button>
-                  <button
-                    onClick={() => handleInsertSnippet(coderLanguage === 'python' ? 'move_right()' : 'move_right();')}
-                    className="px-2 py-0.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded text-[10px] font-mono cursor-pointer"
-                  >
-                    + move_right()
-                  </button>
-                  <button
-                    onClick={() => handleInsertSnippet(coderLanguage === 'python' ? 'move_forward()' : 'move_forward();')}
-                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded text-[10px] font-mono cursor-pointer"
-                  >
-                    + forward()
-                  </button>
-                  <button
-                    onClick={() => handleInsertSnippet(coderLanguage === 'python' ? 'turn_right()' : 'turn_right();')}
-                    className="px-2 py-0.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded text-[10px] font-mono cursor-pointer"
-                  >
-                    + turn_right()
-                  </button>
-                  <button
-                    onClick={() => handleInsertSnippet(coderLanguage === 'python' ? 'turn_left()' : 'turn_left();')}
-                    className="px-2 py-0.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-300 rounded text-[10px] font-mono cursor-pointer"
-                  >
-                    + turn_left()
-                  </button>
-                  <button
-                    onClick={() => handleInsertSnippet(coderLanguage === 'python' ? 'interact()' : 'interact();')}
-                    className="px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 rounded text-[10px] font-mono cursor-pointer"
-                  >
-                    + interact()
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleInsertSnippet(
-                        coderLanguage === 'python'
-                          ? 'for step in range(3):\n    move_forward()'
-                          : 'for (let i = 0; i < 3; i++) {\n  move_forward();\n}'
-                      )
-                    }
-                    className="px-2 py-0.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/40 text-amber-300 rounded text-[10px] font-mono cursor-pointer"
-                  >
-                    + loop(3)
-                  </button>
-                </div>
-
-                {/* Editable Textarea */}
-                <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner">
-                  <textarea
-                    value={rawCodeInput}
-                    onChange={(e) => handleCodeChange(e.target.value)}
-                    placeholder={
-                      coderLanguage === 'python'
-                        ? '# Type commands here (e.g., move_up(), move_right(), interact()):\nmove_up()\nmove_right()\ninteract()\n'
-                        : '// Type commands here (e.g., move_up(); move_right(); interact();):\nmove_up();\nmove_right();\ninteract();\n'
-                    }
-                    className="w-full h-44 bg-slate-950 text-emerald-400 font-mono text-xs p-3.5 outline-none resize-none focus:ring-1 focus:ring-indigo-500 leading-relaxed custom-scrollbar"
-                    spellCheck={false}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="min-h-[160px] max-h-[220px] overflow-y-auto bg-slate-950/70 p-3 rounded-2xl border border-slate-800/80 space-y-1.5 custom-scrollbar">
-                {blocks.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500 text-xs font-semibold">
-                    No instructions yet. Tap directional controls or logic cards above to build the sequence!
-                  </div>
-                ) : (
-                  blocks.map((b, i) => (
-                    <div
-                      key={b.id || i}
-                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-extrabold border transition-all ${
-                        simulationResult && currentStepIndex === i + 1
-                          ? 'bg-amber-500 text-slate-950 scale-102 shadow-md shadow-amber-500/20'
-                          : 'bg-slate-900 border-slate-800 text-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-slate-500">#{i + 1}</span>
-                        <span className="capitalize">{b.type.replace('_', ' ')}</span>
-                        {b.params?.count && (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
-                            x{b.params.count}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleRemoveBlock(i)}
-                        className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  ))
                 )}
               </div>
-            )}
 
-            {lastErrorMsg && (
-              <div className="p-3 bg-rose-950/70 border border-rose-500/40 text-rose-300 text-xs font-bold rounded-xl text-center">
-                {lastErrorMsg}
-              </div>
-            )}
-
-            {/* Victory Success Card */}
-            {simulationResult?.success && !isPlaying && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="p-3.5 bg-gradient-to-r from-emerald-950/90 via-slate-900 to-teal-950/90 border border-emerald-500/50 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-emerald-500/10"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xl">🏆</span>
-                  <div>
-                    <div className="text-xs font-black text-emerald-400">Mission Cleared!</div>
-                    <div className="text-[10px] text-slate-300 font-medium">+{mission.xpReward} XP earned</div>
+              {/* Empty state container matching screenshot */}
+              {blocks.length === 0 ? (
+                <div className="border border-dashed border-[#c8dad0] bg-[#f8faf8] rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-2 min-h-[140px]">
+                  <div className="w-8 h-8 rounded-full bg-white border border-[#d8e5dc] flex items-center justify-center text-[#7a9386] shadow-sm">
+                    <Plus size={16} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold text-[#5b7566]">
+                      A little plan goes a long way.
+                    </p>
+                    <p className="text-[11px] text-[#7a9386]">
+                      Choose your first move above.
+                    </p>
                   </div>
                 </div>
+              ) : (
+                <div className="max-h-[190px] overflow-y-auto space-y-1.5 custom-scrollbar pr-0.5">
+                  {blocks.map((b, i) => {
+                    const isCurrentStep = simulationResult && currentStepIndex === i + 1;
+                    return (
+                      <div
+                        key={b.id || i}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          isCurrentStep
+                            ? 'bg-[#2d6a4f] text-white border-[#2d6a4f] shadow-md scale-102'
+                            : 'bg-[#f8faf8] border-[#e2ece5] text-[#1b382b]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                              isCurrentStep ? 'bg-white text-[#2d6a4f]' : 'bg-[#eaf2ec] text-[#5b7566]'
+                            }`}
+                          >
+                            {i + 1}
+                          </span>
+                          <span className="capitalize">
+                            {b.type.replace('_', ' ')}
+                          </span>
+                          {b.params?.count && (
+                            <span className="text-[10px] bg-[#eaf2ec] text-[#2d6a4f] px-1.5 py-0.2 rounded font-mono">
+                              x{b.params.count}
+                            </span>
+                          )}
+                        </div>
 
-                <button
-                  onClick={() => {
-                    sound.playClick();
-                    setShowAiLevelModal(true);
-                  }}
-                  className="px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
-                >
-                  <Sparkles size={13} className="text-amber-300" /> Next AI Level
-                </button>
-              </motion.div>
-            )}
+                        <button
+                          onClick={() => handleRemoveBlock(i)}
+                          className="text-[#7a9386] hover:text-rose-500 p-0.5 transition-colors cursor-pointer"
+                          title="Remove step"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Run Execution Button */}
-            <button
-              onClick={handleRunSimulation}
-              disabled={isPlaying || blocks.length === 0}
-              className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+          {/* Collision or Execution Error Notification */}
+          {lastErrorMsg && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl text-center">
+              {lastErrorMsg}
+            </div>
+          )}
+
+          {/* Victory Cleared Toast */}
+          {simulationResult?.success && !isPlaying && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="p-3.5 bg-[#eaf2ec] border border-[#c8dad0] rounded-2xl flex items-center justify-between gap-3 shadow-soft"
             >
-              <Play size={18} className="fill-slate-950" />
-              {isPlaying ? 'EXECUTING LOGIC...' : 'RUN PROGRAM'}
-            </button>
-          </div>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">🏆</span>
+                <div>
+                  <div className="text-xs font-black text-[#1b382b]">
+                    Mission Cleared!
+                  </div>
+                  <div className="text-[10px] text-[#5b7566] font-medium">
+                    +{mission.xpReward} XP earned
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowAiLevelModal(true);
+                }}
+                className="px-3 py-1.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-bold text-xs rounded-xl shadow-soft flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Sparkles size={12} className="text-[#a7f3d0]" /> Next level
+              </button>
+            </motion.div>
+          )}
         </div>
       </div>
 
       {/* STAGE 2 "DISCOVER" CODE REVEAL CELEBRATION MODAL */}
       <AnimatePresence>
         {showRevealModal && (
-          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 bg-[#163324]/60 backdrop-blur-sm flex items-center justify-center p-4">
             <motion.div
-              initial={{ opacity: 0, scale: 0.85, y: 20 }}
+              initial={{ opacity: 0, scale: 0.9, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.85, y: 20 }}
-              className="bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center space-y-5 shadow-2xl relative overflow-hidden"
+              exit={{ opacity: 0, scale: 0.9, y: 15 }}
+              className="bg-white border border-[#e2ece5] rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center space-y-5 shadow-2xl relative overflow-hidden"
             >
               <div className="flex flex-col items-center justify-center">
                 {pet && (
@@ -992,65 +973,53 @@ export function AdventurePage() {
                       stage={pet.stage}
                       state="excited"
                       equipped={pet.equipped_items}
-                      size={100}
-                      reaction={{ config: { expression: 'victory', label: 'Winner!', icon: '🏆', sound: 'victory', duration: 3 }, id: Date.now() }}
+                      size={90}
                     />
                   </div>
                 )}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center mx-auto shadow-xl shadow-amber-500/30">
-                  <Sparkles size={28} className="text-slate-950" />
+                <div className="w-12 h-12 rounded-2xl bg-[#eaf2ec] border border-[#d8e5dc] flex items-center justify-center mx-auto shadow-soft">
+                  <Sparkles size={24} className="text-[#2d6a4f]" />
                 </div>
               </div>
 
               <div>
-                <span className="text-[11px] uppercase font-black text-amber-400 tracking-wider">
+                <span className="text-[10px] uppercase font-black text-[#2d6a4f] tracking-wider">
                   Stage 2: Discovery Unlocked
                 </span>
-                <h3 className="text-2xl font-black text-white mt-1">
+                <h3 className="text-2xl font-black text-[#1b382b] mt-1">
                   You Just Wrote Code!
                 </h3>
-                <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                  Your actions were translated directly into code behind the scenes. Here is the actual program you designed:
+                <p className="text-xs text-[#5b7566] mt-2 leading-relaxed">
+                  Your actions were automatically translated into real code behind the scenes:
                 </p>
               </div>
 
               {/* Code Reveal Box */}
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 font-mono text-left text-xs text-emerald-400 space-y-1 shadow-inner max-h-[160px] overflow-y-auto custom-scrollbar">
+              <div className="bg-[#f4f8f5] p-4 rounded-2xl border border-[#d8e5dc] font-mono text-left text-xs text-[#1b382b] space-y-1 shadow-inner max-h-[140px] overflow-y-auto custom-scrollbar">
                 {simulationResult?.revealedCode?.map((line, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <span className="text-slate-600 select-none text-[10px] w-4">{i + 1}</span>
-                    <span>{line}</span>
+                    <span className="text-[#7a9386] select-none text-[10px] w-4">{i + 1}</span>
+                    <span className="text-[#2d6a4f] font-semibold">{line}</span>
                   </div>
                 ))}
               </div>
 
               {/* Rewards */}
               <div className="grid grid-cols-2 gap-3 py-1">
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5">
-                  <Zap size={15} /> +{mission.xpReward} Adventure XP
+                <div className="p-3 bg-[#eaf2ec] border border-[#d8e5dc] rounded-2xl text-[#1b382b] font-bold text-xs flex items-center justify-center gap-1.5">
+                  <Zap size={14} className="text-amber-600" /> +{mission.xpReward} XP
                 </div>
-                <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl text-indigo-300 font-bold text-xs flex items-center justify-center gap-1.5">
-                  <Coins size={15} /> +{mission.coinReward} Gold Coins
+                <div className="p-3 bg-[#eaf2ec] border border-[#d8e5dc] rounded-2xl text-[#1b382b] font-bold text-xs flex items-center justify-center gap-1.5">
+                  <span className="text-xs">💎</span> +{mission.coinReward} Gems
                 </div>
               </div>
 
               <div className="flex items-center gap-2.5 pt-1">
                 <button
                   onClick={() => setShowRevealModal(false)}
-                  className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 font-black text-slate-950 rounded-2xl text-sm transition-all cursor-pointer hover:opacity-95"
+                  className="flex-1 py-3 bg-[#2d6a4f] hover:bg-[#245740] font-black text-white rounded-2xl text-xs transition-all cursor-pointer active:scale-95 shadow-soft"
                 >
                   CONTINUE →
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowRevealModal(false);
-                    setShowAiLevelModal(true);
-                  }}
-                  className="py-3.5 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 font-black text-white rounded-2xl text-sm transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-indigo-500/25"
-                >
-                  <Sparkles size={15} className="text-amber-300" />
-                  Next AI Level ✨
                 </button>
               </div>
             </motion.div>
