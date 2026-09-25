@@ -3,12 +3,14 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 import {
   Map, Home, Compass, Bug, Building2, ShoppingBag,
-  Sparkles, Users, Award, Code2, LogOut, Volume2, VolumeX, Menu, X, Coins, Zap
+  Sparkles, Users, Award, Code2, LogOut, Volume2, VolumeX, Menu, X, Coins, Zap,
+  Settings, Mail, User, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useGameData } from '@/hooks/useGameData';
 import { PetSVG } from '@/components/PetSVG';
 import { Taskbar } from '@/components/Taskbar';
+import { SettingsModal } from '@/components/SettingsModal';
 import { sound } from '@/utils/audio';
 
 const NAV_ITEMS = [
@@ -22,14 +24,16 @@ const NAV_ITEMS = [
   { to: '/app/multiplayer', label: 'Bug Exchange', icon: Users, areaKey: 'challenge_arena' },
   { to: '/app/lab', label: 'Coding Lab', icon: Code2, areaKey: 'coding_lab' },
   { to: '/app/skills', label: 'Skills & Badges', icon: Award, areaKey: 'all' },
+  { to: '/app/settings', label: 'Account & Settings', icon: Settings, areaKey: 'all' },
 ];
 
 export function GameLayout() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { profile, pet, soundEnabled, toggleSound, setPlayerRole } = useGameData();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const handleLogout = async () => {
     sound.playClick();
@@ -72,8 +76,18 @@ export function GameLayout() {
             <Coins size={13} /> {profile?.coins ?? 100}
           </div>
           <button
+            onClick={() => {
+              sound.playClick();
+              setShowSettingsModal(true);
+            }}
+            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+            title="Account Settings"
+          >
+            <Settings size={18} />
+          </button>
+          <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-300"
+            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 cursor-pointer"
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -207,18 +221,46 @@ export function GameLayout() {
           })}
         </nav>
 
-        {/* Bottom Utility Controls */}
-        <div className="p-3 border-t border-slate-800/80 space-y-1.5">
+        {/* Bottom User Account & Utility Controls */}
+        <div className="p-3 border-t border-slate-800/80 space-y-2">
+          {/* Logged in Email Account Card */}
+          <div
+            onClick={() => {
+              sound.playClick();
+              setShowSettingsModal(true);
+            }}
+            className="p-2.5 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-indigo-500/50 flex items-center justify-between gap-2.5 transition-all cursor-pointer group shadow-sm"
+            title="Click to view Account Settings & Email Details"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-md">
+                <User size={15} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-black text-white truncate group-hover:text-amber-300 transition-colors">
+                  {profile?.display_name || 'Player'}
+                </div>
+                <div className="text-[9px] text-slate-400 truncate font-mono">
+                  {user?.email || profile?.email || 'player@petslyvia.world'}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-1.5 rounded-lg bg-slate-900 group-hover:bg-indigo-600/30 text-slate-400 group-hover:text-indigo-300 transition-colors">
+              <Settings size={14} />
+            </div>
+          </div>
+
           <button
             onClick={() => {
               toggleSound();
               sound.playClick();
             }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-2">
-              {soundEnabled ? <Volume2 size={16} className="text-emerald-400" /> : <VolumeX size={16} />}
-              <span>Sound Effects</span>
+              {soundEnabled ? <Volume2 size={15} className="text-emerald-400" /> : <VolumeX size={15} />}
+              <span>Sound FX</span>
             </div>
             <span className="text-[10px] font-mono text-slate-500">
               {soundEnabled ? 'ON' : 'OFF'}
@@ -227,10 +269,10 @@ export function GameLayout() {
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition-colors cursor-pointer"
           >
-            <LogOut size={16} />
-            <span>Log Out</span>
+            <LogOut size={15} />
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -240,6 +282,12 @@ export function GameLayout() {
         <Outlet />
         <Taskbar />
       </main>
+
+      {/* Account Settings & Profile Modal */}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+      />
     </div>
   );
 }

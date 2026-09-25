@@ -14,6 +14,7 @@ import { CreatorPage } from '@/pages/CreatorPage';
 import { MultiplayerPage } from '@/pages/MultiplayerPage';
 import { CodingLabPage } from '@/pages/CodingLabPage';
 import { AchievementsSkillsPage } from '@/pages/AchievementsSkillsPage';
+import { SettingsPage } from '@/pages/SettingsPage';
 import type { JSX } from 'react';
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -76,6 +77,7 @@ function AppRoutes() {
         <Route path="multiplayer" element={<MultiplayerPage />} />
         <Route path="lab" element={<CodingLabPage />} />
         <Route path="skills" element={<AchievementsSkillsPage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
