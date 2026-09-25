@@ -1,720 +1,1189 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Play, RotateCcw, CheckCircle2, AlertCircle, BookOpen,
-  Bug, Lightbulb, Lock, Star, Zap, ChevronRight, Map, Volume2, VolumeX
-} from 'lucide-react';
-import { PROGRESSIVE_MISSIONS, CONCEPT_SET_ORDER, CONCEPT_SET_LABELS } from '@/data/progressiveMissions';
-import type { MissionDefinition, VisualBlock, SimulationResult, SimulationStep } from '@/types/game';
-import { runDeterministicSimulation } from '@/services/gameEngine';
-import { useGameData } from '@/hooks/useGameData';
-import { PetSVG } from '@/components/PetSVG';
 import { Link } from 'react-router-dom';
+import {
+  Play, RotateCcw, CheckCircle2, AlertCircle, Box,
+  Sparkles, Zap, Map, ChevronDown, ChevronRight,
+  Terminal, Code2, Bot, Layers, Check, HelpCircle,
+  Volume2, VolumeX, Eye, Lightbulb, Trash2, Plus, ArrowRight,
+  ArrowUp, ArrowDown, CornerDownLeft, Award, Lock, BookOpen, Send, Mic
+} from 'lucide-react';
+import {
+  PROGRESSIVE_MISSIONS,
+  CONCEPT_SET_ORDER,
+  CONCEPT_SET_LABELS
+} from '@/data/progressiveMissions';
+import type {
+  MissionDefinition,
+  VisualBlock,
+  SimulationResult,
+  SimulationStep,
+  BlockType
+} from '@/types/game';
+import { runDeterministicSimulation } from '@/services/gameEngine';
+import { compilePython, compileJavaScript } from '@/services/academyCompiler';
+import { useGameData } from '@/hooks/useGameData';
+import { GameScene3D } from '@/components/game3d/GameScene3D';
+import { PetSVG } from '@/components/PetSVG';
 import { sound } from '@/utils/audio';
-import type { PetState } from '@/types/database';
+import type { PetState, PetType } from '@/types/database';
 
-// ─────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers & Constants
+// ─────────────────────────────────────────────────────────────────────────────
 
-const BLOCK_LABELS: Record<string, string> = {
-  move_forward: 'Forward', move_back: 'Back', move_up: 'Up', move_down: 'Down',
-  move_left: 'Left', move_right: 'Right', turn_left: 'Turn Left', turn_right: 'Turn Right',
-  interact: 'Interact', jump: 'Jump', repeat: 'Repeat', if_clear: 'IF Clear', if_crystal: 'IF Crystal',
-};
-const BLOCK_ICONS: Record<string, string> = {
-  move_forward: '↑', move_back: '↓', move_up: '↑', move_down: '↓',
-  move_left: '←', move_right: '→', turn_left: '↺', turn_right: '↻',
-  interact: '⚡', jump: '⬆', repeat: '🔄', if_clear: '?', if_crystal: '◆',
-};
+type WorkspaceTab = 'blocks' | 'python' | 'javascript';
 
-function blocksToCode(blocks: VisualBlock[], lang: 'python' | 'javascript'): string {
-  return blocks.map(b => {
-    if (b.type === 'repeat') return lang === 'python'
-      ? `for step in range(${b.params?.count || 3}):\n    move_right()`
-      : `for (let i = 0; i < ${b.params?.count || 3}; i++) {\n  move_right();\n}`;
-    return lang === 'python' ? `${b.type}()` : `${b.type}();`;
-  }).join('\n');
-}
+const BLOCK_DEFS: { type: BlockType; label: string; icon: string; desc: string }[] = [
+  { type: 'move_forward', label: 'Forward', icon: '↑', desc: 'Walk 1 tile forward in facing direction' },
+  { type: 'turn_left',    label: 'Turn Left', icon: '↺', desc: 'Rotate 90 degrees counter-clockwise' },
+  { type: 'turn_right',   label: 'Turn Right', icon: '↻', desc: 'Rotate 90 degrees clockwise' },
+  { type: 'move_back',    label: 'Back', icon: '↓', desc: 'Step 1 tile backward' },
+  { type: 'move_right',   label: 'Right', icon: '→', desc: 'Slide 1 tile to the right' },
+  { type: 'move_left',    label: 'Left', icon: '←', desc: 'Slide 1 tile to the left' },
+  { type: 'repeat',       label: 'Repeat', icon: '🔄', desc: 'Loop enclosed actions N times' },
+  { type: 'interact',     label: 'Collect', icon: '💎', desc: 'Pick up crystal or activate switch' },
+];
 
-function parseCodeToBlocks(source: string): VisualBlock[] {
-  const result: VisualBlock[] = [];
-  const mkId = () => `blk_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-  const typeMap: Record<string, VisualBlock['type']> = {
-    move_right: 'move_right', move_left: 'move_left', move_up: 'move_up', move_down: 'move_down',
-    move_forward: 'move_forward', turn_left: 'turn_left', turn_right: 'turn_right', interact: 'interact',
-  };
-  const lines = source.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const t = lines[i].trim();
-    if (!t || t.startsWith('#') || t.startsWith('//')) continue;
-    const pyLoop = t.match(/for\s+\w+\s+in\s+range\((\d+)\):/i);
-    const jsLoop = t.match(/for\s*\(.*;\s*\w+\s*<\s*(\d+);/i);
-    if (pyLoop || jsLoop) {
-      result.push({ id: mkId(), type: 'repeat', params: { count: parseInt((pyLoop || jsLoop)![1], 10) || 3 } });
-      if (i + 1 < lines.length) i++;
-      continue;
+function getStarterCode(mission: MissionDefinition, lang: 'python' | 'javascript'): string {
+  if (lang === 'python') {
+    if (mission.conceptSet === 'loops' || mission.id.includes('loop')) {
+      return `# Set 3 · Loops — Python 3.12 Codespace\n# Objective: ${mission.objective}\n\nfor step in range(8):\n    pet.move_right()\n`;
     }
-    const clean = t.replace(/[();]/g, '').trim();
-    const mapped = typeMap[clean];
-    if (mapped) result.push({ id: mkId(), type: mapped });
+    if (mission.conceptSet === 'conditions' || mission.id.includes('cond')) {
+      return `# Set 2 · Conditions — Python 3.12 Codespace\n# Check state and make smart decisions\n\npet.move_forward()\npet.turn_right()\nfor step in range(3):\n    pet.move_forward()\n`;
+    }
+    if (mission.conceptSet === 'variables' || mission.id.includes('var')) {
+      return `# Set 1 · Variables — Python 3.12 Codespace\nsteps = 4\nfor step in range(steps):\n    pet.move_right()\n`;
+    }
+    if (mission.conceptSet === 'functions') {
+      return `# Set 4 · Functions — Python 3.12 Codespace\ndef navigate_path():\n    for i in range(4):\n        pet.move_forward()\n    pet.turn_right()\n\nnavigate_path()\n`;
+    }
+    return `# Petslyvia Academy — Python 3.12 Codespace\n# Objective: ${mission.objective}\n\npet.move_right()\npet.move_right()\npet.move_right()\n`;
+  } else {
+    if (mission.conceptSet === 'loops' || mission.id.includes('loop')) {
+      return `// Set 3 · Loops — JavaScript Codespace\n// Objective: ${mission.objective}\n\nfor (let i = 0; i < 8; i++) {\n  pet.moveRight();\n}\n`;
+    }
+    if (mission.conceptSet === 'conditions' || mission.id.includes('cond')) {
+      return `// Set 2 · Conditions — JavaScript Codespace\npet.moveForward();\npet.turnRight();\nfor (let i = 0; i < 3; i++) {\n  pet.moveForward();\n}\n`;
+    }
+    return `// Petslyvia Academy — JavaScript Codespace\n// Objective: ${mission.objective}\n\npet.moveRight();\npet.moveRight();\npet.moveRight();\n`;
   }
-  return result;
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Pet Companion
-// ─────────────────────────────────────────────────────────────────────────
-
-const PET_MESSAGES: Record<string, string[]> = {
-  excited: ["You did it! 🎉", "Amazing work! ⭐", "I'm so proud!", "Keep going! 🚀"],
-  happy:   ["You can do this!", "I believe in you! 💪", "Great thinking!", "Let's go! 🐾"],
-  focused: ["Think it through…", "Plan first! 📝", "You've got this!", "Take your time."],
-  tired:   ["Oops! Try again 💫", "Don't give up!", "Check the hint!", "Almost there!"],
-  neutral: ["Make your move!", "Add a block!", "What's the plan?", "Ready when you are!"],
-};
-
-function PetCompanion({ state, petType, petStage, petName }: {
-  state: PetState; petType: any; petStage: any; petName: string;
-}) {
-  const [msgIdx, setMsgIdx] = useState(0);
-  useEffect(() => {
-    const pool = PET_MESSAGES[state] || PET_MESSAGES.neutral;
-    setMsgIdx(Math.floor(Math.random() * pool.length));
-  }, [state]);
-  const pool = PET_MESSAGES[state] || PET_MESSAGES.neutral;
-  const msg = pool[msgIdx % pool.length];
-  const glowColor = state === 'excited' ? '#fbbf24' : state === 'tired' ? '#f87171' : '#14b8a6';
-
-  return (
-    <div className="flex flex-col items-center gap-2 select-none">
-      <motion.div key={msg} initial={{ opacity: 0, scale: 0.85, y: 4 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: 'spring', damping: 20 }}
-        className="relative bg-[#0d2617]/90 border border-white/15 rounded-2xl px-3 py-1.5 text-xs font-medium text-white/90 text-center max-w-[160px]">
-        {msg}
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
-          <svg width="10" height="8" viewBox="0 0 10 8">
-            <path d="M5 8 L0 0 L10 0 Z" fill="rgba(13,38,23,0.9)" />
-          </svg>
-        </div>
-      </motion.div>
-      <div className="relative flex items-center justify-center">
-        <motion.div className="absolute rounded-full blur-2xl"
-          style={{ width: 110, height: 110, background: glowColor, opacity: 0.25 }}
-          animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 3 }} />
-        <motion.div
-          animate={state === 'excited' ? { rotate: [-4, 4, -4, 0], scale: [1, 1.07, 1] } : { y: [0, -3, 0] }}
-          transition={{ repeat: Infinity, duration: state === 'excited' ? 0.45 : 3.5 }}>
-          <PetSVG type={petType} state={state} stage={petStage} size={110} />
-        </motion.div>
-      </div>
-      <div className="text-center">
-        <div className="text-white text-xs font-bold">{petName}</div>
-        <div className="text-white/30 text-[10px] capitalize">{state}</div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Grid
-// ─────────────────────────────────────────────────────────────────────────
-
-function MissionGrid({ mission, activeStep }: { mission: MissionDefinition; activeStep: SimulationStep }) {
-  const { gridSize, obstacles, crystals, switches, goalPos } = mission;
-  const { petPos, petDir, crystalsCollected, openGates } = activeStep;
-  const CELL = Math.min(40, Math.floor(300 / Math.max(gridSize.width, gridSize.height)));
-  const collected = new Set(crystalsCollected.map(p => `${p.x},${p.y}`));
-  const dir: Record<string, string> = { right: '→', left: '←', up: '↑', down: '↓' };
-  return (
-    <div className="inline-grid rounded-xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
-      style={{ gridTemplateColumns: `repeat(${gridSize.width}, ${CELL}px)` }}>
-      {Array.from({ length: gridSize.height }, (_, y) =>
-        Array.from({ length: gridSize.width }, (_, x) => {
-          const isGoal = x === goalPos.x && y === goalPos.y;
-          const isPet  = x === petPos.x  && y === petPos.y;
-          const obs    = obstacles.find(o => o.x === x && o.y === y);
-          const gateOpen = obs?.id && openGates.includes(obs.id);
-          const crystal  = crystals.find(c => c.x === x && c.y === y);
-          const isCollected = crystal && collected.has(`${x},${y}`);
-          const sw = switches?.find(s => s.x === x && s.y === y);
-          let bg = (x + y) % 2 === 0 ? '#1a3228' : '#152b21';
-          if (obs?.type === 'wall') bg = '#2d3748';
-          if (obs?.type === 'water') bg = '#1e3a6e';
-          if (obs?.type === 'gate' && !gateOpen) bg = '#4c1d95';
-          if (obs?.type === 'gate' && gateOpen)  bg = '#14532d';
-          if (isGoal) bg = '#14532d';
-          return (
-            <div key={`${x},${y}`} className="flex items-center justify-center border border-black/30 text-xs"
-              style={{ width: CELL, height: CELL, background: bg }}>
-              {isGoal && !isPet && (
-                <motion.span className="text-emerald-400 font-bold" style={{ fontSize: CELL * 0.45 }}
-                  animate={{ opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.8 }}>⬡</motion.span>
-              )}
-              {sw && !isPet && <span style={{ color: sw.color || '#60a5fa', fontSize: CELL * 0.42 }}>◈</span>}
-              {crystal && !isCollected && !isPet && <span className="text-yellow-300" style={{ fontSize: CELL * 0.38 }}>◆</span>}
-              {isCollected && <span className="text-white/20" style={{ fontSize: CELL * 0.32 }}>◇</span>}
-              {isPet && (
-                <motion.span className="font-bold text-cyan-300" style={{ fontSize: CELL * 0.5 }}
-                  animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 0.9 }}>
-                  {dir[petDir] || '→'}
-                </motion.span>
-              )}
-            </div>
-          );
-        })
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Pseudocode fill-in
-// ─────────────────────────────────────────────────────────────────────────
-
-function PseudocodePanel({ mission, onComplete }: { mission: MissionDefinition; onComplete: () => void }) {
-  const tmpl = mission.pseudocodeTemplate!;
-  const parts = tmpl.template.split('___');
-  const [answers, setAnswers] = useState<string[]>(Array(tmpl.answers.length).fill(''));
-  const [checked, setChecked] = useState(false);
-  const [results, setResults] = useState<boolean[]>([]);
-  const check = () => {
-    const res = answers.map((a, i) => a.trim().toLowerCase() === tmpl.answers[i].toLowerCase());
-    setResults(res); setChecked(true);
-    if (res.every(Boolean)) { sound.playVictory(); setTimeout(onComplete, 900); } else sound.playError();
-  };
-  return (
-    <div className="space-y-4">
-      <div className="bg-black/30 border border-white/8 rounded-2xl p-5 font-mono text-sm leading-9">
-        {parts.map((part, i) => (
-          <span key={i}>
-            <span className="text-emerald-300 whitespace-pre">{part}</span>
-            {i < tmpl.answers.length && (
-              <input value={answers[i]} onChange={e => setAnswers(p => { const n = [...p]; n[i] = e.target.value; return n; })}
-                className={`inline-block w-28 mx-1 px-2 py-0.5 rounded-lg border text-center font-mono text-sm ${checked ? (results[i] ? 'border-emerald-400 bg-emerald-900/40 text-emerald-200' : 'border-red-400 bg-red-900/30 text-red-200') : 'border-white/20 bg-white/10 text-white'}`}
-                placeholder="___" />
-            )}
-          </span>
-        ))}
-      </div>
-      {checked && results.every(Boolean) && (
-        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-emerald-900/40 border border-emerald-400/30 rounded-xl p-3 text-emerald-300 text-sm">✅ {tmpl.explanation}</motion.div>
-      )}
-      {checked && !results.every(Boolean) && (
-        <div className="bg-red-900/20 border border-red-400/20 rounded-xl p-3 text-red-300 text-sm">❌ Check the red fields.</div>
-      )}
-      <button onClick={check} className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold transition-colors">
-        Check Answers
-      </button>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Scenario
-// ─────────────────────────────────────────────────────────────────────────
-
-function ScenarioPanel({ mission, onComplete }: { mission: MissionDefinition; onComplete: () => void }) {
-  const sc = mission.scenarioChallenge!;
-  const [code, setCode] = useState(sc.starterCode);
-  const [output, setOutput] = useState<string[]>([]);
-  const [passed, setPassed] = useState(false);
-  const [hintIdx, setHintIdx] = useState(-1);
-  const [ran, setRan] = useState(false);
-  const runCode = () => {
-    const out: string[] = [];
-    try {
-      if (sc.concept === 'conditions') {
-        const fm = code.match(/def classify_temperature\(temp\):\s*\n([\s\S]*?)(?=\n\S|$)/);
-        if (fm && (fm[1].includes('"HOT"') || fm[1].includes("'HOT'"))) {
-          const fn = (t: number) => t > 30 ? 'HOT' : t >= 15 ? 'WARM' : 'COLD';
-          [...code.matchAll(/print\(classify_temperature\((\d+)\)\)/g)].forEach(p => out.push(fn(+p[1])));
-        }
-      } else if (sc.concept === 'loops') {
-        if (code.match(/def calculate_total/)) {
-          const fn = (prices: number[]) => { let t = prices.reduce((a, b) => a + b, 0); if (t > 50) t *= 0.9; return Math.round(t * 100) / 100; };
-          [...code.matchAll(/print\(calculate_total\(\[([^\]]+)\]\)\)/g)].forEach(p =>
-            out.push(String(fn(p[1].split(',').map((s: string) => parseFloat(s.trim())))))
-          );
-        }
-      } else if (sc.concept === 'functions') {
-        if (code.includes('self.hunger') && code.includes('self.happiness')) {
-          let h = 50; let hap = 50;
-          h = Math.max(0, h - 20); hap = Math.min(100, hap + 10); hap = Math.min(100, hap + 20);
-          out.push(`Hunger: ${h} | Happiness: ${hap} | Mood: ${hap > 70 ? 'Happy' : hap > 40 ? 'Okay' : 'Sad'}`);
-        }
-      }
-    } catch { out.push('Error: check your syntax.'); }
-    setOutput(out); setRan(true);
-    const ok = sc.expectedOutput.every((exp: string, i: number) => out[i]?.trim() === exp.trim());
-    setPassed(ok);
-    if (ok) { sound.playVictory(); setTimeout(onComplete, 1500); } else sound.playError();
-  };
-  return (
-    <div className="space-y-3">
-      <div className="relative">
-        <div className="absolute top-2 right-3 text-[9px] text-white/20 uppercase tracking-widest font-mono">Python</div>
-        <textarea value={code} onChange={e => setCode(e.target.value)}
-          className="w-full h-52 px-4 py-3 rounded-2xl font-mono text-sm text-emerald-200 bg-black/40 border border-white/8 resize-none focus:outline-none focus:border-emerald-500/40"
-          spellCheck={false} />
-      </div>
-      {ran && (
-        <div className={`rounded-xl border p-3 font-mono text-sm ${passed ? 'border-emerald-500/30 bg-emerald-900/15' : 'border-red-500/20 bg-red-900/10'}`}>
-          <div className="text-[9px] text-white/25 uppercase mb-2">Output</div>
-          {output.map((line: string, i: number) => {
-            const ok = line?.trim() === sc.expectedOutput[i]?.trim();
-            return <div key={i} className={ok ? 'text-emerald-300' : 'text-red-300'}>
-              {ok ? '✓' : '✗'} {line}
-              {!ok && sc.expectedOutput[i] && <span className="text-white/25 ml-2">expected: {sc.expectedOutput[i]}</span>}
-            </div>;
-          })}
-          {passed && <div className="text-emerald-400 font-bold mt-1">All tests passed! 🎉</div>}
-        </div>
-      )}
-      {sc.hints.length > 0 && (
-        <button onClick={() => setHintIdx(p => Math.min(p + 1, sc.hints.length - 1))}
-          className="text-yellow-400/60 text-sm hover:text-yellow-300 transition-colors">
-          💡 {hintIdx < 0 ? 'Reveal hint' : hintIdx < sc.hints.length - 1 ? 'Next hint' : 'No more hints'}
-        </button>
-      )}
-      {hintIdx >= 0 && <div className="bg-yellow-900/20 border border-yellow-500/25 rounded-xl p-3 text-yellow-200 text-sm font-mono">{sc.hints[hintIdx]}</div>}
-      <button onClick={runCode} className="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold transition-colors flex items-center justify-center gap-2">
-        <Play className="w-4 h-4" fill="white" /> Run Code
-      </button>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// AcademyPage
-// ─────────────────────────────────────────────────────────────────────────
 
 export function AcademyPage() {
   const { profile, pet, progress, completeMission, soundEnabled, toggleSound } = useGameData();
-  const completedIds = new Set(Object.keys(progress || {}).filter(k => (progress as any)[k]?.completed));
 
-  function isMissionUnlocked(idx: number): boolean {
-    if (idx === 0) return true;
-    return completedIds.has(PROGRESSIVE_MISSIONS[idx - 1].id);
-  }
+  // Completed mission set
+  const completedIds = new Set(
+    Object.keys(progress || {}).filter((k) => (progress as any)[k]?.completed)
+  );
 
-  const firstIncomplete = PROGRESSIVE_MISSIONS.findIndex((m, i) => !completedIds.has(m.id) && isMissionUnlocked(i));
-  const [selectedIdx, setSelectedIdx] = useState(Math.max(0, firstIncomplete === -1 ? 0 : firstIncomplete));
-  const mission = PROGRESSIVE_MISSIONS[selectedIdx];
-  const [petState, setPetState]       = useState<PetState>('focused');
-  const [blocks, setBlocks]           = useState<VisualBlock[]>([]);
-  const [rawCode, setRawCode]         = useState('');
+  // Mission selection state
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const mission = PROGRESSIVE_MISSIONS[selectedIdx] || PROGRESSIVE_MISSIONS[0];
+
+  // Concept set filter
+  const [activeConceptSet, setActiveConceptSet] = useState<string>(mission.conceptSet || 'sequence');
+
+  // Workspace Mode (Blocks / Python / JavaScript)
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('blocks');
+  const [blocks, setBlocks] = useState<VisualBlock[]>([]);
   const [repeatCount, setRepeatCount] = useState(3);
-  const [simResult, setSimResult]     = useState<SimulationResult | null>(null);
-  const [stepIdx, setStepIdx]         = useState(0);
-  const [isPlaying, setIsPlaying]     = useState(false);
-  const [errorMsg, setErrorMsg]       = useState<string | undefined>();
-  const [missionDone, setMissionDone] = useState(false);
-  const [hintIdx, setHintIdx]         = useState(-1);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const simRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Code editor states
+  const [pythonCode, setPythonCode] = useState(() => getStarterCode(mission, 'python'));
+  const [jsCode, setJsCode] = useState(() => getStarterCode(mission, 'javascript'));
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
+  const [compilerError, setCompilerError] = useState<string | null>(null);
+
+  // 3D Viewport Controls
+  const [viewMode3D, setViewMode3D] = useState(true);
+  const [cameraMode, setCameraMode] = useState<'iso' | 'perspective' | 'top'>('iso');
+  const [showCameraDropdown, setShowCameraDropdown] = useState(false);
+
+  // Simulation execution state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [stepIdx, setStepIdx] = useState(0);
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+  const [petState, setPetState] = useState<PetState>('focused');
+  const [missionSuccessModal, setMissionSuccessModal] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
+
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Safe pet attributes
+  const petType = ((pet as any)?.pet_type || (pet as any)?.type || 'fox') as PetType;
+  const petName = (pet as any)?.pet_name || (pet as any)?.name || 'Pebble';
+
+  // Synchronize when mission changes
   useEffect(() => {
-    const init = mission.initialBlocks ? [...mission.initialBlocks] : [];
-    setBlocks(init); setRawCode(blocksToCode(init, 'python'));
-    setSimResult(null); setStepIdx(0); setIsPlaying(false);
-    setErrorMsg(undefined); setMissionDone(false); setHintIdx(-1); setPetState('focused');
-    if (simRef.current) { clearInterval(simRef.current); simRef.current = null; }
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
+
+    const initBlocks = mission.initialBlocks ? [...mission.initialBlocks] : [];
+    setBlocks(initBlocks);
+    setPythonCode(getStarterCode(mission, 'python'));
+    setJsCode(getStarterCode(mission, 'javascript'));
+    setSimResult(null);
+    setStepIdx(0);
+    setIsPlaying(false);
+    setCompilerError(null);
+    setMissionSuccessModal(false);
+    setShowHint(false);
+    setPetState('focused');
+    setTerminalLogs([
+      `📘 Mission Loaded: ${mission.title}`,
+      `🎯 Goal: ${mission.objective}`,
+      `Ready to write code or arrange blocks.`,
+    ]);
+
+    if (mission.learningMode === 'typed' || mission.learningMode === 'debug') {
+      setActiveTab('python');
+    }
   }, [mission.id]);
 
-  useEffect(() => () => { if (simRef.current) { clearInterval(simRef.current); simRef.current = null; } }, []);
-
-  const handleAddBlock = (type: VisualBlock['type']) => {
-    sound.playSnap();
-    const nb: VisualBlock = { id: `blk_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`, type, params: type === 'repeat' ? { count: repeatCount } : undefined };
-    const next = [...blocks, nb]; setBlocks(next); setRawCode(blocksToCode(next, 'python'));
-  };
-  const handleRemoveBlock = (i: number) => {
-    const n = blocks.filter((_, idx) => idx !== i); setBlocks(n); setRawCode(blocksToCode(n, 'python'));
-  };
-  const handleRun = () => {
-    if (blocks.length === 0) { sound.playError(); setErrorMsg('Add blocks or write code first!'); setPetState('tired'); return; }
-    sound.playClick(); setErrorMsg(undefined);
-    const result = runDeterministicSimulation(mission.gridSize, mission.startPos, mission.startDir, mission.goalPos, mission.obstacles, mission.crystals, mission.switches, blocks);
-    if (simRef.current) { clearInterval(simRef.current); simRef.current = null; }
-    setSimResult(result); setIsPlaying(true); setStepIdx(0); setPetState('happy');
-    let s = 0;
-    simRef.current = setInterval(() => {
-      s++;
-      if (s < result.steps.length) { setStepIdx(s); sound.playStep(); }
-      else {
-        if (simRef.current) { clearInterval(simRef.current); simRef.current = null; }
-        setIsPlaying(false);
-        if (result.success) {
-          sound.playVictory(); setMissionDone(true); setPetState('excited');
-          completeMission(mission.id, mission.xpReward, mission.coinReward, { algorithms: 20 } as any);
-        } else { sound.playError(); setErrorMsg(result.message); setPetState('tired'); }
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (simIntervalRef.current) {
+        clearInterval(simIntervalRef.current);
+        simIntervalRef.current = null;
       }
-    }, 420);
+    };
+  }, []);
+
+  // Filtered missions in active concept set
+  const missionsInSet = PROGRESSIVE_MISSIONS.filter(
+    (m) => (m.conceptSet || 'sequence') === activeConceptSet
+  );
+
+  // Switch Mission handler
+  const handleSelectMission = (m: MissionDefinition) => {
+    sound.playClick();
+    const idx = PROGRESSIVE_MISSIONS.findIndex((p) => p.id === m.id);
+    if (idx !== -1) {
+      setSelectedIdx(idx);
+    }
   };
+
+  // Switch Concept Set
+  const handleSelectConceptSet = (cSet: string) => {
+    sound.playClick();
+    setActiveConceptSet(cSet);
+    const firstM = PROGRESSIVE_MISSIONS.find((m) => (m.conceptSet || 'sequence') === cSet);
+    if (firstM) {
+      const idx = PROGRESSIVE_MISSIONS.findIndex((p) => p.id === firstM.id);
+      if (idx !== -1) setSelectedIdx(idx);
+    }
+  };
+
+  // Block builders
+  const handleAddBlock = (type: BlockType) => {
+    sound.playSnap();
+    const newBlock: VisualBlock = {
+      id: `blk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type,
+      params: type === 'repeat' ? { count: repeatCount } : undefined,
+    };
+    const updated = [...blocks, newBlock];
+    setBlocks(updated);
+
+    // Auto-update terminal log
+    setTerminalLogs((prev) => [...prev, `[BUILDER] Added block: ${type}`]);
+  };
+
+  const handleRemoveBlock = (idx: number) => {
+    sound.playClick();
+    const updated = blocks.filter((_, i) => i !== idx);
+    setBlocks(updated);
+  };
+
+  const handleClearBlocks = () => {
+    sound.playClick();
+    setBlocks([]);
+    setTerminalLogs((prev) => [...prev, `[BUILDER] Cleared all blocks.`]);
+  };
+
+  // Insert code snippet
+  const handleInsertSnippet = (snippet: string) => {
+    sound.playSnap();
+    if (activeTab === 'python') {
+      setPythonCode((prev) => `${prev.trimEnd()}\n${snippet}\n`);
+    } else {
+      setJsCode((prev) => `${prev.trimEnd()}\n${snippet}\n`);
+    }
+  };
+
+  // Execute Simulation
+  const handleRunProgram = () => {
+    if (isPlaying) return;
+
+    sound.playClick();
+    setCompilerError(null);
+    let blocksToExecute: VisualBlock[] = [];
+
+    if (activeTab === 'blocks') {
+      if (blocks.length === 0) {
+        sound.playError();
+        setCompilerError('Add at least one move block before running!');
+        setPetState('tired');
+        return;
+      }
+      blocksToExecute = blocks;
+      setTerminalLogs((prev) => [
+        ...prev,
+        `▶ Running Block Sequence (${blocks.length} blocks)...`,
+      ]);
+    } else if (activeTab === 'python') {
+      const compileRes = compilePython(pythonCode);
+      setTerminalLogs(compileRes.logs);
+
+      if (!compileRes.success || compileRes.blocks.length === 0) {
+        sound.playError();
+        setCompilerError(compileRes.error || 'Python compilation failed.');
+        setPetState('tired');
+        return;
+      }
+      blocksToExecute = compileRes.blocks;
+    } else {
+      const compileRes = compileJavaScript(jsCode);
+      setTerminalLogs(compileRes.logs);
+
+      if (!compileRes.success || compileRes.blocks.length === 0) {
+        sound.playError();
+        setCompilerError(compileRes.error || 'JavaScript execution failed.');
+        setPetState('tired');
+        return;
+      }
+      blocksToExecute = compileRes.blocks;
+    }
+
+    // Run deterministic grid simulation
+    const result = runDeterministicSimulation(
+      mission.gridSize,
+      mission.startPos,
+      mission.startDir,
+      mission.goalPos,
+      mission.obstacles,
+      mission.crystals,
+      mission.switches,
+      blocksToExecute
+    );
+
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
+
+    setSimResult(result);
+    setIsPlaying(true);
+    setStepIdx(0);
+    setPetState('energetic');
+
+    let current = 0;
+    simIntervalRef.current = setInterval(() => {
+      current++;
+      if (current < result.steps.length) {
+        setStepIdx(current);
+        sound.playStep();
+      } else {
+        if (simIntervalRef.current) {
+          clearInterval(simIntervalRef.current);
+          simIntervalRef.current = null;
+        }
+        setIsPlaying(false);
+
+        if (result.success) {
+          sound.playVictory();
+          setPetState('excited');
+          setMissionSuccessModal(true);
+          setTerminalLogs((prev) => [
+            ...prev,
+            `🎉 SUCCESS! Target reached safely.`,
+            `+${mission.xpReward} XP earned! +${mission.coinReward} gems!`,
+          ]);
+          completeMission(
+            mission.id,
+            mission.xpReward,
+            mission.coinReward,
+            { logic: 20 } as any
+          );
+        } else {
+          sound.playError();
+          setPetState('tired');
+          setCompilerError(result.message);
+          setTerminalLogs((prev) => [
+            ...prev,
+            `⚠️ Run ended without reaching goal: ${result.message}`,
+          ]);
+        }
+      }
+    }, 450);
+  };
+
+  // Reset simulator
   const handleReset = () => {
-    if (simRef.current) { clearInterval(simRef.current); simRef.current = null; }
-    const init = mission.initialBlocks ? [...mission.initialBlocks] : [];
-    setBlocks(init); setRawCode(blocksToCode(init, 'python')); setSimResult(null);
-    setStepIdx(0); setIsPlaying(false); setErrorMsg(undefined); setPetState('focused');
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
+    setSimResult(null);
+    setStepIdx(0);
+    setIsPlaying(false);
+    setCompilerError(null);
+    setPetState('focused');
   };
 
+  // Next mission
+  const handleNextMission = () => {
+    setMissionSuccessModal(false);
+    if (selectedIdx < PROGRESSIVE_MISSIONS.length - 1) {
+      setSelectedIdx(selectedIdx + 1);
+    }
+  };
+
+  // AI Game Master Prompt Submit
+  const handleAskAI = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiPrompt.trim()) return;
+    sound.playClick();
+    const query = aiPrompt.toLowerCase();
+    setAiPrompt('');
+
+    if (query.includes('hint') || query.includes('how') || query.includes('stuck')) {
+      const hint = mission.hints?.[0] || 'Try breaking the movement into individual steps or loops!';
+      setAiMessage(`🤖 Pet Tutor: ${hint}`);
+    } else if (query.includes('python')) {
+      setAiMessage(`🐍 Python Tip: Use \`for step in range(${mission.gridSize.width}): pet.move_right()\` to loop!`);
+    } else {
+      setAiMessage(`🐾 ${petName}: Let's do this together! Check your steps and run the simulation.`);
+    }
+  };
+
+  // Current active step for 3D animation
   const activeStep: SimulationStep = simResult?.steps[stepIdx] ?? {
-    stepIndex: 0, petPos: mission.startPos, petDir: mission.startDir,
-    petAction: 'idle', crystalsCollected: [], openGates: [], status: 'running',
-  };
-  const mode       = mission.learningMode ?? 'guided';
-  const isScenario = mode === 'scenario';
-  const isPseudo   = mode === 'pseudocode' && !!mission.pseudocodeTemplate;
-  const isTyped    = mode === 'typed' || mode === 'debug';
-
-  const setProgress = CONCEPT_SET_ORDER.reduce<Record<string, { done: number; total: number }>>((acc, cs) => {
-    const csMs = PROGRESSIVE_MISSIONS.filter(m => m.conceptSet === cs);
-    acc[cs] = { done: csMs.filter(m => completedIds.has(m.id)).length, total: csMs.length };
-    return acc;
-  }, {});
-
-  const MODE_TAG: Record<string, { label: string; color: string }> = {
-    guided:     { label: '🎯 Guided',        color: '#3b82f6' },
-    visual:     { label: '🧩 Visual Blocks',  color: '#8b5cf6' },
-    pseudocode: { label: '📝 Pseudocode',    color: '#6366f1' },
-    typed:      { label: '💻 Typed Code',    color: '#0ea5e9' },
-    debug:      { label: '🐛 Debug Mode',    color: '#ef4444' },
-    scenario:   { label: '🌍 Scenario',      color: '#14b8a6' },
+    stepIndex: 0,
+    petPos: mission.startPos,
+    petDir: mission.startDir,
+    petAction: 'idle',
+    crystalsCollected: [],
+    openGates: [],
+    status: 'running',
+    message: 'Ready to explore',
   };
 
-  const petType  = (pet as any)?.pet_type || (pet as any)?.type || 'cat';
-  const petStage = (pet as any)?.stage || 'infant';
-  const petName  = (pet as any)?.pet_name || (pet as any)?.name || 'Buddy';
+  const crystalsRemaining =
+    mission.crystals.length - (activeStep.crystalsCollected?.length || 0);
 
   return (
-    <div className="flex h-screen bg-[#080f09] overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-
-      {/* ═══ SIDEBAR ═══ */}
-      <AnimatePresence initial={false}>
-        {sidebarOpen && (
-          <motion.aside key="sidebar"
-            initial={{ width: 0, opacity: 0 }} animate={{ width: 224, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', damping: 30, stiffness: 280 }}
-            className="shrink-0 bg-[#060e07] border-r border-white/5 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
-
-            {/* Brand */}
-            <div className="px-4 pt-5 pb-4 border-b border-white/5 shrink-0">
-              <div className="flex items-center gap-2 text-white">
-                <BookOpen className="w-3.5 h-3.5 text-teal-400" />
-                <span className="font-bold text-sm">petslyvia.</span>
-              </div>
-              <p className="text-white/25 text-[10px] mt-1">A little code. A lot of possibility.</p>
-            </div>
-
-            {/* Journey tree */}
-            <div className="flex-1 overflow-y-auto py-3">
-              <div className="px-4 mb-2 text-[10px] text-white/25 uppercase tracking-widest font-semibold">Your Journey</div>
-              {CONCEPT_SET_ORDER.map((cs, csIdx) => {
-                const info     = CONCEPT_SET_LABELS[cs];
-                const prog     = setProgress[cs];
-                const csMs     = PROGRESSIVE_MISSIONS.filter(m => m.conceptSet === cs);
-                const prevDone = csIdx === 0 ? true : setProgress[CONCEPT_SET_ORDER[csIdx - 1]]?.done > 0;
-                const isComplete = prog.done === prog.total && prog.total > 0;
-                return (
-                  <div key={cs} className="mb-0.5">
-                    <div className={`flex items-center gap-2 px-4 py-1.5 text-[11px] font-semibold
-                      ${isComplete ? 'text-emerald-400' : prevDone ? 'text-white/70' : 'text-white/20'}`}>
-                      <span>{info.icon}</span>
-                      <span className="flex-1">{info.label}</span>
-                      {isComplete && <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />}
-                      {!prevDone  && <Lock className="w-3 h-3 text-white/15 shrink-0" />}
-                    </div>
-                    {prevDone && csMs.map(m => {
-                      const mIdx     = PROGRESSIVE_MISSIONS.indexOf(m);
-                      const isDone   = completedIds.has(m.id);
-                      const unlocked = isMissionUnlocked(mIdx);
-                      const isSel    = selectedIdx === mIdx;
-                      return (
-                        <button key={m.id} disabled={!unlocked}
-                          onClick={() => { if (unlocked) setSelectedIdx(mIdx); }}
-                          className={`w-full text-left flex items-center gap-2 pl-8 pr-3 py-1.5 text-[11px] transition-all
-                            ${isSel    ? 'bg-emerald-700/25 text-emerald-300 border-r-2 border-emerald-500'
-                            : isDone   ? 'text-emerald-500/60 hover:bg-white/4'
-                            : unlocked ? 'text-white/40 hover:bg-white/4 hover:text-white/60'
-                                       : 'text-white/15 cursor-not-allowed'}`}>
-                          <span className={`w-3 h-3 rounded-full border shrink-0 flex items-center justify-center
-                            ${isDone ? 'bg-emerald-500 border-emerald-500' : isSel ? 'border-emerald-400 bg-emerald-900/40' : 'border-white/15'}`}>
-                            {isDone && <span className="text-white text-[6px]">✓</span>}
-                            {!isDone && isSel && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 block" />}
-                          </span>
-                          <span className="flex-1 truncate">{m.title}</span>
-                          {m.isMasteryCheck && <Star className="w-2.5 h-2.5 text-yellow-400 shrink-0" />}
-                          {!unlocked && <Lock className="w-2 h-2 text-white/15 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Pet companion at bottom */}
-            <div className="shrink-0 border-t border-white/5 py-4 px-3 bg-gradient-to-t from-[#040a05]">
-              <PetCompanion state={petState} petType={petType} petStage={petStage} petName={petName} />
-            </div>
-          </motion.aside>
-        )}
-      </AnimatePresence>
-
-      {/* ═══ MAIN ═══ */}
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-
-        {/* Top bar */}
-        <div className="h-12 shrink-0 border-b border-white/5 bg-[#060e07]/80 backdrop-blur flex items-center px-4 gap-3">
-          <button onClick={() => setSidebarOpen(p => !p)}
-            className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 transition-colors">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <nav className="flex items-center gap-1 text-[11px] text-white/30">
-            <Link to="/app" className="hover:text-white/60 transition-colors">Your world</Link>
-            <ChevronRight className="w-3 h-3" />
-            <span className="text-white/50">Academy</span>
-          </nav>
-          <div className="flex-1" />
-          <div className="flex items-center gap-3 text-[11px]">
-            <div className="flex items-center gap-1 text-yellow-400 font-semibold"><Zap className="w-3 h-3" /> {(profile as any)?.total_xp ?? (profile as any)?.xp ?? 0} XP</div>
-            <div className="text-teal-400 font-semibold">💎 {profile?.coins ?? 0}</div>
+    <div className="space-y-6 pb-14 font-sans text-[#1b382b]">
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* TOP HEADER & STAGE BANNER (Matches Image 2 Aesthetic) */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          {/* Category Eyebrow */}
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#5b7566] tracking-[0.2em] uppercase mb-1">
+            <span className="text-xs">🧭</span>
+            <span>PETSLYVIA ACADEMY · PROGRESSIVE CODING SYSTEM</span>
           </div>
-          <button onClick={toggleSound} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/30 transition-colors">
-            {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-          </button>
-          <Link to="/app" className="flex items-center gap-1.5 text-[11px] text-white/30 hover:text-white/60 border border-white/8 rounded-lg px-2.5 py-1 transition-colors">
-            <Map className="w-3 h-3" /> World map
-          </Link>
+
+          {/* Main Title & Concept Badge */}
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-black text-[#1b382b] tracking-tight">
+              {mission.title}
+            </h1>
+            <span className="px-3 py-0.5 rounded-full bg-[#e2ece5] text-[#2d6a4f] text-[11px] font-bold border border-[#d5e3da] flex items-center gap-1">
+              <Sparkles size={11} className="text-[#2d6a4f]" />
+              {mission.progressLabel || `Set ${mission.conceptSet?.toUpperCase()}`}
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-white text-[#5b7566] text-[11px] font-semibold border border-[#d8e5dc]">
+              {(mission.learningMode || 'guided').toUpperCase()} MODE
+            </span>
+          </div>
+
+          <p className="text-xs text-[#5b7566] font-medium mt-1.5 max-w-2xl leading-relaxed">
+            {mission.story || mission.objective}
+          </p>
         </div>
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
-          {/* Mission title area */}
-          <div className="px-6 pt-5">
-            <div className="flex items-center gap-2 text-[10px] text-white/25 uppercase tracking-widest mb-1">
-              <span>{CONCEPT_SET_LABELS[mission.conceptSet!]?.icon}</span>
-              <span>{mission.progressLabel?.toUpperCase()}</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-white">{mission.title}</h1>
-              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider border"
-                style={{ color: MODE_TAG[mode]?.color, borderColor: MODE_TAG[mode]?.color + '40', background: MODE_TAG[mode]?.color + '18' }}>
-                {MODE_TAG[mode]?.label}
-              </span>
-              {mission.isMasteryCheck && (
-                <span className="text-[10px] font-bold bg-yellow-500/15 border border-yellow-500/30 text-yellow-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                  ⭐ Mastery
+        {/* Top Actions: World Map & Audio */}
+        <div className="flex items-center gap-2">
+          <Link
+            to="/app"
+            className="px-4 py-2 bg-white border border-[#d8e5dc] rounded-2xl text-xs font-bold text-[#1b382b] hover:bg-[#eaf2ec] shadow-soft flex items-center gap-2 transition-all cursor-pointer group"
+          >
+            <Map size={14} className="text-[#5b7566] group-hover:text-[#1b382b]" />
+            <span>World map</span>
+          </Link>
+
+          <button
+            onClick={toggleSound}
+            className="w-9 h-9 rounded-2xl bg-white border border-[#d8e5dc] flex items-center justify-center text-[#5b7566] hover:text-[#1b382b] shadow-soft transition-all"
+            title="Toggle Sound Effects"
+          >
+            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
+        </div>
+      </div>
+
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* CONCEPT SETS & MISSION SELECTION BAR */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-3xl p-3 border border-[#e2ece5] shadow-sm space-y-2.5">
+        {/* Concept Set Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1">
+          {CONCEPT_SET_ORDER.map((cSet) => {
+            const count = PROGRESSIVE_MISSIONS.filter(
+              (m) => (m.conceptSet || 'sequence') === cSet
+            ).length;
+            const completedCount = PROGRESSIVE_MISSIONS.filter(
+              (m) => (m.conceptSet || 'sequence') === cSet && completedIds.has(m.id)
+            ).length;
+            const isSelected = activeConceptSet === cSet;
+            const cMeta = CONCEPT_SET_LABELS[cSet];
+
+            return (
+              <button
+                key={cSet}
+                onClick={() => handleSelectConceptSet(cSet)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+                  isSelected
+                    ? 'bg-[#2d6a4f] text-white shadow-soft'
+                    : 'bg-[#f8faf8] hover:bg-[#eaf2ec] text-[#5b7566]'
+                }`}
+              >
+                <span>{cMeta ? `${cMeta.icon} ${cMeta.label}` : cSet}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-[#e2ece5] text-[#2d6a4f]'
+                  }`}
+                >
+                  {completedCount}/{count}
                 </span>
-              )}
-            </div>
-            <p className="text-white/45 text-sm mb-4">{mission.story}</p>
-          </div>
+              </button>
+            );
+          })}
+        </div>
 
-          {/* Mission complete banner */}
-          <AnimatePresence>
-            {missionDone && (
-              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="mx-6 mb-4 bg-emerald-900/30 border border-emerald-500/25 rounded-2xl p-4 flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-emerald-300 font-bold text-base">🎉 Mission Complete! +{mission.xpReward} XP</div>
-                  <div className="text-white/50 text-sm mt-0.5">{mission.explanation}</div>
-                </div>
-                {selectedIdx < PROGRESSIVE_MISSIONS.length - 1 && (
-                  <button onClick={() => setSelectedIdx(p => Math.min(p + 1, PROGRESSIVE_MISSIONS.length - 1))}
-                    className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-semibold text-sm transition-colors">
-                    Next <ChevronRight className="w-4 h-4" />
-                  </button>
+        {/* Mission Pills in Active Set */}
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pt-1 border-t border-[#f0f5f1]">
+          <span className="text-[11px] font-bold text-[#7a9386] px-1 shrink-0">
+            Missions:
+          </span>
+          {missionsInSet.map((m, idx) => {
+            const isCurrent = m.id === mission.id;
+            const isDone = completedIds.has(m.id);
+
+            return (
+              <button
+                key={m.id}
+                onClick={() => handleSelectMission(m)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  isCurrent
+                    ? 'bg-[#eaf2ec] text-[#1b382b] font-black border border-[#2d6a4f]/30 ring-1 ring-[#2d6a4f]'
+                    : isDone
+                    ? 'bg-[#f4f8f5] text-[#2d6a4f] border border-[#d8e5dc]'
+                    : 'bg-white text-[#5b7566] border border-[#e2ece5] hover:bg-[#f8faf8]'
+                }`}
+              >
+                {isDone ? (
+                  <CheckCircle2 size={13} className="text-[#2d6a4f]" />
+                ) : (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#7a9386]" />
                 )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <span>
+                  {idx + 1}. {m.title}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          {/* Two-column workspace */}
-          <div className="px-6 pb-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* MAIN GRID: 3D DIORAMA (LEFT) + WORKSPACE / CODESPACE (RIGHT) */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* CENTER / LEFT: 3D Animated Isometric Scene (Like Image 2)   */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card flex flex-col space-y-4 relative">
+          {/* Diorama Header Bar */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold text-[#1b382b]">
+                Mission {mission.number || selectedIdx + 1}
+              </span>
+              <span className="text-xs text-[#7a9386]">|</span>
+              <span className="text-xs text-[#5b7566] font-medium">
+                {mission.objective || 'Guide your pet safely to the destination'}
+              </span>
+            </div>
 
-            {/* LEFT: objective + grid / scenario desc + hints */}
-            <div className="space-y-3">
-              <div className="bg-white/4 border border-white/6 rounded-2xl px-4 py-3 flex items-start gap-3">
-                <div className="mt-1 w-4 h-4 rounded-full bg-teal-500/20 flex items-center justify-center shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-                </div>
-                <p className="text-sm text-white/70">{mission.objective}</p>
+            {/* Viewport Action Controls */}
+            <div className="flex items-center gap-2">
+              {/* Camera Preset Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowCameraDropdown(!showCameraDropdown)}
+                  className="px-3 py-1 bg-[#f4f8f5] border border-[#d8e5dc] hover:bg-[#eaf2ec] rounded-xl text-xs font-bold text-[#1b382b] flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Box size={13} className="text-[#5b7566]" />
+                  <span>
+                    {cameraMode === 'iso'
+                      ? 'Iso 3D'
+                      : cameraMode === 'perspective'
+                      ? 'Perspective'
+                      : 'Top View'}
+                  </span>
+                  <ChevronDown size={12} className="text-[#7a9386]" />
+                </button>
+
+                {showCameraDropdown && (
+                  <div className="absolute right-0 top-full mt-1.5 bg-white border border-[#e2ece5] rounded-2xl p-1.5 shadow-lg z-30 min-w-[130px] space-y-1">
+                    <button
+                      onClick={() => {
+                        setCameraMode('iso');
+                        setShowCameraDropdown(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                        cameraMode === 'iso'
+                          ? 'bg-[#eaf2ec] text-[#1b382b] font-bold'
+                          : 'text-[#5b7566] hover:bg-[#f4f8f5]'
+                      }`}
+                    >
+                      Iso 3D
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCameraMode('perspective');
+                        setShowCameraDropdown(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                        cameraMode === 'perspective'
+                          ? 'bg-[#eaf2ec] text-[#1b382b] font-bold'
+                          : 'text-[#5b7566] hover:bg-[#f4f8f5]'
+                      }`}
+                    >
+                      Perspective
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCameraMode('top');
+                        setShowCameraDropdown(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                        cameraMode === 'top'
+                          ? 'bg-[#eaf2ec] text-[#1b382b] font-bold'
+                          : 'text-[#5b7566] hover:bg-[#f4f8f5]'
+                      }`}
+                    >
+                      Top View
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {!isScenario && (
-                <div className="bg-white/4 border border-white/6 rounded-2xl p-4 flex flex-col items-center gap-3">
-                  <div className="flex items-center justify-between w-full">
-                    <div className="text-[10px] text-white/25 uppercase tracking-widest">Mission {String(selectedIdx + 1).padStart(2, '0')}</div>
-                    {simResult
-                      ? <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${simResult.success ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'}`}>{simResult.success ? '✓ Success' : '✗ Failed'}</span>
-                      : <span className="text-xs text-white/25 bg-white/5 px-2 py-0.5 rounded-full">Ready to explore</span>
-                    }
+              {/* 3D / 2D Toggle */}
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setViewMode3D(!viewMode3D);
+                }}
+                className="px-2.5 py-1 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] rounded-xl text-xs font-bold text-[#5b7566] hover:text-[#1b382b] transition-all"
+                title="Toggle between 3D Diorama and 2D Grid"
+              >
+                {viewMode3D ? '2D View' : '3D Engine'}
+              </button>
+
+              {/* Reset simulation */}
+              <button
+                onClick={handleReset}
+                className="w-7 h-7 rounded-xl bg-[#f4f8f5] border border-[#d8e5dc] hover:bg-[#eaf2ec] flex items-center justify-center text-[#5b7566] hover:text-[#1b382b] transition-all"
+                title="Reset simulation step"
+              >
+                <RotateCcw size={12} />
+              </button>
+            </div>
+          </div>
+
+          {/* 3D Animated Canvas Viewport */}
+          <div className="rounded-2xl overflow-hidden relative border border-[#d8e5dc] bg-[#dce8e0] min-h-[440px] flex items-center justify-center shadow-inner">
+            {/* Top Left Floating Status Badge (Matches Image 2) */}
+            <div className="absolute top-3.5 left-3.5 z-20 pointer-events-none">
+              <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-[#d8e5dc] shadow-sm flex items-center gap-2">
+                {isPlaying ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                    <span className="text-[11px] font-bold text-[#1b382b]">
+                      Step {stepIdx + 1} of {simResult?.steps.length || 1}
+                    </span>
+                  </>
+                ) : simResult?.success ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-[11px] font-bold text-emerald-800">
+                      Goal Reached! 🎉
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" />
+                    <span className="text-[11px] font-bold text-[#1b382b]">
+                      Ready to explore
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Top Right Floating Crystal Counter (Matches Image 2) */}
+            <div className="absolute top-3.5 right-3.5 z-20 pointer-events-none">
+              <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-[#d8e5dc] shadow-sm flex items-center gap-1.5 text-[11px] font-bold text-[#1b382b]">
+                <span>💎</span>
+                <span>
+                  {activeStep.crystalsCollected?.length || 0} / {mission.crystals.length}
+                </span>
+              </div>
+            </div>
+
+            {/* The 3D Scene */}
+            {viewMode3D ? (
+              <GameScene3D
+                gridSize={mission.gridSize}
+                startPos={mission.startPos}
+                goalPos={mission.goalPos}
+                obstacles={mission.obstacles}
+                crystals={mission.crystals}
+                switches={mission.switches}
+                activeStep={activeStep}
+                petType={petType}
+                equipped={pet?.equipped_items}
+                theme="forest"
+                cameraPreset={cameraMode}
+                height="440px"
+              />
+            ) : (
+              /* Fallback 2D Grid */
+              <div className="p-8 flex flex-col items-center justify-center">
+                <div
+                  className="grid gap-1.5 bg-[#0f281b] p-4 rounded-2xl border-2 border-[#1e4b34] shadow-2xl"
+                  style={{
+                    gridTemplateColumns: `repeat(${mission.gridSize.width}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {Array.from({ length: mission.gridSize.height }).map((_, y) =>
+                    Array.from({ length: mission.gridSize.width }).map((_, x) => {
+                      const isPet = activeStep.petPos.x === x && activeStep.petPos.y === y;
+                      const isGoal = mission.goalPos.x === x && mission.goalPos.y === y;
+                      const hasObstacle = mission.obstacles.some((o) => o.x === x && o.y === y);
+
+                      return (
+                        <div
+                          key={`${x}-${y}`}
+                          className="w-10 h-10 rounded-xl bg-[#143725] border border-white/10 flex items-center justify-center text-sm font-bold"
+                        >
+                          {isPet ? '🐾' : isGoal ? '🌀' : hasObstacle ? '🧱' : ''}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Bottom Floating "Do anything" AI Game Master Bar (Matches Image 2) */}
+            <div className="absolute bottom-3 inset-x-4 z-20 flex justify-center">
+              <form
+                onSubmit={handleAskAI}
+                className="w-full max-w-md bg-[#1b382b]/90 backdrop-blur-md text-white rounded-full px-4 py-2 border border-white/20 shadow-xl flex items-center gap-3"
+              >
+                <Bot size={15} className="text-[#a7f3d0] shrink-0" />
+                <input
+                  type="text"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="Ask Pet AI tutor for hint or guidance..."
+                  className="w-full bg-transparent text-xs text-white placeholder-white/50 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowHint(true)}
+                  className="text-white/60 hover:text-white transition-colors"
+                  title="Voice input"
+                >
+                  <Mic size={14} />
+                </button>
+                <button
+                  type="submit"
+                  className="w-6 h-6 rounded-full bg-[#2d6a4f] hover:bg-[#3d8363] flex items-center justify-center text-white shrink-0 transition-colors"
+                >
+                  <Send size={11} />
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Dynamic AI message feedback */}
+          {aiMessage && (
+            <div className="p-3 bg-[#eaf2ec] border border-[#d8e5dc] rounded-2xl text-xs text-[#1b382b] flex items-start justify-between gap-2">
+              <p className="font-semibold">{aiMessage}</p>
+              <button
+                onClick={() => setAiMessage(null)}
+                className="text-[#7a9386] hover:text-[#1b382b] text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Educational Concept & Hint Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-[#f0f5f1]">
+            <button
+              onClick={() => setShowHint(!showHint)}
+              className="text-xs text-[#5b7566] hover:text-[#1b382b] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Lightbulb size={13} className="text-amber-500" />
+              <span>{showHint ? 'Hide mission hint' : '💡 Reveal a hint'}</span>
+            </button>
+
+            <span className="text-[11px] text-[#7a9386]">
+              Reward: +{mission.xpReward} XP · +{mission.coinReward} gems
+            </span>
+          </div>
+
+          {showHint && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3.5 bg-amber-50/80 border border-amber-200/80 rounded-2xl text-xs text-amber-900 space-y-1"
+            >
+              <span className="font-bold block text-amber-950">💡 Step-by-Step Guide:</span>
+              <p className="leading-relaxed">
+                {mission.hints?.[0] || mission.explanation || 'Think about the exact sequence of moves needed.'}
+              </p>
+            </motion.div>
+          )}
+        </div>
+
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* RIGHT COLUMN: WORKSPACE / CODESPACE (Python & JS Compilers!)  */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card flex flex-col justify-between space-y-4">
+          <div>
+            {/* Top Workspace Tab Selector (Blocks / Python / JavaScript) */}
+            <div className="flex items-center justify-between mb-3 border-b border-[#f0f5f1] pb-3">
+              <span className="text-xs font-black text-[#1b382b] uppercase tracking-wider">
+                {activeTab === 'blocks'
+                  ? 'MAKE YOUR MOVE'
+                  : activeTab === 'python'
+                  ? 'PYTHON CODESPACE'
+                  : 'JAVASCRIPT SANDBOX'}
+              </span>
+
+              {/* Mode switch pills */}
+              <div className="flex items-center gap-1 bg-[#f4f8f5] p-1 rounded-xl border border-[#d8e5dc]">
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setActiveTab('blocks');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'blocks'
+                      ? 'bg-white text-[#1b382b] shadow-sm font-black'
+                      : 'text-[#5b7566] hover:text-[#1b382b]'
+                  }`}
+                >
+                  🧩 Blocks
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setActiveTab('python');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'python'
+                      ? 'bg-[#2d6a4f] text-white shadow-sm font-black'
+                      : 'text-[#5b7566] hover:text-[#1b382b]'
+                  }`}
+                >
+                  🐍 Python
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setActiveTab('javascript');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'javascript'
+                      ? 'bg-amber-600 text-white shadow-sm font-black'
+                      : 'text-[#5b7566] hover:text-[#1b382b]'
+                  }`}
+                >
+                  ⚡ JS
+                </button>
+              </div>
+            </div>
+
+            {/* ═════════════════════════════════════════════════════════ */}
+            {/* TAB 1: INTERACTIVE BLOCKS BUILDER (Like Image 1 & 2)     */}
+            {/* ═════════════════════════════════════════════════════════ */}
+            {activeTab === 'blocks' && (
+              <div className="space-y-4">
+                <p className="text-xs text-[#5b7566] font-medium leading-relaxed">
+                  Add moves in order, then watch {petName} go.
+                </p>
+
+                {/* Available Action Buttons Grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  {BLOCK_DEFS.slice(0, 4).map((def) => (
+                    <button
+                      key={def.type}
+                      onClick={() => handleAddBlock(def.type)}
+                      className="p-3 bg-[#f8faf8] hover:bg-[#eaf2ec] border border-[#d8e5dc] rounded-2xl text-left transition-all group cursor-pointer active:scale-95 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-[#1b382b] flex items-center gap-1.5">
+                          <span className="text-base text-[#2d6a4f]">{def.icon}</span>
+                          {def.label}
+                        </span>
+                        <Plus size={13} className="text-[#7a9386] group-hover:text-[#1b382b]" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Repeat Loop Builder Pill */}
+                <div className="p-3 bg-[#f0f7f3] border border-[#d3e5da] rounded-2xl flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🔄</span>
+                    <div>
+                      <span className="text-xs font-extrabold text-[#1b382b] block">
+                        Repeat Loop
+                      </span>
+                      <span className="text-[10px] text-[#5b7566]">
+                        Walks multiple steps automatically
+                      </span>
+                    </div>
                   </div>
-                  <MissionGrid mission={mission} activeStep={activeStep} />
-                  {mission.crystals.length > 0 && (
-                    <div className="flex items-center gap-1.5 text-xs text-white/35 self-start">
-                      <span className="text-yellow-400">◆</span>
-                      {activeStep.crystalsCollected.length} / {mission.crystals.length}
-                    </div>
-                  )}
-                  {simResult && (
-                    <div className={`w-full text-xs text-center rounded-xl p-2 ${simResult.success ? 'bg-emerald-900/25 text-emerald-300' : 'bg-red-900/20 text-red-300'}`}>
-                      {activeStep.message || (simResult.success ? '🎯 Reached the goal!' : '…')}
-                    </div>
-                  )}
-                  {errorMsg && (
-                    <div className="w-full bg-red-900/20 border border-red-500/15 rounded-xl p-2 text-red-300 text-xs flex gap-1.5">
-                      <AlertCircle className="w-3 h-3 shrink-0 mt-px" /> {errorMsg}
-                    </div>
-                  )}
-                </div>
-              )}
 
-              {isScenario && mission.scenarioChallenge && (
-                <div className="bg-blue-950/40 border border-blue-400/12 rounded-2xl p-4 text-sm text-blue-200 whitespace-pre-wrap font-mono leading-6 max-h-72 overflow-y-auto">
-                  {mission.scenarioChallenge.scenarioDescription}
+                  <div className="flex items-center gap-1.5">
+                    <label className="text-xs font-bold text-[#5b7566]">Count:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={repeatCount}
+                      onChange={(e) => setRepeatCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-12 bg-white text-center font-bold text-xs py-1 rounded-xl border border-[#d8e5dc] outline-none"
+                    />
+                    <button
+                      onClick={() => handleAddBlock('repeat')}
+                      className="px-2.5 py-1 bg-[#2d6a4f] text-white rounded-xl text-xs font-bold shadow-soft hover:bg-[#23533e] transition-colors"
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
-              )}
 
-              {mission.hints.length > 0 && !missionDone && (
-                <div className="space-y-2">
-                  <button onClick={() => setHintIdx(p => Math.min(p + 1, mission.hints.length - 1))}
-                    className="flex items-center gap-2 text-sm text-white/25 hover:text-yellow-300 transition-colors">
-                    <Lightbulb className="w-3.5 h-3.5 text-yellow-500/40" />
-                    {hintIdx < 0 ? 'Reveal a hint' : hintIdx < mission.hints.length - 1 ? 'Show next hint' : 'No more hints'}
-                  </button>
-                  <AnimatePresence>
-                    {hintIdx >= 0 && (
-                      <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                        className="bg-yellow-900/15 border border-yellow-500/20 rounded-xl p-3 text-yellow-200 text-sm">
-                        💡 {mission.hints[hintIdx]}
-                      </motion.div>
+                {/* Next Moves Queue */}
+                <div className="pt-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-[#1b382b]">
+                      Your next moves ({blocks.length})
+                    </span>
+                    {blocks.length > 0 && (
+                      <button
+                        onClick={handleClearBlocks}
+                        className="text-[11px] text-[#7a9386] hover:text-rose-600 transition-colors cursor-pointer font-semibold"
+                      >
+                        Clear all
+                      </button>
                     )}
-                  </AnimatePresence>
-                </div>
-              )}
-            </div>
-
-            {/* RIGHT: workspace */}
-            <div className="bg-white/4 border border-white/6 rounded-2xl p-4 flex flex-col gap-3">
-
-              {isPseudo && !missionDone && (
-                <>
-                  <div className="text-[10px] text-white/25 uppercase tracking-widest flex items-center gap-1.5">
-                    <BookOpen className="w-3 h-3 text-indigo-400" /> Fill in the blanks
-                  </div>
-                  <PseudocodePanel mission={mission} onComplete={() => {
-                    setMissionDone(true); setPetState('excited');
-                    completeMission(mission.id, mission.xpReward, mission.coinReward, { algorithms: 20 } as any);
-                  }} />
-                </>
-              )}
-
-              {isScenario && !missionDone && mission.scenarioChallenge && (
-                <ScenarioPanel mission={mission} onComplete={() => {
-                  setMissionDone(true); setPetState('excited');
-                  completeMission(mission.id, mission.xpReward, mission.coinReward, { algorithms: 20 } as any);
-                }} />
-              )}
-
-              {!isScenario && !isPseudo && !missionDone && (
-                <>
-                  <div className="text-[10px] text-white/25 uppercase tracking-widest">
-                    {isTyped ? 'Code Editor' : 'Make your move'}
                   </div>
 
-                  {isTyped ? (
-                    <textarea value={rawCode}
-                      onChange={e => { setRawCode(e.target.value); setBlocks(parseCodeToBlocks(e.target.value)); }}
-                      className="flex-1 min-h-[150px] px-4 py-3 rounded-xl font-mono text-sm text-emerald-200 bg-black/35 border border-white/8 resize-none focus:outline-none focus:border-emerald-500/40"
-                      spellCheck={false} placeholder="# Write your code here" />
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {mission.allowedBlocks.map(bt => (
-                          <button key={bt} onClick={() => handleAddBlock(bt)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/6 text-white/55 hover:bg-emerald-900/30 hover:border-emerald-500/25 hover:text-white transition-all group">
-                            <span className="text-base leading-none">{BLOCK_ICONS[bt] || '•'}</span>
-                            <span className="font-medium flex-1 text-left">{BLOCK_LABELS[bt] || bt}</span>
-                            <span className="text-white/15 group-hover:text-emerald-500">+</span>
-                          </button>
-                        ))}
+                  <div className="bg-[#f8faf8] border border-[#d8e5dc] rounded-2xl p-2.5 min-h-[140px] max-h-[190px] overflow-y-auto custom-scrollbar space-y-1.5">
+                    {blocks.length === 0 ? (
+                      <div className="h-28 flex flex-col items-center justify-center text-center p-3 text-[#7a9386]">
+                        <span className="text-xl mb-1">📋</span>
+                        <p className="text-xs font-medium">A little plan goes a long way.</p>
+                        <p className="text-[11px]">Choose your first move above.</p>
                       </div>
-
-                      {mission.allowedBlocks.includes('repeat') && (
-                        <div className="flex items-center gap-2 text-xs text-white/30">
-                          <span>Repeat count</span>
-                          <input type="number" min={1} max={20} value={repeatCount}
-                            onChange={e => setRepeatCount(Number(e.target.value))}
-                            className="w-12 px-2 py-1 rounded-lg bg-black/30 border border-white/8 text-white text-xs text-center focus:outline-none" />
-                        </div>
-                      )}
-
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="text-[10px] text-white/25 uppercase tracking-widest flex items-center gap-1">
-                            Your next moves
-                            {blocks.length > 0 && <span className="bg-emerald-500/20 text-emerald-300 text-[9px] rounded-full px-1.5 font-bold ml-1">{blocks.length}</span>}
+                    ) : (
+                      blocks.map((b, idx) => (
+                        <div
+                          key={b.id}
+                          className="flex items-center justify-between bg-white px-3 py-1.5 rounded-xl border border-[#e2ece5] shadow-xs text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 rounded-full bg-[#eaf2ec] text-[#2d6a4f] text-[10px] font-black flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <span className="font-bold text-[#1b382b]">
+                              {b.type === 'repeat'
+                                ? `Repeat ${b.params?.count || 3} times (Right)`
+                                : b.type.replace(/_/g, ' ')}
+                            </span>
                           </div>
-                          {blocks.length > 0 && <button onClick={handleReset} className="text-[10px] text-white/20 hover:text-red-400 transition-colors">Clear</button>}
+                          <button
+                            onClick={() => handleRemoveBlock(idx)}
+                            className="text-[#7a9386] hover:text-rose-600 p-1"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
-                        <div className="min-h-[80px] bg-black/20 rounded-xl border border-white/5 p-2 flex flex-wrap gap-1.5 content-start">
-                          {blocks.length === 0 && (
-                            <div className="w-full text-center text-white/15 text-xs py-5 leading-relaxed">
-                              A little plan goes a long way.<br />Choose your first move above.
-                            </div>
-                          )}
-                          {blocks.map((b, i) => (
-                            <motion.button key={b.id} initial={{ scale: 0.75, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                              onClick={() => handleRemoveBlock(i)}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all
-                                ${mission.brokenTargetBlockIndex === i
-                                  ? 'bg-red-900/50 border border-red-500/40 text-red-200'
-                                  : 'bg-emerald-900/35 border border-emerald-500/20 text-emerald-300 hover:bg-red-900/30 hover:text-red-300 hover:border-red-500/30'}`}>
-                              {BLOCK_ICONS[b.type] || ''} {BLOCK_LABELS[b.type] || b.type}
-                              {b.params?.count !== undefined && <span className="ml-1 opacity-50">×{b.params.count}</span>}
-                            </motion.button>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
-                  <div className="flex gap-2 pt-1">
-                    <button id="academy-run-btn" onClick={handleRun} disabled={isPlaying}
-                      className="flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:scale-95 text-white font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-40">
-                      <Play className="w-4 h-4" fill="white" /> {isPlaying ? 'Running…' : 'Play'}
+            {/* ═════════════════════════════════════════════════════════ */}
+            {/* TAB 2: PYTHON CODESPACE (Compiler & Virtual Runtime)     */}
+            {/* ═════════════════════════════════════════════════════════ */}
+            {activeTab === 'python' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono font-bold text-[#2d6a4f] flex items-center gap-1.5">
+                    <Terminal size={13} />
+                    main.py (Python 3.12)
+                  </span>
+                  <button
+                    onClick={() => setPythonCode(getStarterCode(mission, 'python'))}
+                    className="text-[11px] text-[#7a9386] hover:text-[#1b382b] flex items-center gap-1"
+                  >
+                    <RotateCcw size={11} /> Reset template
+                  </button>
+                </div>
+
+                <textarea
+                  rows={9}
+                  value={pythonCode}
+                  onChange={(e) => setPythonCode(e.target.value)}
+                  className="w-full bg-[#0a1811] text-[#a7f3d0] font-mono text-xs p-3.5 rounded-2xl border border-[#1e4b34] focus:ring-1 focus:ring-[#2d6a4f] outline-none leading-relaxed resize-none shadow-inner"
+                  spellCheck={false}
+                />
+
+                {/* Quick Python Syntax Snippets */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-[#7a9386] uppercase tracking-wider block">
+                    Quick Syntax Snippets:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('pet.move_right()')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + pet.move_right()
                     </button>
-                    <button onClick={handleReset}
-                      className="px-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/6 text-white/40 transition-colors">
-                      <RotateCcw className="w-4 h-4" />
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('pet.move_forward()')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + pet.move_forward()
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('pet.turn_right()')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + pet.turn_right()
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleInsertSnippet('for step in range(8):\n    pet.move_right()')
+                      }
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#2d6a4f] font-mono text-[10px] border border-[#d8e5dc] font-bold"
+                    >
+                      + for in range(8):
                     </button>
                   </div>
-
-                  {mode === 'debug' && (
-                    <div className="bg-red-900/15 border border-red-500/15 rounded-xl p-3 text-red-300 text-xs flex gap-2">
-                      <Bug className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                      The sequence has a bug. Run to see where — the <span className="font-bold text-red-200">red block</span> went wrong.
-                    </div>
-                  )}
-                </>
-              )}
-
-              {missionDone && (
-                <div className="bg-white/4 border border-white/6 rounded-xl p-3 text-sm text-white/50 leading-relaxed">
-                  <div className="text-[9px] text-white/20 uppercase mb-1.5">What you just learned</div>
-                  {mission.explanation}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* ═════════════════════════════════════════════════════════ */}
+            {/* TAB 3: JAVASCRIPT CODESPACE (Sandbox Runtime)            */}
+            {/* ═════════════════════════════════════════════════════════ */}
+            {activeTab === 'javascript' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono font-bold text-amber-700 flex items-center gap-1.5">
+                    <Code2 size={13} />
+                    index.js (Node.js v20)
+                  </span>
+                  <button
+                    onClick={() => setJsCode(getStarterCode(mission, 'javascript'))}
+                    className="text-[11px] text-[#7a9386] hover:text-[#1b382b] flex items-center gap-1"
+                  >
+                    <RotateCcw size={11} /> Reset template
+                  </button>
+                </div>
+
+                <textarea
+                  rows={9}
+                  value={jsCode}
+                  onChange={(e) => setJsCode(e.target.value)}
+                  className="w-full bg-[#1c1917] text-amber-200 font-mono text-xs p-3.5 rounded-2xl border border-stone-700 focus:ring-1 focus:ring-amber-500 outline-none leading-relaxed resize-none shadow-inner"
+                  spellCheck={false}
+                />
+
+                {/* Quick JS Syntax Snippets */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-[#7a9386] uppercase tracking-wider block">
+                    Quick Syntax Snippets:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('pet.moveRight();')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + pet.moveRight();
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('pet.moveForward();')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + pet.moveForward();
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInsertSnippet('pet.turnRight();')}
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-[#1b382b] font-mono text-[10px] border border-[#d8e5dc]"
+                    >
+                      + pet.turnRight();
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleInsertSnippet('for (let i = 0; i < 8; i++) {\n  pet.moveRight();\n}')
+                      }
+                      className="px-2 py-0.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] rounded-lg text-amber-700 font-mono text-[10px] border border-[#d8e5dc] font-bold"
+                    >
+                      + for loop (8)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Compiler Output / Diagnostics Console */}
+            {compilerError && (
+              <div className="mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{compilerError}</span>
+              </div>
+            )}
+
+            {/* Terminal Drawer Logs */}
+            {terminalLogs.length > 0 && (
+              <div className="mt-3 bg-[#0d1f14] p-3 rounded-2xl border border-white/10 text-[11px] font-mono text-[#a7f3d0] max-h-24 overflow-y-auto custom-scrollbar space-y-1">
+                {terminalLogs.slice(-4).map((log, i) => (
+                  <div key={i} className="truncate">
+                    {log}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ═════════════════════════════════════════════════════════ */}
+          {/* BOTTOM PLAY / RUN BUTTON                                  */}
+          {/* ═════════════════════════════════════════════════════════ */}
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={handleRunProgram}
+              disabled={isPlaying}
+              className="w-full py-4 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black text-sm rounded-2xl shadow-soft transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              <Play size={16} className="fill-white" />
+              <span>
+                {isPlaying
+                  ? `EXECUTING STEP ${stepIdx + 1}...`
+                  : activeTab === 'blocks'
+                  ? 'PLAY'
+                  : activeTab === 'python'
+                  ? 'RUN PYTHON SCRIPT'
+                  : 'RUN JAVASCRIPT'}
+              </span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      {/* MISSION ACCOMPLISHED MODAL BANNER                               */}
+      {/* ═════════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {missionSuccessModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full border border-[#e2ece5] shadow-2xl text-center space-y-4"
+            >
+              <div className="w-16 h-16 rounded-full bg-[#eaf2ec] border border-[#d5e5db] mx-auto flex items-center justify-center text-3xl shadow-soft">
+                🎉
+              </div>
+
+              <div>
+                <h3 className="text-xl font-black text-[#1b382b]">
+                  Mission Accomplished!
+                </h3>
+                <p className="text-xs text-[#5b7566] mt-1">
+                  {petName} reached the goal! You mastered{' '}
+                  <span className="font-bold text-[#2d6a4f]">{mission.title}</span>.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-center gap-4 bg-[#f8faf8] p-3 rounded-2xl border border-[#d8e5dc]">
+                <div className="flex items-center gap-1.5 font-bold text-xs text-[#1b382b]">
+                  <Zap size={14} className="text-amber-500" />
+                  <span>+{mission.xpReward} XP</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-bold text-xs text-[#1b382b]">
+                  <span>💎</span>
+                  <span>+{mission.coinReward} Gems</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  onClick={() => setMissionSuccessModal(false)}
+                  className="flex-1 py-3 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#d8e5dc] text-[#1b382b] font-bold text-xs rounded-xl transition-all"
+                >
+                  Stay on Level
+                </button>
+                <button
+                  onClick={handleNextMission}
+                  className="flex-1 py-3 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black text-xs rounded-xl shadow-soft transition-all"
+                >
+                  Next Mission →
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+export default AcademyPage;

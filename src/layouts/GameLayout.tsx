@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Map, Home, Compass, Bug, Building2, ShoppingBag,
   Sparkles, Users, Award, Code2, LogOut, Volume2, VolumeX, Menu, X,
-  Settings, SlidersHorizontal, Lock, CheckCircle2, ChevronRight, Wand2
+  Settings, SlidersHorizontal, Lock, CheckCircle2, ChevronRight, Wand2, GraduationCap
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useGameData } from '@/hooks/useGameData';
@@ -22,13 +22,14 @@ interface JourneyStep {
 }
 
 const JOURNEY_STEPS: JourneyStep[] = [
-  { id: 'step_1', stepNumber: 1, label: 'First steps', to: '/app/forest', areaKey: 'logic_forest' },
-  { id: 'step_2', stepNumber: 2, label: 'Hidden magic', to: '/app/sanctuary', areaKey: 'pet_home' },
-  { id: 'step_3', stepNumber: 3, label: 'Forest of logic', to: '/app/forest', areaKey: 'logic_forest' },
-  { id: 'step_4', stepNumber: 4, label: 'Bug dungeon', to: '/app/dungeon', areaKey: 'bug_dungeon' },
-  { id: 'step_5', stepNumber: 5, label: 'Smart city', to: '/app/city', areaKey: 'smart_city' },
-  { id: 'step_6', stepNumber: 6, label: 'Quantum lab', to: '/app/lab', areaKey: 'all' },
-  { id: 'step_7', stepNumber: 7, label: 'Creator island', to: '/app/creator', areaKey: 'creator_world' },
+  { id: 'step_academy', stepNumber: 1, label: 'Coding Academy', to: '/app/academy', areaKey: 'all' },
+  { id: 'step_1', stepNumber: 2, label: 'First steps', to: '/app/forest', areaKey: 'logic_forest' },
+  { id: 'step_2', stepNumber: 3, label: 'Hidden magic', to: '/app/sanctuary', areaKey: 'pet_home' },
+  { id: 'step_3', stepNumber: 4, label: 'Forest of logic', to: '/app/forest', areaKey: 'logic_forest' },
+  { id: 'step_4', stepNumber: 5, label: 'Bug dungeon', to: '/app/dungeon', areaKey: 'bug_dungeon' },
+  { id: 'step_5', stepNumber: 6, label: 'Smart city', to: '/app/city', areaKey: 'smart_city' },
+  { id: 'step_6', stepNumber: 7, label: 'Quantum lab', to: '/app/lab', areaKey: 'all' },
+  { id: 'step_7', stepNumber: 8, label: 'Creator island', to: '/app/creator', areaKey: 'creator_world' },
 ];
 
 export function GameLayout() {
@@ -48,6 +49,7 @@ export function GameLayout() {
   // Determine active breadcrumb based on current path
   const getBreadcrumbTitle = () => {
     const p = location.pathname;
+    if (p.includes('/academy')) return 'Coding Academy';
     if (p.includes('/forest') || p.includes('/logic') || p.includes('/adventure')) return 'Forest of Logic';
     if (p.includes('/sanctuary')) return 'Pet Sanctuary';
     if (p.includes('/dungeon')) return 'Bug Dungeon';
@@ -125,6 +127,22 @@ export function GameLayout() {
 
           {/* Quick Action Top Menu */}
           <div className="px-4 py-3 space-y-1">
+            <Link
+              to="/app/academy"
+              onClick={() => {
+                sound.playClick();
+                setMobileOpen(false);
+              }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                location.pathname.includes('/academy')
+                  ? 'bg-[#eaf2ec] text-[#1e3a2b] font-bold'
+                  : 'text-[#5b7566] hover:text-[#1e3a2b] hover:bg-[#f4f8f5]'
+              }`}
+            >
+              <GraduationCap size={16} className="text-[#2d6a4f]" />
+              <span>Coding academy</span>
+            </Link>
+
             <Link
               to="/app/multiplayer"
               onClick={() => {
