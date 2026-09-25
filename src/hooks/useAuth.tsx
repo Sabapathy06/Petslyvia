@@ -355,41 +355,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // SIGN IN WITH GOOGLE (OPTION C)
   // ----------------------------------------------------
   const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
-    // Demo / OAuth linking simulation:
-    // If existing account exists under google email -> connects seamlessly.
-    // If new -> creates 1 profile & 1 infant pet.
-    const googleEmail = 'player.google@petslyvia.world';
-    const accounts = getLocalAccounts();
-    let account = accounts[googleEmail];
-
-    if (!account) {
-      const userId = `user_google_${Date.now()}`;
-      account = {
-        id: userId,
-        email: googleEmail,
-        passwordHash: 'oauth_managed',
-        displayName: 'Google Player',
-        googleLinked: true,
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + window.location.pathname,
+        },
+      });
+      if (!error) {
+        return { success: true };
+      }
+      return {
+        success: false,
+        error: error.message || 'Google OAuth is not enabled in your Supabase project. Please create your account with your email and password above.',
       };
-      accounts[googleEmail] = account;
-      saveLocalAccounts(accounts);
-
-      await petslyviaService.initializeNewPlayer(userId, googleEmail, 'Google Explorer', 'fox', 'Firefox');
+    } catch {
+      return {
+        success: false,
+        error: 'Google Sign-In is not enabled on this Supabase instance. Please use "CREATE ACCOUNT" to sign up with your email and password.',
+      };
     }
-
-    const mockUser: User = {
-      id: account.id,
-      email: account.email,
-      app_metadata: { provider: 'google' },
-      user_metadata: { display_name: account.displayName },
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-    };
-
-    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: mockUser }));
-    setUser(mockUser);
-    await loadPlayerData(mockUser.id, mockUser.email);
-    return { success: true };
   };
 
   // ----------------------------------------------------
