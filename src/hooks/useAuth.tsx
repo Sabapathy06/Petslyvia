@@ -338,16 +338,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (rateLimitMessage) {
       return {
         success: true,
-        message: `Supabase email rate limit active (${rateLimitMessage}). To avoid waiting, you can use the instant backup code below.`,
-        testOtpCode: otpCode,
+        message: `A verification email was already dispatched recently (${rateLimitMessage}). Please check your email or wait 60s before resending.`,
         isRateLimited: true,
       };
     }
 
     return {
       success: true,
-      message: `A sign-in verification code has been dispatched to ${cleanEmail}. Check your Inbox and Spam/Junk folder.`,
-      testOtpCode: otpCode,
+      message: `A verification code has been dispatched to ${cleanEmail}. Check your Inbox and Spam/Junk folder.`,
       isRateLimited: false,
     };
   };
@@ -359,7 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanCode = code.trim();
 
-    // 1. Try Supabase OTP verification (type: 'email' or 'signup')
+    // 1. Try Supabase OTP verification (type: 'email', 'signup', or 'magiclink')
     try {
       let result = await supabase.auth.verifyOtp({
         email: cleanEmail,
@@ -372,6 +370,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: cleanEmail,
           token: cleanCode,
           type: 'signup',
+        });
+      }
+
+      if (result.error) {
+        result = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanCode,
+          type: 'magiclink',
         });
       }
 

@@ -17,19 +17,25 @@ import { GoogleAuthModal } from '@/components/GoogleAuthModal';
 // ----------------------------------------------------
 export function LoginPage() {
   const navigate = useNavigate();
-  const { user, logout, loginWithPassword, requestOtp, verifyOtpAndLogin, loginWithGoogleAccount } = useAuth();
+  const { user, logout, loginWithPassword, requestOtp, verifyOtpAndLogin } = useAuth();
 
   const [mode, setMode] = useState<'password' | 'otp_request' | 'otp_verify'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  const [demoCodeHint, setDemoCodeHint] = useState<string | null>(null);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Auto redirect if user is authenticated (e.g. from magic link or session)
+  useEffect(() => {
+    if (user) {
+      navigate('/app');
+    }
+  }, [user, navigate]);
 
   // Cooldown countdown effect
   useEffect(() => {
@@ -79,9 +85,6 @@ export function LoginPage() {
 
     if (res.success) {
       setSuccessMsg(res.message);
-      if (res.testOtpCode) {
-        setDemoCodeHint(res.testOtpCode);
-      }
       setResendCooldown(60);
       setMode('otp_verify');
       sound.playCrystal();
@@ -237,7 +240,7 @@ export function LoginPage() {
                   setError('');
                   setMode('otp_request');
                 }}
-                className="text-[#2d6a4f] hover:underline font-bold transition-colors flex items-center gap-1"
+                className="text-[#2d6a4f] hover:underline font-bold transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <KeyRound size={13} /> Login with OTP
               </button>
@@ -249,7 +252,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black tracking-wide rounded-2xl shadow-soft transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black tracking-wide rounded-2xl shadow-soft transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
             >
               {loading ? 'Entering Petslyvia...' : <>LOG IN <ArrowRight size={18} /></>}
             </button>
@@ -265,8 +268,11 @@ export function LoginPage() {
             onSubmit={handleRequestOtp}
             className="space-y-4"
           >
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200 leading-relaxed">
-              🔑 <strong>Passwordless Login:</strong> We will send a secure 6-digit one-time code to your registered email address.
+            <div className="p-3.5 bg-[#eef8f2] border border-[#bfe2ce] rounded-2xl text-xs text-[#1e583d] font-medium leading-relaxed flex items-start gap-2.5">
+              <KeyRound size={16} className="text-[#2d6a4f] shrink-0 mt-0.5" />
+              <span>
+                <strong>Passwordless Login:</strong> We will send a secure 6-digit verification code and instant magic link directly to your registered email address.
+              </span>
             </div>
 
             <Field label="Registered Email" icon={<Mail size={18} />}>
@@ -276,7 +282,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="player@petslyvia.world"
-                className="w-full pl-11 pr-4 py-3 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all placeholder:text-slate-500 text-sm"
+                className="w-full pl-11 pr-4 py-3 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none transition-all placeholder:text-[#7a9386] text-sm font-medium"
               />
             </Field>
 
@@ -285,7 +291,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black tracking-wide rounded-2xl shadow-soft transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
             >
               {loading ? 'Sending Code...' : <>SEND OTP CODE <ArrowRight size={18} /></>}
             </button>
@@ -296,7 +302,7 @@ export function LoginPage() {
                 setError('');
                 setMode('password');
               }}
-              className="w-full text-center text-xs text-slate-400 hover:text-white pt-1"
+              className="w-full text-center text-xs text-[#5b7566] hover:text-[#1b382b] font-bold pt-1 transition-colors cursor-pointer"
             >
               ← Back to Password Login
             </button>
@@ -312,42 +318,31 @@ export function LoginPage() {
             onSubmit={handleVerifyOtp}
             className="space-y-4"
           >
-            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200">
-              <div className="flex items-center gap-1.5 font-bold mb-1">
-                <CheckCircle2 size={14} className="text-emerald-400" /> Verification Code Dispatched
+            {/* Verification Status */}
+            <div className="p-3.5 bg-[#eef8f2] border border-[#bfe2ce] rounded-2xl text-xs text-[#1e583d] font-medium space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-[#1e583d]">
+                <CheckCircle2 size={16} className="text-[#2d6a4f]" /> Verification Email Dispatched
               </div>
-              Dispatched to <span className="text-white font-mono font-semibold">{email}</span>.
-            </div>
-
-            {/* Gmail Deliverability Alert */}
-            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200/90 leading-relaxed space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-amber-300">
-                <Mail size={14} /> 📬 Gmail Delivery Note:
-              </div>
-              <p className="text-[11px] text-amber-100/80">
-                Automated security emails frequently land in your <strong>Spam / Junk</strong> folder or <strong>Promotions</strong> tab. Please check there or search for <span className="text-amber-300 font-mono">noreply@mail.app.supabase.io</span>.
+              <p className="text-[#2a503c] leading-relaxed">
+                We sent a verification email with your code & login link to{' '}
+                <span className="font-mono font-bold text-[#13402b] bg-white px-2 py-0.5 rounded border border-[#cde5d7]">
+                  {email}
+                </span>
               </p>
             </div>
 
-            {demoCodeHint && (
-              <div className="p-3 bg-emerald-950/70 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
-                <div>
-                  <span className="block text-[11px] text-emerald-400 font-bold">⚡ Instant Access Backup Code:</span>
-                  <span className="text-white tracking-widest font-mono text-base font-black">{demoCodeHint}</span>
-                  <span className="block text-[10px] text-emerald-300/80">Email delayed or rate-limited? Click fill to log in immediately.</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpCode(demoCodeHint);
-                    sound.playClick();
-                  }}
-                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-lg transition-colors cursor-pointer self-start sm:self-auto active:scale-95"
-                >
-                  Fill Code
-                </button>
+            {/* Gmail Deliverability Alert with high contrast */}
+            <div className="p-3.5 bg-[#fef9ee] border border-[#f4dfb4] rounded-2xl text-xs text-[#6d4c13] font-medium space-y-1.5 leading-relaxed">
+              <div className="flex items-center gap-1.5 font-bold text-[#8a5d12]">
+                <Mail size={15} className="text-[#b45309]" /> Check Spam / Junk & Promotions:
               </div>
-            )}
+              <p className="text-[#6d4c13] text-xs leading-relaxed">
+                Automated security emails often route into your <strong>Spam / Junk</strong> folder or <strong>Promotions</strong> tab. Check there or search for <span className="font-mono font-bold text-[#553b0c]">noreply@mail.app.supabase.io</span>.
+              </p>
+              <p className="text-[#8a5d12] text-[11px] font-semibold">
+                Tip: You can either enter the 6-digit code below or click the "Log In" link directly in your email!
+              </p>
+            </div>
 
             <Field label="6-Digit Verification Code" icon={<KeyRound size={18} />}>
               <input
@@ -356,27 +351,27 @@ export function LoginPage() {
                 maxLength={6}
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="123456"
-                className="w-full pl-11 pr-4 py-3 bg-slate-900/60 text-white font-mono text-center tracking-[0.4em] text-lg rounded-xl border border-slate-700/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all placeholder:tracking-normal placeholder:text-slate-500"
+                placeholder="••••••"
+                className="w-full pl-11 pr-4 py-3.5 bg-[#f8faf8] text-[#1b382b] font-mono text-center tracking-[0.35em] text-xl font-bold rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-2 focus:ring-[#2d6a4f]/20 outline-none transition-all placeholder:text-[#9bb3a6] placeholder:tracking-normal placeholder:text-sm"
               />
             </Field>
 
             {error && <ErrorBanner message={error} />}
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => handleRequestOtp()}
                 disabled={loading || resendCooldown > 0}
-                className="py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed transition-all"
+                className="py-3 bg-white hover:bg-[#f0f6f2] text-[#2d6a4f] text-xs font-bold rounded-2xl border border-[#d8e5dc] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-soft transition-all active:scale-[0.98]"
               >
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'RESEND OTP'}
+                {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'RESEND CODE'}
               </button>
               <button
                 type="submit"
                 disabled={loading || otpCode.length < 6}
-                className="py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                className="py-3 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black text-xs tracking-wide rounded-2xl shadow-soft transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
               >
                 {loading ? 'Verifying...' : 'VERIFY & ENTER'}
               </button>
@@ -388,7 +383,7 @@ export function LoginPage() {
                 setError('');
                 setMode('password');
               }}
-              className="w-full text-center text-xs text-slate-400 hover:text-white pt-1"
+              className="w-full text-center text-xs text-[#5b7566] hover:text-[#1b382b] font-bold py-1 transition-colors cursor-pointer"
             >
               ← Back to Password Login
             </button>
@@ -399,19 +394,19 @@ export function LoginPage() {
       {/* Divider */}
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-800" />
+          <div className="w-full border-t border-[#d8e5dc]" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-slate-900/90 px-3 text-slate-400 font-semibold tracking-wider">OR</span>
+          <span className="bg-white border border-[#d8e5dc] px-3 py-0.5 text-[#7a9386] font-bold text-[10px] tracking-wider rounded-full">OR</span>
         </div>
       </div>
 
-      {/* Option C: Google Sign-in */}
+      {/* Google Sign-in */}
       <button
         type="button"
         onClick={handleGoogleLogin}
         disabled={loading}
-        className="w-full py-3 bg-slate-800/90 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-sm rounded-xl border border-slate-700/80 transition-all flex items-center justify-center gap-3 cursor-pointer shadow-sm hover:border-slate-600"
+        className="w-full py-3 bg-white hover:bg-[#f8faf8] text-[#1b382b] font-bold text-sm rounded-2xl border border-[#d8e5dc] transition-all flex items-center justify-center gap-3 cursor-pointer shadow-soft hover:border-[#b8dec8] active:scale-[0.98]"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -423,9 +418,9 @@ export function LoginPage() {
       </button>
 
       {/* Footer Link */}
-      <p className="text-center text-xs text-slate-400 mt-6">
+      <p className="text-center text-xs text-[#5b7566] mt-6 font-medium">
         Don't have an account yet?{' '}
-        <Link to="/signup" className="font-bold text-amber-400 hover:text-amber-300">
+        <Link to="/signup" className="font-black text-[#2d6a4f] hover:text-[#1b382b] underline decoration-[#2d6a4f]/30">
           CREATE ACCOUNT
         </Link>
       </p>
@@ -557,7 +552,7 @@ export function SignupPage() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="e.g. Nova_Dev"
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 outline-none text-xs"
+              className="w-full pl-9 pr-3 py-2.5 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none text-xs font-medium placeholder:text-[#7a9386]"
             />
           </Field>
 
@@ -571,17 +566,17 @@ export function SignupPage() {
                 setHasCustomPetName(true);
               }}
               placeholder={`e.g. ${DEFAULT_PET_NAMES[selectedPetType] || 'Buddy'}`}
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 outline-none text-xs"
+              className="w-full pl-9 pr-3 py-2.5 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none text-xs font-medium placeholder:text-[#7a9386]"
             />
           </Field>
         </div>
 
         {/* Pet Selection Carousel / Palette */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-2">
-            Choose Your First Infant Pet:
+          <label className="block text-xs font-bold text-[#1b382b] mb-1.5">
+            Choose Your First Companion Pet:
           </label>
-          <div className="grid grid-cols-4 gap-2 bg-slate-900/50 p-2 rounded-2xl border border-slate-800">
+          <div className="grid grid-cols-4 gap-2 bg-[#f8faf8] p-2.5 rounded-2xl border border-[#d8e5dc]">
             {PET_LIST.map((p) => {
               const isSelected = selectedPetType === p.type;
               return (
@@ -595,14 +590,14 @@ export function SignupPage() {
                     }
                     sound.playStep();
                   }}
-                  className={`flex flex-col items-center p-2 rounded-xl border transition-all ${
+                  className={`flex flex-col items-center p-2 rounded-xl border transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-amber-500/20 border-amber-400 scale-105 shadow-md shadow-amber-500/20'
-                      : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 text-slate-400'
+                      ? 'bg-[#eef8f2] border-[#2d6a4f] scale-105 shadow-soft text-[#1b382b]'
+                      : 'bg-white border-[#d8e5dc] hover:border-[#b8dec8] text-[#5b7566]'
                   }`}
                 >
                   <span className="text-xl mb-1">{p.emoji}</span>
-                  <span className="text-[11px] font-bold text-white capitalize">{p.name}</span>
+                  <span className="text-[11px] font-bold capitalize">{p.name}</span>
                 </button>
               );
             })}
@@ -610,18 +605,18 @@ export function SignupPage() {
         </div>
 
         {/* Live Pet Preview Badge */}
-        <div className="flex items-center justify-center p-3 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 rounded-2xl border border-slate-700/60 gap-4">
+        <div className="flex items-center justify-center p-3.5 bg-[#eef8f2] rounded-2xl border border-[#bfe2ce] gap-4">
           <PetSVG type={selectedPetType} stage="infant" state="happy" size={70} />
           <div className="text-left">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-amber-400">Infant Stage Companion</span>
-            <p className="font-extrabold text-sm text-white">{petName || 'Your Pet'}</p>
-            <p className="text-[11px] text-slate-400">Starting Ability: Runner ⚡ · 100 Energy</p>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#2d6a4f]">Infant Companion</span>
+            <p className="font-black text-sm text-[#1b382b]">{petName || 'Your Pet'}</p>
+            <p className="text-[11px] text-[#5b7566] font-medium">Starting Ability: Runner ⚡ · 100 Energy</p>
           </div>
         </div>
 
         {/* Player Track / Role Selection */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-2">
+          <label className="block text-xs font-bold text-[#1b382b] mb-1.5">
             Select Your Learning Track / Role:
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -631,23 +626,23 @@ export function SignupPage() {
                 setRole('non_coder');
                 sound.playClick();
               }}
-              className={`p-3 rounded-2xl border text-left transition-all ${
+              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                 role === 'non_coder'
-                  ? 'bg-emerald-500/15 border-emerald-400 shadow-md shadow-emerald-500/20'
-                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                  ? 'bg-[#eef8f2] border-[#2d6a4f] shadow-soft'
+                  : 'bg-white border-[#d8e5dc] hover:border-[#b8dec8]'
               }`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-black text-white flex items-center gap-1.5">
+                <span className="text-xs font-black text-[#1b382b] flex items-center gap-1.5">
                   🧩 Non-Coder
                 </span>
                 {role === 'non_coder' && (
-                  <span className="text-[10px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] bg-[#2d6a4f] text-white font-bold px-1.5 py-0.5 rounded-full">
                     Selected
                   </span>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 leading-tight">
+              <p className="text-[10px] text-[#5b7566] leading-tight font-medium">
                 Visual Explorer. Learn logic through directional arrows & visual blocks.
               </p>
             </button>
@@ -658,24 +653,24 @@ export function SignupPage() {
                 setRole('coder');
                 sound.playClick();
               }}
-              className={`p-3 rounded-2xl border text-left transition-all ${
+              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                 role === 'coder'
-                  ? 'bg-indigo-500/15 border-indigo-400 shadow-md shadow-indigo-500/20'
-                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                  ? 'bg-[#eef8f2] border-[#2d6a4f] shadow-soft'
+                  : 'bg-white border-[#d8e5dc] hover:border-[#b8dec8]'
               }`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-black text-white flex items-center gap-1.5">
+                <span className="text-xs font-black text-[#1b382b] flex items-center gap-1.5">
                   💻 Coder / Pioneer
                 </span>
                 {role === 'coder' && (
-                  <span className="text-[10px] bg-indigo-500 text-white font-black px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] bg-[#2d6a4f] text-white font-bold px-1.5 py-0.5 rounded-full">
                     Selected
                   </span>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 leading-tight">
-                Code Pioneer. Unlock direct Python, JavaScript & C editors and syntax challenges.
+              <p className="text-[10px] text-[#5b7566] leading-tight font-medium">
+                Code Pioneer. Unlock direct Python, JavaScript & C syntax challenges.
               </p>
             </button>
           </div>
@@ -688,7 +683,7 @@ export function SignupPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="player@petslyvia.world"
-            className="w-full pl-9 pr-3 py-2.5 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 outline-none text-xs"
+            className="w-full pl-9 pr-3 py-2.5 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none text-xs font-medium placeholder:text-[#7a9386]"
           />
         </Field>
 
@@ -701,7 +696,7 @@ export function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Min 6 chars"
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 outline-none text-xs"
+              className="w-full pl-9 pr-3 py-2.5 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none text-xs font-medium placeholder:text-[#7a9386]"
             />
           </Field>
 
@@ -713,7 +708,7 @@ export function SignupPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm password"
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 outline-none text-xs"
+              className="w-full pl-9 pr-3 py-2.5 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none text-xs font-medium placeholder:text-[#7a9386]"
             />
           </Field>
         </div>
@@ -725,7 +720,7 @@ export function SignupPage() {
               <div className="mt-2 text-center">
                 <Link
                   to="/login"
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-bold rounded-xl text-xs shadow-soft transition-all"
                 >
                   LOG IN TO EXISTING ACCOUNT <ArrowRight size={13} />
                 </Link>
@@ -737,7 +732,7 @@ export function SignupPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black tracking-wide rounded-xl shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black tracking-wide rounded-2xl shadow-soft transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
         >
           {loading ? 'Initializing Player...' : <>CREATE ACCOUNT & ADOPT PET <ArrowRight size={18} /></>}
         </button>
@@ -746,10 +741,10 @@ export function SignupPage() {
       {/* Divider */}
       <div className="relative my-5">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-800" />
+          <div className="w-full border-t border-[#d8e5dc]" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-slate-900/90 px-3 text-slate-400 font-semibold">OR</span>
+          <span className="bg-white border border-[#d8e5dc] px-3 py-0.5 text-[#7a9386] font-bold text-[10px] tracking-wider rounded-full">OR</span>
         </div>
       </div>
 
@@ -757,7 +752,7 @@ export function SignupPage() {
         type="button"
         onClick={handleGoogleSignup}
         disabled={loading}
-        className="w-full py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-2 cursor-pointer"
+        className="w-full py-3 bg-white hover:bg-[#f8faf8] text-[#1b382b] font-bold text-sm rounded-2xl border border-[#d8e5dc] transition-all flex items-center justify-center gap-3 cursor-pointer shadow-soft hover:border-[#b8dec8] active:scale-[0.98]"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -768,9 +763,9 @@ export function SignupPage() {
         Continue with Google
       </button>
 
-      <p className="text-center text-xs text-slate-400 mt-5">
+      <p className="text-center text-xs text-[#5b7566] mt-5 font-medium">
         Already registered?{' '}
-        <Link to="/login" className="font-bold text-amber-400 hover:text-amber-300">
+        <Link to="/login" className="font-black text-[#2d6a4f] hover:text-[#1b382b] underline decoration-[#2d6a4f]/30">
           LOG IN
         </Link>
       </p>
@@ -796,7 +791,6 @@ export function ResetPasswordPage() {
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [demoCode, setDemoCode] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const [error, setError] = useState('');
@@ -829,9 +823,6 @@ export function ResetPasswordPage() {
     setLoading(false);
 
     if (res.success) {
-      if (res.testOtpCode) {
-        setDemoCode(res.testOtpCode);
-      }
       setResendCooldown(60);
       setStep('verify_and_set');
       sound.playCrystal();
@@ -872,16 +863,16 @@ export function ResetPasswordPage() {
     >
       {success ? (
         <div className="text-center py-6 space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto">
-            <CheckCircle2 size={32} className="text-emerald-400" />
+          <div className="w-14 h-14 rounded-2xl bg-[#eef8f2] border border-[#bfe2ce] flex items-center justify-center mx-auto shadow-soft">
+            <CheckCircle2 size={32} className="text-[#2d6a4f]" />
           </div>
-          <h3 className="font-extrabold text-lg text-white">Password Reset Successfully!</h3>
-          <p className="text-xs text-slate-400">
+          <h3 className="font-black text-xl text-[#1b382b]">Password Reset Successfully!</h3>
+          <p className="text-xs text-[#5b7566] leading-relaxed font-medium">
             Your credentials have been updated. All your pets, coins, XP, and mission progress remain completely intact.
           </p>
           <button
             onClick={() => navigate('/login')}
-            className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 font-bold text-slate-950 rounded-xl text-sm"
+            className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#23533e] font-black text-white rounded-2xl text-sm shadow-soft transition-all cursor-pointer active:scale-[0.98]"
           >
             RETURN TO LOG IN
           </button>
@@ -895,7 +886,7 @@ export function ResetPasswordPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="player@petslyvia.world"
-              className="w-full pl-11 pr-4 py-3 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 outline-none text-sm"
+              className="w-full pl-11 pr-4 py-3 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none text-sm font-medium placeholder:text-[#7a9386]"
             />
           </Field>
 
@@ -904,51 +895,41 @@ export function ResetPasswordPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black rounded-xl text-sm transition-all disabled:opacity-50"
+            className="w-full py-3.5 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black rounded-2xl text-sm shadow-soft transition-all disabled:opacity-50 cursor-pointer active:scale-[0.98]"
           >
             {loading ? 'Sending Code...' : 'SEND RECOVERY CODE'}
           </button>
 
-          <p className="text-center text-xs text-slate-400 pt-2">
+          <p className="text-center text-xs text-[#5b7566] pt-2 font-medium">
             Remembered your password?{' '}
-            <Link to="/login" className="text-amber-400 font-bold">Log in</Link>
+            <Link to="/login" className="text-[#2d6a4f] font-black hover:text-[#1b382b] underline decoration-[#2d6a4f]/30">
+              Log in
+            </Link>
           </p>
         </form>
       ) : (
         <form onSubmit={handleResetPassword} className="space-y-4">
-          <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200">
-            Recovery code dispatched to <span className="text-white font-mono font-semibold">{email}</span>.
-          </div>
-
-          {/* Gmail deliverability alert */}
-          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200/90 leading-relaxed space-y-1">
-            <div className="flex items-center gap-1.5 font-bold text-amber-300">
-              <Mail size={14} /> 📬 Gmail Delivery Note:
+          <div className="p-3.5 bg-[#eef8f2] border border-[#bfe2ce] rounded-2xl text-xs text-[#1e583d] font-medium space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-[#1e583d]">
+              <CheckCircle2 size={16} className="text-[#2d6a4f]" /> Verification Email Dispatched
             </div>
-            <p className="text-[11px] text-amber-100/80">
-              Automated Supabase emails frequently land in your <strong>Spam / Junk</strong> folder or <strong>Promotions</strong> tab. Please check those folders or search for <span className="text-amber-300 font-mono">noreply@mail.app.supabase.io</span>.
+            <p className="text-[#2a503c] leading-relaxed">
+              Recovery code dispatched to{' '}
+              <span className="font-mono font-bold text-[#13402b] bg-white px-2 py-0.5 rounded border border-[#cde5d7]">
+                {email}
+              </span>
             </p>
           </div>
 
-          {demoCode && (
-            <div className="p-3 bg-emerald-950/70 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
-              <div>
-                <span className="block text-[11px] text-emerald-400 font-bold">⚡ Instant Backup Code:</span>
-                <span className="text-white tracking-widest font-mono text-base font-black">{demoCode}</span>
-                <span className="block text-[10px] text-emerald-300/80">Email delayed? Click fill to set your new password immediately.</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setOtpCode(demoCode);
-                  sound.playClick();
-                }}
-                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-lg transition-colors cursor-pointer self-start sm:self-auto active:scale-95"
-              >
-                Fill Code
-              </button>
+          {/* Gmail deliverability alert */}
+          <div className="p-3.5 bg-[#fef9ee] border border-[#f4dfb4] rounded-2xl text-xs text-[#6d4c13] font-medium space-y-1.5 leading-relaxed">
+            <div className="flex items-center gap-1.5 font-bold text-[#8a5d12]">
+              <Mail size={15} className="text-[#b45309]" /> Check Spam / Junk & Promotions:
             </div>
-          )}
+            <p className="text-[#6d4c13] text-xs leading-relaxed">
+              Automated security emails frequently land in your <strong>Spam / Junk</strong> folder or <strong>Promotions</strong> tab. Please check those folders or search for <span className="text-[#553b0c] font-mono font-bold">noreply@mail.app.supabase.io</span>.
+            </p>
+          </div>
 
           <Field label="6-Digit Recovery Code" icon={<KeyRound size={18} />}>
             <input
@@ -957,8 +938,8 @@ export function ResetPasswordPage() {
               maxLength={6}
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="123456"
-              className="w-full pl-11 pr-4 py-3 bg-slate-900/60 text-white font-mono text-center tracking-[0.4em] text-lg rounded-xl border border-slate-700/80 focus:border-amber-400 outline-none"
+              placeholder="••••••"
+              className="w-full pl-11 pr-4 py-3.5 bg-[#f8faf8] text-[#1b382b] font-mono text-center tracking-[0.35em] text-xl font-bold rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-2 focus:ring-[#2d6a4f]/20 outline-none transition-all placeholder:text-[#9bb3a6] placeholder:tracking-normal placeholder:text-sm"
             />
           </Field>
 
@@ -970,18 +951,18 @@ export function ResetPasswordPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="New password (min 6 chars)"
-              className="w-full pl-11 pr-4 py-3 bg-slate-900/60 text-white rounded-xl border border-slate-700/80 focus:border-amber-400 outline-none text-sm"
+              className="w-full pl-11 pr-4 py-3 bg-[#f8faf8] text-[#1b382b] rounded-2xl border border-[#d8e5dc] focus:border-[#2d6a4f] focus:ring-1 focus:ring-[#2d6a4f] outline-none text-sm font-medium placeholder:text-[#7a9386]"
             />
           </Field>
 
           {error && <ErrorBanner message={error} />}
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2.5">
             <button
               type="button"
               onClick={() => handleSendRecoveryCode()}
               disabled={loading || resendCooldown > 0}
-              className="py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+              className="py-3 bg-white hover:bg-[#f0f6f2] text-[#2d6a4f] text-xs font-bold rounded-2xl border border-[#d8e5dc] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-soft transition-all active:scale-[0.98]"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'RESEND CODE'}
@@ -989,7 +970,7 @@ export function ResetPasswordPage() {
             <button
               type="submit"
               disabled={loading || otpCode.length < 6}
-              className="py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+              className="py-3 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-black text-xs tracking-wide rounded-2xl shadow-soft transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-[0.98]"
             >
               {loading ? 'Updating...' : 'SET PASSWORD'}
             </button>
