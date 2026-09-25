@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -25,10 +25,20 @@ export function LoginPage() {
   const [otpCode, setOtpCode] = useState('');
   const [demoCodeHint, setDemoCodeHint] = useState<string | null>(null);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Cooldown countdown effect
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   // Normal Password Login
   const handlePasswordLogin = async (e: React.FormEvent) => {
@@ -56,6 +66,10 @@ export function LoginPage() {
       setError('Please enter your email address first.');
       return;
     }
+    if (resendCooldown > 0) {
+      setError(`Please wait ${resendCooldown}s before requesting a new verification code.`);
+      return;
+    }
     setError('');
     setLoading(true);
     sound.playClick();
@@ -67,8 +81,8 @@ export function LoginPage() {
       setSuccessMsg(res.message);
       if (res.testOtpCode) {
         setDemoCodeHint(res.testOtpCode);
-        setOtpCode(res.testOtpCode);
       }
+      setResendCooldown(60);
       setMode('otp_verify');
       sound.playCrystal();
     } else {
@@ -300,15 +314,38 @@ export function LoginPage() {
           >
             <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200">
               <div className="flex items-center gap-1.5 font-bold mb-1">
-                <CheckCircle2 size={14} className="text-emerald-400" /> Code Dispatched
+                <CheckCircle2 size={14} className="text-emerald-400" /> Verification Code Dispatched
               </div>
-              We sent a 6-digit verification code to <span className="text-white font-mono">{email}</span>.
+              Dispatched to <span className="text-white font-mono font-semibold">{email}</span>.
+            </div>
+
+            {/* Gmail Deliverability Alert */}
+            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200/90 leading-relaxed space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                <Mail size={14} /> 📬 Gmail Delivery Note:
+              </div>
+              <p className="text-[11px] text-amber-100/80">
+                Automated security emails frequently land in your <strong>Spam / Junk</strong> folder or <strong>Promotions</strong> tab. Please check there or search for <span className="text-amber-300 font-mono">noreply@mail.app.supabase.io</span>.
+              </p>
             </div>
 
             {demoCodeHint && (
-              <div className="p-2.5 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex items-center justify-between">
-                <span>⚡ Test OTP Code: <strong className="text-white tracking-widest font-mono text-sm">{demoCodeHint}</strong></span>
-                <span className="text-[10px] bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-200 font-bold">Auto-filled</span>
+              <div className="p-3 bg-emerald-950/70 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
+                <div>
+                  <span className="block text-[11px] text-emerald-400 font-bold">⚡ Instant Access Backup Code:</span>
+                  <span className="text-white tracking-widest font-mono text-base font-black">{demoCodeHint}</span>
+                  <span className="block text-[10px] text-emerald-300/80">Email delayed or rate-limited? Click fill to log in immediately.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtpCode(demoCodeHint);
+                    sound.playClick();
+                  }}
+                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-lg transition-colors cursor-pointer self-start sm:self-auto active:scale-95"
+                >
+                  Fill Code
+                </button>
               </div>
             )}
 
@@ -330,15 +367,16 @@ export function LoginPage() {
               <button
                 type="button"
                 onClick={() => handleRequestOtp()}
-                disabled={loading}
-                className="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5"
+                disabled={loading || resendCooldown > 0}
+                className="py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed transition-all"
               >
-                <RefreshCw size={14} /> RESEND OTP
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'RESEND OTP'}
               </button>
               <button
                 type="submit"
                 disabled={loading || otpCode.length < 6}
-                className="py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
               >
                 {loading ? 'Verifying...' : 'VERIFY & ENTER'}
               </button>
@@ -759,13 +797,30 @@ export function ResetPasswordPage() {
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [demoCode, setDemoCode] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSendRecoveryCode = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleSendRecoveryCode = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!email.trim()) {
+      setError('Please enter your email address first.');
+      return;
+    }
+    if (resendCooldown > 0) {
+      setError(`Please wait ${resendCooldown}s before requesting a new code.`);
+      return;
+    }
     setError('');
     setLoading(true);
     sound.playClick();
@@ -776,8 +831,8 @@ export function ResetPasswordPage() {
     if (res.success) {
       if (res.testOtpCode) {
         setDemoCode(res.testOtpCode);
-        setOtpCode(res.testOtpCode);
       }
+      setResendCooldown(60);
       setStep('verify_and_set');
       sound.playCrystal();
     } else {
@@ -862,13 +917,36 @@ export function ResetPasswordPage() {
       ) : (
         <form onSubmit={handleResetPassword} className="space-y-4">
           <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200">
-            Code sent to <span className="text-white font-mono">{email}</span>.
+            Recovery code dispatched to <span className="text-white font-mono font-semibold">{email}</span>.
+          </div>
+
+          {/* Gmail deliverability alert */}
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200/90 leading-relaxed space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-amber-300">
+              <Mail size={14} /> 📬 Gmail Delivery Note:
+            </div>
+            <p className="text-[11px] text-amber-100/80">
+              Automated Supabase emails frequently land in your <strong>Spam / Junk</strong> folder or <strong>Promotions</strong> tab. Please check those folders or search for <span className="text-amber-300 font-mono">noreply@mail.app.supabase.io</span>.
+            </p>
           </div>
 
           {demoCode && (
-            <div className="p-2.5 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex items-center justify-between">
-              <span>⚡ Recovery Code: <strong className="text-white tracking-widest font-mono text-sm">{demoCode}</strong></span>
-              <span className="text-[10px] bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-200 font-bold">Auto-filled</span>
+            <div className="p-3 bg-emerald-950/70 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
+              <div>
+                <span className="block text-[11px] text-emerald-400 font-bold">⚡ Instant Backup Code:</span>
+                <span className="text-white tracking-widest font-mono text-base font-black">{demoCode}</span>
+                <span className="block text-[10px] text-emerald-300/80">Email delayed? Click fill to set your new password immediately.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpCode(demoCode);
+                  sound.playClick();
+                }}
+                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-lg transition-colors cursor-pointer self-start sm:self-auto active:scale-95"
+              >
+                Fill Code
+              </button>
             </div>
           )}
 
@@ -898,13 +976,24 @@ export function ResetPasswordPage() {
 
           {error && <ErrorBanner message={error} />}
 
-          <button
-            type="submit"
-            disabled={loading || otpCode.length < 6}
-            className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black rounded-xl text-sm transition-all disabled:opacity-50"
-          >
-            {loading ? 'Updating Password...' : 'SET NEW PASSWORD'}
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleSendRecoveryCode()}
+              disabled={loading || resendCooldown > 0}
+              className="py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'RESEND CODE'}
+            </button>
+            <button
+              type="submit"
+              disabled={loading || otpCode.length < 6}
+              className="py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+            >
+              {loading ? 'Updating...' : 'SET PASSWORD'}
+            </button>
+          </div>
         </form>
       )}
     </AuthShell>
