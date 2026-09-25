@@ -2,21 +2,25 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings, Mail, User, ShieldCheck, Copy, Check, LogOut,
-  Volume2, VolumeX, Database, Code2, Compass, KeyRound, Sparkles
+  Volume2, VolumeX, Database, Code2, Compass, KeyRound, Sparkles, Heart, Edit3
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useGameData } from '@/hooks/useGameData';
 import { PetSVG } from '@/components/PetSVG';
+import { PET_LIST } from '@/data/pets';
+import type { PetType } from '@/types/database';
 import { sound } from '@/utils/audio';
 
 export function SettingsPage() {
   const { user, logout } = useAuth();
-  const { profile, pet, soundEnabled, toggleSound, setPlayerRole, refreshData } = useGameData();
+  const { profile, pet, soundEnabled, toggleSound, setPlayerRole, updatePet, updateProfile, refreshData } = useGameData();
 
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedUid, setCopiedUid] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.display_name || 'Explorer');
+  const [petName, setPetName] = useState(pet?.pet_name || 'Pixel');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [petSaveStatus, setPetSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   const userEmail = user?.email || profile?.email || 'player@petslyvia.world';
   const userId = user?.id || profile?.id || 'uid_unknown';
@@ -41,13 +45,31 @@ export function SettingsPage() {
     sound.playClick();
     setSaveStatus('saving');
     try {
-      profile.display_name = displayName.trim();
-      await refreshData();
+      await updateProfile({ display_name: displayName.trim() });
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch {
       setSaveStatus('idle');
     }
+  };
+
+  const handleSavePetName = async () => {
+    if (!pet || !petName.trim()) return;
+    sound.playClick();
+    setPetSaveStatus('saving');
+    try {
+      await updatePet({ pet_name: petName.trim() });
+      setPetSaveStatus('saved');
+      setTimeout(() => setPetSaveStatus('idle'), 2000);
+    } catch {
+      setPetSaveStatus('idle');
+    }
+  };
+
+  const handleChangeSpecies = async (species: PetType) => {
+    if (!pet) return;
+    sound.playCrystal();
+    await updatePet({ pet_type: species });
   };
 
   const handleLogout = async () => {
@@ -123,7 +145,7 @@ export function SettingsPage() {
 
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-bold text-slate-300 block mb-1.5">Display Name:</label>
+              <label className="text-xs font-bold text-slate-300 block mb-1.5">Player Nickname:</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -136,7 +158,7 @@ export function SettingsPage() {
                   disabled={saveStatus === 'saving'}
                   className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Name'}
+                  {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save'}
                 </button>
               </div>
             </div>
@@ -176,36 +198,80 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* 3. Companion Summary Card */}
+        {/* 3. Companion Customization & Adoption */}
         {pet && (
-          <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <Sparkles size={18} className="text-purple-400" /> Active Companion
-            </h2>
+          <div className="p-6 rounded-3xl bg-slate-900/90 border border-purple-500/30 space-y-4 shadow-xl md:col-span-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+                <Heart size={18} className="text-purple-400" /> Companion Pet Customization
+              </h2>
+              <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 font-black uppercase">
+                {pet.stage} {pet.pet_type} (Lv {pet.level})
+              </span>
+            </div>
 
-            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 p-4 bg-slate-950 rounded-2xl border border-slate-800">
+              {/* Pet Preview */}
+              <div className="md:col-span-3 flex flex-col items-center justify-center p-3 bg-slate-900/60 rounded-2xl border border-slate-800/80">
                 <PetSVG
                   type={pet.pet_type}
                   stage={pet.stage}
                   state="happy"
                   equipped={pet.equipped_items}
-                  size={60}
+                  size={85}
                 />
+                <span className="text-sm font-black text-white mt-2 capitalize">{pet.pet_name}</span>
+                <span className="text-[10px] text-amber-400 font-bold capitalize">Level {pet.level} {pet.stage} {pet.pet_type}</span>
               </div>
 
-              <div>
-                <div className="text-sm font-black text-white flex items-center gap-2">
-                  {pet.pet_name}
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black uppercase">
-                    Stage: {pet.stage}
-                  </span>
+              {/* Pet Customization Controls */}
+              <div className="md:col-span-9 space-y-3.5">
+                {/* Pet Name */}
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Companion Pet Name:</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={petName}
+                      onChange={(e) => setPetName(e.target.value)}
+                      placeholder="e.g. Sparky, Blaze, Pixel"
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white font-bold outline-none focus:border-purple-400 transition-colors"
+                    />
+                    <button
+                      onClick={handleSavePetName}
+                      disabled={petSaveStatus === 'saving'}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {petSaveStatus === 'saving' ? 'Saving...' : petSaveStatus === 'saved' ? 'Saved ✓' : 'Rename Pet'}
+                    </button>
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400 mt-0.5 capitalize">
-                  Species: <strong className="text-slate-200">{pet.pet_type}</strong> • Level {pet.level}
-                </div>
-                <div className="text-xs text-amber-400 font-bold mt-1">
-                  +{profile?.total_xp ?? 50} Total Adventure XP
+
+                {/* Pet Species Switcher */}
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                    Choose Companion Breed / Species:
+                  </label>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                    {PET_LIST.map((p) => {
+                      const isSelected = pet.pet_type === p.type;
+                      return (
+                        <button
+                          key={p.type}
+                          type="button"
+                          onClick={() => handleChangeSpecies(p.type)}
+                          className={`p-2 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-purple-600/30 border-purple-400 scale-105 shadow-md shadow-purple-600/20'
+                              : 'bg-slate-900/60 border-slate-800 hover:bg-slate-850 text-slate-400'
+                          }`}
+                        >
+                          <span className="text-lg">{p.emoji}</span>
+                          <span className="text-[10px] font-bold text-white capitalize truncate">{p.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -213,36 +279,38 @@ export function SettingsPage() {
         )}
 
         {/* 4. Audio & System Environment */}
-        <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl">
+        <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl md:col-span-2">
           <h2 className="text-base font-extrabold text-white flex items-center gap-2">
             <Database size={18} className="text-emerald-400" /> System & Audio
           </h2>
 
-          <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              {soundEnabled ? <Volume2 size={18} className="text-emerald-400" /> : <VolumeX size={18} className="text-slate-500" />}
-              <div>
-                <div className="text-xs font-bold text-white">8-Bit Sound Effects</div>
-                <div className="text-[10px] text-slate-400">Footsteps, cheers, collectibles</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                {soundEnabled ? <Volume2 size={18} className="text-emerald-400" /> : <VolumeX size={18} className="text-slate-500" />}
+                <div>
+                  <div className="text-xs font-bold text-white">8-Bit Sound Effects</div>
+                  <div className="text-[10px] text-slate-400">Footsteps, cheers, collectibles</div>
+                </div>
               </div>
+
+              <button
+                onClick={() => {
+                  toggleSound();
+                  sound.playClick();
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  soundEnabled ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400 border border-slate-700'
+                }`}
+              >
+                {soundEnabled ? 'ENABLED' : 'MUTED'}
+              </button>
             </div>
 
-            <button
-              onClick={() => {
-                toggleSound();
-                sound.playClick();
-              }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                soundEnabled ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400 border border-slate-700'
-              }`}
-            >
-              {soundEnabled ? 'ENABLED' : 'MUTED'}
-            </button>
-          </div>
-
-          <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-medium">Cloud Database:</span>
-            <span className="text-emerald-400 font-bold font-mono">Supabase PostgreSQL Connected</span>
+            <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-400 font-medium">Cloud Database:</span>
+              <span className="text-emerald-400 font-bold font-mono">Supabase PostgreSQL Connected</span>
+            </div>
           </div>
         </div>
       </div>

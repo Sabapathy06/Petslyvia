@@ -43,6 +43,8 @@ interface GameDataContextValue {
   solveBug: (bugId: string) => Promise<void>;
   petAction: (action: 'pet' | 'feed' | 'rest') => Promise<void>;
   setPlayerRole: (role: 'non_coder' | 'coder') => Promise<void>;
+  updatePet: (updates: Partial<Pet>) => Promise<Pet | null>;
+  updateProfile: (updates: Partial<Profile>) => Promise<Profile | null>;
   completeProductivityTask: (category: TaskCategory) => Promise<ProductivityTaskResult>;
 }
 
@@ -198,6 +200,22 @@ export function GameDataProvider({ children }: { children: ReactNode }) {
     sound.playCrystal();
   };
 
+  const updatePet = async (updates: Partial<Pet>): Promise<Pet | null> => {
+    if (!pet || !user?.id) return null;
+    const updated = await petslyviaService.savePet({ ...pet, ...updates });
+    setPet(updated);
+    await refreshProfile();
+    return updated;
+  };
+
+  const updateProfile = async (updates: Partial<Profile>): Promise<Profile | null> => {
+    if (!profile || !user?.id) return null;
+    const updated = await petslyviaService.saveProfile({ ...profile, ...updates });
+    setProfile(updated);
+    await refreshProfile();
+    return updated;
+  };
+
   const completeProductivityTask = async (category: TaskCategory): Promise<ProductivityTaskResult> => {
     if (!user?.id) {
       return {
@@ -251,6 +269,8 @@ export function GameDataProvider({ children }: { children: ReactNode }) {
         solveBug,
         petAction,
         setPlayerRole,
+        updatePet,
+        updateProfile,
         completeProductivityTask,
       }}
     >
