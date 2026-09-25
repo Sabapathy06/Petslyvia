@@ -3,6 +3,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Pet } from '@/types/database';
 import { petslyviaService, generateUUID } from '@/services/petslyviaService';
+import * as changePasswordService from '@/services/changePasswordService';
 
 interface LocalAuthAccount {
   id: string;
@@ -45,6 +46,36 @@ interface AuthContextValue {
   verifyOtpAndLogin: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
   resetPasswordWithOtp: (email: string, code: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
   changePassword: (newPass: string) => Promise<{ success: boolean; error?: string }>;
+  verifyCurrentPassword: (currentPass: string) => Promise<{ valid: boolean; error?: string }>;
+  initiateChangePassword: (
+    currentPass: string,
+    newPass: string,
+    confirmPass: string
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    maskedEmail?: string;
+    expiresAt?: number;
+    cooldownSeconds?: number;
+  }>;
+  verifyChangePasswordOtp: (code: string) => Promise<{
+    success: boolean;
+    error?: string;
+    verificationToken?: string;
+    attemptsRemaining?: number;
+    isLocked?: boolean;
+  }>;
+  resendChangePasswordOtp: () => Promise<{
+    success: boolean;
+    error?: string;
+    cooldownSeconds?: number;
+    expiresAt?: number;
+  }>;
+  completePasswordChange: (
+    verificationToken: string,
+    newPassword?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  cancelChangePasswordSession: () => void;
   signupWithEmail: (
     email: string,
     pass: string,
@@ -76,6 +107,12 @@ const AuthContext = createContext<AuthContextValue>({
   verifyOtpAndLogin: async () => ({ success: false }),
   resetPasswordWithOtp: async () => ({ success: false }),
   changePassword: async () => ({ success: false }),
+  verifyCurrentPassword: async () => ({ valid: false }),
+  initiateChangePassword: async () => ({ success: false }),
+  verifyChangePasswordOtp: async () => ({ success: false }),
+  resendChangePasswordOtp: async () => ({ success: false }),
+  completePasswordChange: async () => ({ success: false }),
+  cancelChangePasswordSession: () => {},
   signupWithEmail: async () => ({ success: false }),
   loginWithGoogle: async () => ({ success: false }),
   loginWithGoogleAccount: async () => ({ success: false }),
@@ -511,6 +548,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // ----------------------------------------------------
+  // SECURE CHANGE PASSWORD WITH OTP WORKFLOW
+  // ----------------------------------------------------
+  const verifyCurrentPassword = async (currentPass: string) => {
+    const email = user?.email || profile?.email || '';
+    return changePasswordService.verifyCurrentPassword(email, currentPass);
+  };
+
+  const initiateChangePassword = async (
+    currentPass: string,
+    newPass: string,
+    confirmPass: string
+  ) => {
+    const email = user?.email || profile?.email || '';
+    return changePasswordService.initiateChangePassword(email, currentPass, newPass, confirmPass);
+  };
+
+  const verifyChangePasswordOtp = async (code: string) => {
+    return changePasswordService.verifyChangePasswordOtp(code);
+  };
+
+  const resendChangePasswordOtp = async () => {
+    return changePasswordService.resendChangePasswordOtp();
+  };
+
+  const completePasswordChange = async (verificationToken: string, newPassword?: string) => {
+    return changePasswordService.completePasswordChange(verificationToken, newPassword);
+  };
+
+  const cancelChangePasswordSession = () => {
+    changePasswordService.cancelChangePasswordSession();
+  };
+
+  // ----------------------------------------------------
   // SIGN UP (STORE IN SUPABASE BACKEND + LOCAL CACHE)
   // ----------------------------------------------------
   const signupWithEmail = async (
@@ -756,6 +826,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verifyOtpAndLogin,
         resetPasswordWithOtp,
         changePassword,
+        verifyCurrentPassword,
+        initiateChangePassword,
+        verifyChangePasswordOtp,
+        resendChangePasswordOtp,
+        completePasswordChange,
+        cancelChangePasswordSession,
         signupWithEmail,
         loginWithGoogle,
         loginWithGoogleAccount,

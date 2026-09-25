@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings, Mail, User, ShieldCheck, Copy, Check, LogOut,
-  Volume2, VolumeX, Database, Code2, Compass, KeyRound, Sparkles, Heart, Edit3
+  Volume2, VolumeX, Database, Code2, Compass, Sparkles, Heart, Edit3
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useGameData } from '@/hooks/useGameData';
@@ -11,9 +11,10 @@ import { PET_LIST } from '@/data/pets';
 import type { PetType } from '@/types/database';
 import { sound } from '@/utils/audio';
 import { generateFriendId } from '@/services/friendService';
+import { ChangePasswordSection } from '@/components/ChangePasswordSection';
 
 export function SettingsPage() {
-  const { user, logout, changePassword } = useAuth();
+  const { user, logout } = useAuth();
   const { profile, pet, soundEnabled, toggleSound, setPlayerRole, updatePet, updateProfile, refreshData } = useGameData();
 
   const [copiedEmail, setCopiedEmail] = useState(false);
@@ -23,48 +24,6 @@ export function SettingsPage() {
   const [petName, setPetName] = useState(pet?.pet_name || '');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [petSaveStatus, setPetSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-
-  // Password change state
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess('');
-
-    if (newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters long.');
-      sound.playError();
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match.');
-      sound.playError();
-      return;
-    }
-
-    setPasswordLoading(true);
-    sound.playClick();
-
-    const res = await changePassword(newPassword);
-    setPasswordLoading(false);
-
-    if (res.success) {
-      setPasswordSuccess('Password successfully updated!');
-      setNewPassword('');
-      setConfirmPassword('');
-      sound.playVictory();
-      setTimeout(() => setPasswordSuccess(''), 4000);
-    } else {
-      setPasswordError(res.error || 'Failed to update password.');
-      sound.playError();
-    }
-  };
 
   React.useEffect(() => {
     if (profile?.display_name) setDisplayName(profile.display_name);
@@ -282,60 +241,8 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* 3. Security & Password Settings */}
-        <div className="p-6 rounded-3xl bg-white border border-[#e2ece5] space-y-4 shadow-card">
-          <h2 className="text-base font-extrabold text-[#1b382b] flex items-center gap-2">
-            <KeyRound size={18} className="text-[#2d6a4f]" /> Security & Password
-          </h2>
-
-          <form onSubmit={handleChangePassword} className="space-y-3">
-            <div>
-              <label className="text-xs font-bold text-[#5b7566] block mb-1">New Password (min 6 chars):</label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[#f4f8f5] border border-[#e2ece5] rounded-xl px-3.5 py-2 text-sm text-[#1b382b] font-medium outline-none focus:border-[#2d6a4f] transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-[#5b7566] block mb-1">Confirm New Password:</label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[#f4f8f5] border border-[#e2ece5] rounded-xl px-3.5 py-2 text-sm text-[#1b382b] font-medium outline-none focus:border-[#2d6a4f] transition-colors"
-              />
-            </div>
-
-            {passwordError && (
-              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-xl">
-                ⚠️ {passwordError}
-              </div>
-            )}
-
-            {passwordSuccess && (
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-1.5">
-                <Check size={14} className="text-emerald-600" /> {passwordSuccess}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={passwordLoading || !newPassword}
-              className="w-full py-2.5 bg-[#2d6a4f] hover:bg-[#245840] disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-soft transition-all cursor-pointer flex items-center justify-center gap-1.5 mt-2"
-            >
-              {passwordLoading ? 'Updating Password...' : 'Update Password'}
-            </button>
-          </form>
-        </div>
+        {/* 3. Security & Password Settings Flow */}
+        <ChangePasswordSection />
 
         {/* 3. Companion Customization & Adoption */}
         {pet && (
