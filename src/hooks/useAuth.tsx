@@ -18,18 +18,11 @@ const LOCAL_AUTH_KEY = 'petslyvia_auth_accounts';
 const CURRENT_SESSION_KEY = 'petslyvia_active_session';
 
 const DEFAULT_PRELOADED_ACCOUNTS: Record<string, LocalAuthAccount> = {
-  'pavansreeram15@gmail.com': {
-    id: 'user_pavansreeram15',
-    email: 'pavansreeram15@gmail.com',
-    passwordHash: 'password123',
-    displayName: 'Pavan Sreeram',
-    googleLinked: true,
-  },
-  'google.player@gmail.com': {
+  'demo.player@gmail.com': {
     id: 'user_google_demo',
-    email: 'google.player@gmail.com',
+    email: 'demo.player@gmail.com',
     passwordHash: 'password123',
-    displayName: 'Google Explorer',
+    displayName: 'Demo Explorer',
     googleLinked: true,
   },
 };
@@ -112,8 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const emailName = userEmail ? userEmail.split('@')[0] : 'Explorer';
       const init = await petslyviaService.initializeNewPlayer(
         uid,
-        userEmail || 'pavansreeram15@gmail.com',
-        userEmail === 'pavansreeram15@gmail.com' ? 'Pavan Sreeram' : emailName,
+        userEmail || 'player@petslyvia.world',
+        emailName,
         'cat',
         'Pixel'
       );
@@ -190,49 +183,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithPassword = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
 
-    // Check Supabase if configured
+    // 1. Primary: Authenticate with Supabase Cloud Backend
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: pass });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: pass,
+      });
+
       if (!error && data?.user) {
         setUser(data.user);
         setSession(data.session);
+        localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: data.user }));
         await loadPlayerData(data.user.id, cleanEmail);
         return { success: true };
       }
-    } catch {
-      // fallback to local verification
-    }
 
-    // Local Verification
-    const accounts = getLocalAccounts();
-    let account = accounts[cleanEmail];
-
-    // Auto-create/sync account if it's the requested email or if account exists
-    if (!account) {
-      if (cleanEmail === 'pavansreeram15@gmail.com') {
-        account = {
-          id: 'user_pavansreeram15',
-          email: cleanEmail,
-          passwordHash: pass || 'password123',
-          displayName: 'Pavan Sreeram',
-          googleLinked: true,
-        };
-        accounts[cleanEmail] = account;
-        saveLocalAccounts(accounts);
-      } else {
-        return { success: false, error: 'Account not found. Click "Continue with Google" or "CREATE ACCOUNT" to begin!' };
+      if (error) {
+        console.warn('Supabase signInWithPassword:', error.message);
+        // If error indicates invalid credentials, check local fallback before failing
+        const accounts = getLocalAccounts();
+        const localAcc = accounts[cleanEmail];
+        if (!localAcc) {
+          return { success: false, error: error.message || 'Invalid email or password.' };
+        }
       }
+    } catch (err: any) {
+      console.warn('Supabase signIn network error:', err?.message);
     }
 
-    // If the account password doesn't match, but it's pavansreeram15@gmail.com or has Google link, allow update
+    // 2. Fallback: Local offline verification
+    const accounts = getLocalAccounts();
+    const account = accounts[cleanEmail];
+
+    if (!account) {
+      return { success: false, error: 'Account not found. Click "CREATE ACCOUNT" to begin!' };
+    }
+
+    // If the account password doesn't match, check if Google-linked to sync or reject
     if (account.passwordHash !== pass) {
-      if (cleanEmail === 'pavansreeram15@gmail.com' || account.googleLinked) {
-        // Sync password to whatever user typed
+      if (account.googleLinked) {
         account.passwordHash = pass;
         accounts[cleanEmail] = account;
         saveLocalAccounts(accounts);
       } else {
-        return { success: false, error: 'Incorrect password. Click "Use Verification Code (OTP)" or "Continue with Google".' };
+        return { success: false, error: 'Incorrect password. Click "Login with OTP" or "Forgot password?".' };
       }
     }
 
@@ -260,7 +254,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let account = accounts[cleanEmail];
 
     if (!account) {
-      // Auto-provision account so user is never blocked
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
       account = {
         id: userId,
@@ -278,7 +271,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     accounts[cleanEmail] = account;
     saveLocalAccounts(accounts);
 
-    // If Supabase is connected, trigger passwordless / reset OTP
+    // If Supabase is connected, trigger passwordless / reset OTP email
     try {
       await supabase.auth.signInWithOtp({ email: cleanEmail });
     } catch {
@@ -297,6 +290,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ----------------------------------------------------
   const verifyOtpAndLogin = async (email: string, code: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Try Supabase OTP verification
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: code.trim(),
+        type: 'email',
+      });
+      if (!error && data?.user) {
+        setUser(data.user);
+        setSession(data.session);
+        localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: data.user }));
+        await loadPlayerData(data.user.id, cleanEmail);
+        return { success: true };
+      }
+    } catch {
+      // fallback
+    }
+
+    // 2. Local verification fallback
     const accounts = getLocalAccounts();
     const account = accounts[cleanEmail];
 
@@ -335,6 +348,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ----------------------------------------------------
   const resetPasswordWithOtp = async (email: string, code: string, newPass: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Update in Supabase if session exists or via updateUser
+    try {
+      await supabase.auth.updateUser({ password: newPass });
+    } catch {
+      // ignore
+    }
+
+    // 2. Update in local storage
     const accounts = getLocalAccounts();
     const account = accounts[cleanEmail];
 
@@ -344,7 +366,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Invalid 6-digit OTP code.' };
     }
 
-    // Update password
     account.passwordHash = newPass;
     delete account.currentOtp;
     delete account.otpExpiresAt;
@@ -354,7 +375,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // ----------------------------------------------------
-  // SIGN UP (ONE EMAIL = ONE ACCOUNT ENFORCEMENT)
+  // SIGN UP (STORE IN SUPABASE BACKEND + LOCAL CACHE)
   // ----------------------------------------------------
   const signupWithEmail = async (
     email: string,
@@ -367,36 +388,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cleanEmail = email.trim().toLowerCase();
     const accounts = getLocalAccounts();
 
-    // Enforce ONE EMAIL = ONE ACCOUNT
-    if (accounts[cleanEmail] && cleanEmail !== 'pavansreeram15@gmail.com') {
+    // Local check to prevent immediate duplicate
+    if (accounts[cleanEmail]) {
       return {
         success: false,
         error: 'This email is already registered. Please log in instead.',
       };
     }
 
-    const userId = accounts[cleanEmail]?.id || `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    let userId = '';
+    let authUser: User | null = null;
+    let authSession: Session | null = null;
 
-    // Create auth record
+    // 1. Register with Supabase Backend Auth
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: pass,
+        options: {
+          data: {
+            display_name: displayName || cleanEmail.split('@')[0],
+          },
+        },
+      });
+
+      if (error) {
+        if (
+          error.message?.toLowerCase().includes('already registered') ||
+          error.message?.toLowerCase().includes('already exists')
+        ) {
+          return {
+            success: false,
+            error: 'This email is already registered. Please log in instead.',
+          };
+        }
+        console.warn('Supabase signUp notice:', error.message);
+      }
+
+      if (data?.user) {
+        userId = data.user.id;
+        authUser = data.user;
+        authSession = data.session;
+      }
+    } catch (err: any) {
+      console.warn('Supabase signUp network fallback:', err?.message);
+    }
+
+    // Fallback ID if Supabase was offline or non-responsive
+    if (!userId) {
+      userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    }
+
+    // 2. Save local account cache for offline/fast login
     accounts[cleanEmail] = {
       id: userId,
       email: cleanEmail,
       passwordHash: pass,
-      displayName: displayName || (cleanEmail === 'pavansreeram15@gmail.com' ? 'Pavan Sreeram' : 'Player'),
+      displayName: displayName || cleanEmail.split('@')[0] || 'Player',
     };
     saveLocalAccounts(accounts);
 
-    // Initialize exactly 1 Profile and 1 Infant Pet
+    // 3. Initialize Profile and Infant Pet in Supabase database & local store
     const init = await petslyviaService.initializeNewPlayer(
       userId,
       cleanEmail,
-      displayName || (cleanEmail === 'pavansreeram15@gmail.com' ? 'Pavan Sreeram' : 'Player'),
+      displayName || cleanEmail.split('@')[0] || 'Player',
       petType,
       petName || 'Buddy',
       role
     );
 
-    const mockUser: User = {
+    const currentUser: User = authUser || {
       id: userId,
       email: cleanEmail,
       app_metadata: {},
@@ -405,8 +467,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
     };
 
-    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: mockUser }));
-    setUser(mockUser);
+    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ user: currentUser }));
+    setUser(currentUser);
+    setSession(authSession);
     setProfile(init.profile);
     setPet(init.pet);
 
@@ -461,12 +524,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let account = accounts[cleanEmail];
     let userId = account?.id;
     const name =
-      cleanEmail === 'pavansreeram15@gmail.com'
-        ? 'Pavan Sreeram'
-        : googleDisplayName?.trim() || account?.displayName || cleanEmail.split('@')[0];
+      googleDisplayName?.trim() || account?.displayName || cleanEmail.split('@')[0] || 'Explorer';
 
     if (!account) {
-      // New account provisioned via Google
+      // Try to create in Supabase or generate user ID
       userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
       account = {
         id: userId,

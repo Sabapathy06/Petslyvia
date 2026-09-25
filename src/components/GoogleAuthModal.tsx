@@ -121,40 +121,15 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
             {/* Quick 1-Click Select Cards */}
             <div className="space-y-2">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Fast Sign-In Accounts
+                Instant Demo Access
               </span>
-
-              {/* Pavan Sreeram 1-Click Sign-In */}
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('pavansreeram15@gmail.com', 'Pavan Sreeram')}
-                disabled={loading}
-                className="w-full p-3 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-500/40 hover:border-indigo-400 rounded-2xl flex items-center justify-between transition-all cursor-pointer group text-left shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center font-bold text-slate-950 text-xs">
-                    P
-                  </div>
-                  <div>
-                    <div className="text-xs font-black text-white group-hover:text-amber-300 transition-colors">
-                      Pavan Sreeram
-                    </div>
-                    <div className="text-[10px] text-amber-300/80 font-mono">
-                      pavansreeram15@gmail.com
-                    </div>
-                  </div>
-                </div>
-                <span className="text-xs font-bold text-amber-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
-                  1-Click Access ➔
-                </span>
-              </button>
 
               {/* Demo Google Explorer */}
               <button
                 type="button"
-                onClick={() => handleQuickSelect('google.player@gmail.com', 'Google Explorer')}
+                onClick={() => handleQuickSelect('demo.player@gmail.com', 'Demo Explorer')}
                 disabled={loading}
-                className="w-full p-3 bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/50 rounded-2xl flex items-center justify-between transition-all cursor-pointer group text-left"
+                className="w-full p-3 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-500/40 hover:border-indigo-400 rounded-2xl flex items-center justify-between transition-all cursor-pointer group text-left shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white text-xs">
@@ -162,15 +137,15 @@ export function GoogleAuthModal({ isOpen, onClose, onSuccess }: GoogleAuthModalP
                   </div>
                   <div>
                     <div className="text-xs font-black text-white group-hover:text-amber-300 transition-colors">
-                      Google Explorer (Demo)
+                      Demo Explorer
                     </div>
                     <div className="text-[10px] text-slate-400 font-mono">
-                      google.player@gmail.com
+                      demo.player@gmail.com
                     </div>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-indigo-400 group-hover:translate-x-0.5 transition-transform">
-                  Sign In ➔
+                <span className="text-xs font-bold text-indigo-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                  Try Demo ➔
                 </span>
               </button>
             </div>

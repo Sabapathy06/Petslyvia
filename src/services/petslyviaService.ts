@@ -18,8 +18,8 @@ const STORAGE_KEYS = {
 
 // Check if Supabase credentials are configured
 function isSupabaseConfigured(): boolean {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const url = import.meta.env.VITE_SUPABASE_URL || 'https://fgxjnowrzxlinbpozker.supabase.co';
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_l30DMOPfJgXNItzbN0geeA_P5y1QskO';
   return Boolean(url && key && url.length > 5 && !url.includes('placeholder'));
 }
 
@@ -50,8 +50,14 @@ export const petslyviaService = {
   async getProfile(userId: string): Promise<Profile | null> {
     if (isSupabaseConfigured()) {
       try {
-        const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-        if (data) return data as Profile;
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+        if (data && !error) {
+          const profile = data as Profile;
+          const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
+          profiles[userId] = profile;
+          setLocal(STORAGE_KEYS.PROFILES, profiles);
+          return profile;
+        }
       } catch {
         // fallback
       }
@@ -61,18 +67,45 @@ export const petslyviaService = {
   },
 
   async saveProfile(profile: Profile): Promise<Profile> {
+    const updatedProfile: Profile = {
+      ...profile,
+      updated_at: new Date().toISOString(),
+    };
+
     if (isSupabaseConfigured()) {
       try {
-        const { data } = await supabase.from('profiles').upsert(profile).select().maybeSingle();
-        if (data) return data as Profile;
+        const { data, error } = await supabase.from('profiles').upsert({
+          id: updatedProfile.id,
+          username: updatedProfile.username || updatedProfile.display_name?.toLowerCase().replace(/\s+/g, '_') || 'player',
+          display_name: updatedProfile.display_name || 'Player',
+          avatar_url: updatedProfile.avatar_url || null,
+          role: updatedProfile.role || 'non_coder',
+          coins: updatedProfile.coins ?? 100,
+          total_xp: updatedProfile.total_xp ?? 50,
+          current_level: updatedProfile.current_level ?? 1,
+          skills: updatedProfile.skills || { logic: 15, debugging: 10, creativity: 15, coding: 0, collaboration: 10 },
+          unlocked_areas: updatedProfile.unlocked_areas || ['pet_home', 'logic_forest', 'shop'],
+          coding_mode_unlocked: updatedProfile.coding_mode_unlocked ?? false,
+          bugs_created: updatedProfile.bugs_created ?? 0,
+          bugs_solved: updatedProfile.bugs_solved ?? 0,
+          updated_at: updatedProfile.updated_at,
+        }).select().maybeSingle();
+
+        if (data && !error) {
+          const saved = data as Profile;
+          const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
+          profiles[saved.id] = saved;
+          setLocal(STORAGE_KEYS.PROFILES, profiles);
+          return saved;
+        }
       } catch {
         // fallback
       }
     }
     const profiles = getLocal<Record<string, Profile>>(STORAGE_KEYS.PROFILES, {});
-    profiles[profile.id] = { ...profile, updated_at: new Date().toISOString() };
+    profiles[updatedProfile.id] = updatedProfile;
     setLocal(STORAGE_KEYS.PROFILES, profiles);
-    return profiles[profile.id];
+    return profiles[updatedProfile.id];
   },
 
   // ----------------------------------------------------
@@ -81,8 +114,14 @@ export const petslyviaService = {
   async getPet(userId: string): Promise<Pet | null> {
     if (isSupabaseConfigured()) {
       try {
-        const { data } = await supabase.from('pets').select('*').eq('user_id', userId).eq('is_active', true).maybeSingle();
-        if (data) return data as Pet;
+        const { data, error } = await supabase.from('pets').select('*').eq('user_id', userId).eq('is_active', true).maybeSingle();
+        if (data && !error) {
+          const pet = data as Pet;
+          const pets = getLocal<Record<string, Pet>>(STORAGE_KEYS.PETS, {});
+          pets[userId] = pet;
+          setLocal(STORAGE_KEYS.PETS, pets);
+          return pet;
+        }
       } catch {
         // fallback
       }
@@ -103,8 +142,36 @@ export const petslyviaService = {
 
     if (isSupabaseConfigured()) {
       try {
-        const { data } = await supabase.from('pets').upsert(updatedPet).select().maybeSingle();
-        if (data) return data as Pet;
+        const petPayload: Record<string, any> = {
+          user_id: updatedPet.user_id,
+          pet_type: updatedPet.pet_type,
+          pet_name: updatedPet.pet_name,
+          personality: updatedPet.personality || 'Curious, cheerful, and eager to explore logic puzzles!',
+          stage: updatedPet.stage,
+          level: updatedPet.level || 1,
+          xp: updatedPet.xp || 50,
+          happiness: updatedPet.happiness ?? 100,
+          energy: updatedPet.energy ?? 100,
+          productivity_state: updatedPet.productivity_state || 'happy',
+          unlocked_abilities: updatedPet.unlocked_abilities || ['runner'],
+          equipped_items: updatedPet.equipped_items || {},
+          is_active: updatedPet.is_active ?? true,
+          updated_at: updatedPet.updated_at,
+        };
+
+        // If updatedPet.id is a valid UUID, include it
+        if (updatedPet.id && !updatedPet.id.startsWith('pet_') && updatedPet.id.length === 36) {
+          petPayload.id = updatedPet.id;
+        }
+
+        const { data, error } = await supabase.from('pets').upsert(petPayload).select().maybeSingle();
+        if (data && !error) {
+          const saved = data as Pet;
+          const pets = getLocal<Record<string, Pet>>(STORAGE_KEYS.PETS, {});
+          pets[pet.user_id] = saved;
+          setLocal(STORAGE_KEYS.PETS, pets);
+          return saved;
+        }
       } catch {
         // fallback
       }
@@ -136,8 +203,8 @@ export const petslyviaService = {
     const newProfile: Profile = {
       id: userId,
       email,
-      username: displayName.toLowerCase().replace(/\s+/g, '_'),
-      display_name: displayName,
+      username: displayName.toLowerCase().replace(/\s+/g, '_') || 'player',
+      display_name: displayName || 'Player',
       avatar_url: null,
       role: role,
       coins: 100, // Starter coins
@@ -159,7 +226,7 @@ export const petslyviaService = {
     };
 
     const newPet: Pet = {
-      id: `pet_${userId}`,
+      id: userId,
       user_id: userId,
       pet_type: petType,
       pet_name: petName,
