@@ -72,6 +72,8 @@ function AppRoutes() {
           }
         >
           <Route index element={<ErrorBoundary><WorldMapPage /></ErrorBoundary>} />
+          <Route path="first-steps" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
+          <Route path="first_steps" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
           <Route path="sanctuary" element={<ErrorBoundary><PetHomePage /></ErrorBoundary>} />
           <Route path="forest" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />
           <Route path="logic" element={<ErrorBoundary><AdventurePage /></ErrorBoundary>} />

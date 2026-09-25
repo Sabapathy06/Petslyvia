@@ -23,7 +23,7 @@ interface JourneyStep {
 
 const JOURNEY_STEPS: JourneyStep[] = [
   { id: 'step_academy', stepNumber: 1, label: 'Coding Academy', to: '/app/academy', areaKey: 'all' },
-  { id: 'step_1', stepNumber: 2, label: 'First steps', to: '/app/forest', areaKey: 'logic_forest' },
+  { id: 'step_1', stepNumber: 2, label: 'First steps', to: '/app/first-steps', areaKey: 'logic_forest' },
   { id: 'step_2', stepNumber: 3, label: 'Hidden magic', to: '/app/sanctuary', areaKey: 'pet_home' },
   { id: 'step_3', stepNumber: 4, label: 'Forest of logic', to: '/app/forest', areaKey: 'logic_forest' },
   { id: 'step_4', stepNumber: 5, label: 'Bug dungeon', to: '/app/dungeon', areaKey: 'bug_dungeon' },
@@ -50,6 +50,7 @@ export function GameLayout() {
   const getBreadcrumbTitle = () => {
     const p = location.pathname;
     if (p.includes('/academy')) return 'Coding Academy';
+    if (p.includes('/first-steps') || p.includes('/first_steps')) return 'First Steps';
     if (p.includes('/forest') || p.includes('/logic') || p.includes('/adventure')) return 'Forest of Logic';
     if (p.includes('/sanctuary')) return 'Pet Sanctuary';
     if (p.includes('/dungeon')) return 'Bug Dungeon';
@@ -195,8 +196,18 @@ export function GameLayout() {
               {JOURNEY_STEPS.map((step) => {
                 const isActive =
                   location.pathname === step.to ||
-                  (step.to === '/app/forest' && location.pathname === '/app/forest') ||
-                  (step.to !== '/app' && location.pathname.startsWith(step.to));
+                  (step.to === '/app/first-steps' &&
+                    (location.pathname === '/app/first-steps' || location.pathname === '/app/first_steps')) ||
+                  (step.to === '/app/forest' &&
+                    (location.pathname === '/app/forest' ||
+                      location.pathname === '/app/logic' ||
+                      location.pathname === '/app/logic-forest' ||
+                      location.pathname === '/app/forest-of-logic' ||
+                      location.pathname === '/app/adventure')) ||
+                  (step.to !== '/app' &&
+                    step.to !== '/app/forest' &&
+                    step.to !== '/app/first-steps' &&
+                    location.pathname.startsWith(step.to));
 
                 const isUnlocked =
                   step.areaKey === 'all' ||

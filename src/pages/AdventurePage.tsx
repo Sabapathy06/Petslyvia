@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Play, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
   Hand, Sparkles, CheckCircle2, AlertCircle, Bot, HelpCircle,
@@ -150,9 +150,19 @@ export function AdventurePage() {
   const { profile, pet, progress, completeMission, setPlayerRole, soundEnabled, toggleSound } = useGameData();
   const navigate = useNavigate();
 
+  const location = useLocation();
+  const isFirstSteps = location.pathname.includes('/first-steps') || location.pathname.includes('/first_steps');
+
   const [customAiMission, setCustomAiMission] = useState<MissionDefinition | null>(null);
-  const [selectedMissionId, setSelectedMissionId] = useState<string>('mission_1');
-  const mission = customAiMission || MISSIONS_LIST.find((m) => m.id === selectedMissionId) || MISSIONS_LIST[0];
+  const [selectedMissionId, setSelectedMissionId] = useState<string>(isFirstSteps ? 'mission_1' : 'mission_2');
+  const mission = customAiMission || MISSIONS_LIST.find((m) => m.id === selectedMissionId) || (isFirstSteps ? MISSIONS_LIST[0] : MISSIONS_LIST[1]) || MISSIONS_LIST[0];
+
+  // Sync mission when navigating between First Steps and Forest of Logic
+  useEffect(() => {
+    if (!customAiMission) {
+      setSelectedMissionId(isFirstSteps ? 'mission_1' : 'mission_2');
+    }
+  }, [isFirstSteps]);
 
   // 3D vs 2D Display mode & Camera Preset
   const [cameraMode, setCameraMode] = useState<'iso' | 'perspective' | 'top'>('iso');
@@ -473,21 +483,23 @@ export function AdventurePage() {
           {/* Category Eyebrow */}
           <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#5b7566] tracking-[0.2em] uppercase mb-1">
             <span className="text-xs">🧭</span>
-            <span>THE WHISPERING WOODS</span>
+            <span>{isFirstSteps ? 'STAGE 1: FIRST STEPS' : 'STAGE 2: THE WHISPERING WOODS'}</span>
           </div>
 
           {/* Main Title & Stage Badge */}
           <div className="flex items-center gap-3">
             <h1 className="text-2xl md:text-3xl font-black text-[#1b382b] tracking-tight">
-              Forest of Logic
+              {isFirstSteps ? 'First steps' : 'Forest of Logic'}
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-[#e2ece5] text-[#2d6a4f] text-[11px] font-bold border border-[#d5e3da]">
-              Stage 1: Whispering Woods
+              {isFirstSteps ? 'Stage 1: Meadow Steps' : 'Stage 2: Whispering Woods'}
             </span>
           </div>
 
           <p className="text-xs text-[#5b7566] font-medium mt-1">
-            Guide your pet through crystal glades, discover secret code, and master Repeat loops.
+            {isFirstSteps
+              ? 'Small moves. Big adventures. Guide your infant companion through their very first path.'
+              : 'Guide your pet through crystal glades, discover secret code, and master Repeat loops.'}
           </p>
         </div>
 
