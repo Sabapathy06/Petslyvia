@@ -405,7 +405,7 @@ export function FriendsPage() {
                     </span>
                   ) : searchResult.friendship_status === 'request_sent' ? (
                     <span className="px-4 py-2 bg-amber-100 text-amber-900 text-xs font-black rounded-xl flex items-center gap-1.5">
-                      <Clock size={14} /> REQUEST SENT
+                      <Clock size={14} /> REQUEST SENT (WAITING FOR ACCEPTANCE)
                     </span>
                   ) : searchResult.friendship_status === 'request_received' ? (
                     <button

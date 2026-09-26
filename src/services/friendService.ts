@@ -538,24 +538,26 @@ export async function getFriendshipStatus(
     return 'friends';
   }
 
-  // B. Check cloud friend requests
-  const cloudReqs = registry.cloud_friend_requests || [];
+  // B. Check cloud friend requests (newest first)
+  const cloudReqs = [...(registry.cloud_friend_requests || [])].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
   const matchedReq = cloudReqs.find((r) => {
-    const senderMatch = r.sender_user_id === myId || (myFid && r.sender_friend_id.toUpperCase() === myFid);
-    const receiverMatch = r.receiver_user_id === theirId || (theirFid && r.receiver_friend_id.toUpperCase() === theirFid);
-    if (senderMatch && receiverMatch) return true;
+    const iAmSender = r.sender_user_id === myId || (myFid && r.sender_friend_id.toUpperCase() === myFid);
+    const theyAreReceiver = r.receiver_user_id === theirId || (theirFid && r.receiver_friend_id.toUpperCase() === theirFid);
+    if (iAmSender && theyAreReceiver) return true;
 
-    const reverseSender = r.sender_user_id === theirId || (theirFid && r.sender_friend_id.toUpperCase() === theirFid);
-    const reverseReceiver = r.receiver_user_id === myId || (myFid && r.receiver_friend_id.toUpperCase() === myFid);
-    return reverseSender && reverseReceiver;
+    const theyAreSender = r.sender_user_id === theirId || (theirFid && r.sender_friend_id.toUpperCase() === theirFid);
+    const iAmReceiver = r.receiver_user_id === myId || (myFid && r.receiver_friend_id.toUpperCase() === myFid);
+    return theyAreSender && iAmReceiver;
   });
 
   if (matchedReq) {
     if (matchedReq.status === 'blocked') return 'blocked';
     if (matchedReq.status === 'accepted') return 'friends';
     if (matchedReq.status === 'pending') {
-      const isSender = matchedReq.sender_user_id === myId || (myFid && matchedReq.sender_friend_id.toUpperCase() === myFid);
-      return isSender ? 'request_sent' : 'request_received';
+      const iAmSender = matchedReq.sender_user_id === myId || (myFid && matchedReq.sender_friend_id.toUpperCase() === myFid);
+      return iAmSender ? 'request_sent' : 'request_received';
     }
   }
 
@@ -571,7 +573,14 @@ export async function getFriendshipStatus(
   }
 
   const inReqs = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_IN, []);
-  if (inReqs.some((r) => r.sender_user_id === theirId || (theirFid && r.friend_id.toUpperCase() === theirFid))) {
+  if (
+    inReqs.some(
+      (r) =>
+        (r.sender_user_id === theirId || (theirFid && r.friend_id.toUpperCase() === theirFid)) &&
+        r.sender_user_id !== myId &&
+        (myFid ? r.friend_id.toUpperCase() !== myFid : true)
+    )
+  ) {
     return 'request_received';
   }
 
@@ -994,23 +1003,18 @@ function recordStoredRequest(currentUser: any, targetUser: SafePublicProfile, cu
     [outReq, ...outList.filter((r) => r.receiver_user_id !== theirId && r.friend_id.toUpperCase() !== theirFid)]
   );
 
-  // Sync incoming store
-  const inReq: PendingFriendRequest = {
-    request_id: reqId,
-    sender_user_id: myId,
-    receiver_user_id: theirId,
-    username: currentUser.username || 'Explorer',
-    friend_id: myFid,
-    avatar_url: null,
-    level: 1,
-    pet_type: 'fox',
-    pet_stage: 'infant',
-    created_at: newReq.created_at,
-  };
+  // Sync incoming store: SENDER MUST NEVER ADD SENT REQUEST TO REQUESTS_IN!
+  // Purge any requests involving this target or sender
   const inList = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_IN, []);
   setLocalStore(
     STORAGE_KEYS.REQUESTS_IN,
-    [inReq, ...inList.filter((r) => r.sender_user_id !== myId && r.friend_id.toUpperCase() !== myFid)]
+    inList.filter(
+      (r) =>
+        r.sender_user_id !== theirId &&
+        r.friend_id.toUpperCase() !== theirFid &&
+        r.sender_user_id !== myId &&
+        r.friend_id.toUpperCase() !== myFid
+    )
   );
 }
 
@@ -1336,6 +1340,10 @@ export async function fetchFriendsList(): Promise<FriendEntry[]> {
 /**
  * Fetch inbound pending friend requests.
  */
+/**
+ * Fetch inbound pending friend requests.
+ * ONLY returns requests where current user is the RECEIVER (never the sender).
+ */
 export async function fetchPendingRequests(): Promise<PendingFriendRequest[]> {
   const currentUser = await resolveCurrentUser();
   if (!currentUser) return [];
@@ -1348,11 +1356,12 @@ export async function fetchPendingRequests(): Promise<PendingFriendRequest[]> {
   const cloudReqs = registry.cloud_friend_requests || [];
 
   const cloudIn = cloudReqs
-    .filter(
-      (r) =>
-        r.status === 'pending' &&
-        (r.receiver_user_id === myId || (myFid && r.receiver_friend_id.toUpperCase() === myFid))
-    )
+    .filter((r) => {
+      if (r.status !== 'pending') return false;
+      const isReceiver = r.receiver_user_id === myId || (myFid && r.receiver_friend_id.toUpperCase() === myFid);
+      const isSender = r.sender_user_id === myId || (myFid && r.sender_friend_id.toUpperCase() === myFid);
+      return isReceiver && !isSender;
+    })
     .map((r) => ({
       request_id: r.id,
       sender_user_id: r.sender_user_id,
@@ -1366,22 +1375,29 @@ export async function fetchPendingRequests(): Promise<PendingFriendRequest[]> {
       created_at: r.created_at,
     }));
 
-  // 2. Local store fallback & merge
-  const localIn = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_IN, []);
+  // 2. Local store fallback & merge (strictly exclude requests where current user was sender)
+  const rawLocalIn = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_IN, []);
+  const validLocalIn = rawLocalIn.filter((loc) => {
+    const isSender = loc.sender_user_id === myId || (myFid && loc.friend_id.toUpperCase() === myFid);
+    return !isSender;
+  });
+
   const merged: PendingFriendRequest[] = [...cloudIn];
 
-  localIn.forEach((loc) => {
+  validLocalIn.forEach((loc) => {
     if (!merged.some((m) => m.request_id === loc.request_id || m.friend_id.toUpperCase() === loc.friend_id.toUpperCase())) {
       merged.push(loc);
     }
   });
 
+  // Save sanitized list back to local storage
   setLocalStore(STORAGE_KEYS.REQUESTS_IN, merged);
   return merged;
 }
 
 /**
  * Fetch outbound pending requests sent by current user.
+ * ONLY returns requests where current user is the SENDER (never the receiver).
  */
 export async function fetchSentRequests(): Promise<PendingFriendRequest[]> {
   const currentUser = await resolveCurrentUser();
@@ -1395,11 +1411,12 @@ export async function fetchSentRequests(): Promise<PendingFriendRequest[]> {
   const cloudReqs = registry.cloud_friend_requests || [];
 
   const cloudOut = cloudReqs
-    .filter(
-      (r) =>
-        r.status === 'pending' &&
-        (r.sender_user_id === myId || (myFid && r.sender_friend_id.toUpperCase() === myFid))
-    )
+    .filter((r) => {
+      if (r.status !== 'pending') return false;
+      const isSender = r.sender_user_id === myId || (myFid && r.sender_friend_id.toUpperCase() === myFid);
+      const isReceiver = r.receiver_user_id === myId || (myFid && r.receiver_friend_id.toUpperCase() === myFid);
+      return isSender && !isReceiver;
+    })
     .map((r) => ({
       request_id: r.id,
       sender_user_id: r.sender_user_id,
@@ -1413,11 +1430,16 @@ export async function fetchSentRequests(): Promise<PendingFriendRequest[]> {
       created_at: r.created_at,
     }));
 
-  // 2. Local store merge
-  const localOut = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_OUT, []);
+  // 2. Local store merge (strictly exclude requests where current user was receiver)
+  const rawLocalOut = getLocalStore<PendingFriendRequest[]>(STORAGE_KEYS.REQUESTS_OUT, []);
+  const validLocalOut = rawLocalOut.filter((loc) => {
+    const isReceiver = loc.receiver_user_id === myId || (myFid && loc.friend_id.toUpperCase() === myFid);
+    return !isReceiver;
+  });
+
   const merged: PendingFriendRequest[] = [...cloudOut];
 
-  localOut.forEach((loc) => {
+  validLocalOut.forEach((loc) => {
     if (!merged.some((m) => m.request_id === loc.request_id || m.friend_id.toUpperCase() === loc.friend_id.toUpperCase())) {
       merged.push(loc);
     }
