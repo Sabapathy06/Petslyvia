@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   GraduationCap,
   Copy,
@@ -46,17 +47,48 @@ export function CodespaceIdeHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+
+  // Compute absolute viewport position for portal menu to prevent ANY clipping
+  const updateMenuPosition = () => {
+    if (dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + 6,
+        right: Math.max(12, window.innerWidth - rect.right),
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (dropdownOpen) {
+      updateMenuPosition();
+      const handleWindowChange = () => updateMenuPosition();
+      window.addEventListener('scroll', handleWindowChange, true);
+      window.addEventListener('resize', handleWindowChange);
+      return () => {
+        window.removeEventListener('scroll', handleWindowChange, true);
+        window.removeEventListener('resize', handleWindowChange);
+      };
+    }
+  }, [dropdownOpen]);
 
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement)?.closest?.('.language-portal-menu')
+      ) {
         setDropdownOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [dropdownOpen]);
 
   const handleCopy = () => {
     sound.playSnap();
@@ -80,10 +112,10 @@ export function CodespaceIdeHeader({
   };
 
   return (
-    <div className="bg-[#121316] border-b border-[#26282e] px-3 sm:px-4 py-2 flex items-center justify-between gap-2 select-none overflow-x-auto custom-scrollbar">
+    <div className="bg-[#121316] border-b border-[#26282e] px-3 sm:px-4 py-2 flex items-center justify-between gap-2 select-none relative z-30 overflow-visible rounded-t-2xl sm:rounded-t-3xl">
       {/* Left Icon Actions: Tutor, Download/Copy, Reset */}
       <div className="flex items-center gap-1.5 sm:gap-2">
-        {/* Tutor / Teacher Icon (Circle matching the user's reference image) */}
+        {/* Tutor / Teacher Icon */}
         <button
           type="button"
           onClick={() => {
@@ -97,7 +129,7 @@ export function CodespaceIdeHeader({
           <GraduationCap size={15} />
         </button>
 
-        {/* Download / Export Code Icon (Circle matching image) */}
+        {/* Download / Export Code Icon */}
         <button
           type="button"
           onClick={handleDownload}
@@ -135,27 +167,53 @@ export function CodespaceIdeHeader({
 
       {/* Center / Right: Language Selector Dropdown + Hint + Solution Buttons */}
       <div className="flex items-center gap-2 shrink-0">
-        {/* Language Selector Dropdown (Styled identically to the user's reference image) */}
+        {/* Language Selector Dropdown */}
         <div className="relative shrink-0" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => {
               sound.playClick();
-              setDropdownOpen(!dropdownOpen);
+              setDropdownOpen((prev) => !prev);
             }}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#23252b] hover:bg-[#2c2f38] border border-[#3a3e4a] text-zinc-200 hover:text-white rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer shadow-inner whitespace-nowrap shrink-0"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#23252b] hover:bg-[#2c2f38] border border-[#3a3e4a] text-zinc-200 hover:text-white rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer shadow-inner whitespace-nowrap shrink-0 relative"
           >
             <span className="whitespace-nowrap">{LANGUAGE_LABELS[language].short}</span>
             <ChevronDown size={14} className={`text-zinc-400 shrink-0 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+
+            {/* Invisible Native Select Overlay: Guarantees language can ALWAYS be changed on ANY browser or device */}
+            <select
+              aria-label="Select Programming Language"
+              value={language}
+              onChange={(e) => {
+                sound.playClick();
+                onLanguageChange(e.target.value as SupportedLanguage);
+                setDropdownOpen(false);
+              }}
+              className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
+            >
+              <option value="python">🐍 Python (Python 3.12)</option>
+              <option value="javascript">⚡ JavaScript (Node.js 20)</option>
+              <option value="c">⚙️ C (gcc 14.2 / C17)</option>
+            </select>
           </button>
 
-          {/* Dropdown Menu */}
-          {dropdownOpen && (
-            <div className="absolute right-0 mt-1.5 w-52 bg-[#18191f] border border-[#323642] rounded-xl shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 font-mono text-xs">
-              <div className="px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider text-zinc-500 border-b border-[#252832]">
-                Select Compiler
+          {/* Portal Dropdown Menu: Mounted to document.body with fixed positioning so it's NEVER clipped */}
+          {dropdownOpen && menuPos && typeof document !== 'undefined' && createPortal(
+            <div
+              style={{
+                position: 'fixed',
+                top: `${menuPos.top}px`,
+                right: `${menuPos.right}px`,
+                zIndex: 99999,
+              }}
+              className="language-portal-menu w-56 bg-[#18191f] border border-[#3b3f4f] rounded-xl shadow-[0_12px_45px_rgba(0,0,0,0.85)] py-1.5 font-mono text-xs animate-in fade-in zoom-in-95 duration-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider text-zinc-400 border-b border-[#252832] flex items-center justify-between">
+                <span>Select Language</span>
+                <span className="text-[9px] text-emerald-400 font-bold uppercase">{language}</span>
               </div>
-              {(['c', 'python', 'javascript'] as SupportedLanguage[]).map((lang) => (
+              {(['python', 'javascript', 'c'] as SupportedLanguage[]).map((lang) => (
                 <button
                   key={lang}
                   type="button"
@@ -166,18 +224,19 @@ export function CodespaceIdeHeader({
                   }}
                   className={`w-full px-3 py-2 text-left flex items-center justify-between transition-colors cursor-pointer ${
                     language === lang
-                      ? 'bg-[#2b3548] text-emerald-400 font-bold'
+                      ? 'bg-[#22332a] text-emerald-300 font-bold border-l-2 border-emerald-400'
                       : 'text-zinc-300 hover:bg-[#232630] hover:text-white'
                   }`}
                 >
                   <span className="flex items-center gap-2">
-                    <span>{LANGUAGE_LABELS[lang].badge}</span>
-                    <span>{LANGUAGE_LABELS[lang].full}</span>
+                    <span className="text-sm">{LANGUAGE_LABELS[lang].badge}</span>
+                    <span className="font-semibold">{LANGUAGE_LABELS[lang].full}</span>
                   </span>
-                  {language === lang && <Check size={12} className="text-emerald-400" />}
+                  {language === lang && <Check size={14} className="text-emerald-400 shrink-0" />}
                 </button>
               ))}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
 

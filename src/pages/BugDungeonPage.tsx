@@ -238,7 +238,10 @@ export function BugDungeonPage() {
   const handleSwitchLanguage = (newLang: 'python' | 'javascript' | 'c') => {
     sound.playClick();
     setLanguage(newLang);
-    setRawCode(blocksToCode(blocks, newLang));
+    const effectiveBlocks = blocks.length > 0
+      ? blocks
+      : (breakFixMission.initialBlocks || [{ id: 'b1', type: 'move_forward' }]);
+    setRawCode(blocksToCode(effectiveBlocks, newLang));
   };
 
   // Reset back to initial bug state
@@ -585,6 +588,25 @@ export function BugDungeonPage() {
                   <Code2 size={13} /> Show Code
                 </button>
               </div>
+
+              {workspaceMode === 'code' && (
+                <div className="flex bg-[#121316] rounded-xl p-0.5 border border-[#2a2d36] gap-1">
+                  {(['python', 'javascript', 'c'] as const).map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => handleSwitchLanguage(l)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        language === l
+                          ? 'bg-[#2d6a4f] text-white shadow-xs'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <span>{l === 'python' ? '🐍 Python' : l === 'javascript' ? '⚡ JS' : '⚙️ C'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <button
                 onClick={handleResetBug}

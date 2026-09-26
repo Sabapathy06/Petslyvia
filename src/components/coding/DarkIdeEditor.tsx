@@ -72,7 +72,7 @@ export function DarkIdeEditor({
   };
 
   return (
-    <div className="rounded-2xl sm:rounded-3xl border border-[#272a33] bg-[#0d0e12] overflow-hidden shadow-2xl flex flex-col">
+    <div className="rounded-2xl sm:rounded-3xl border border-[#272a33] bg-[#0d0e12] relative overflow-visible shadow-2xl flex flex-col">
       {/* Top IDE Header (matching user's reference image!) */}
       <CodespaceIdeHeader
         language={language}
