@@ -1310,15 +1310,102 @@ export function MultiplayerPage() {
     }, 380);
   };
 
+  // Pathfinding algorithm to navigate from start to goal in duel arenas
+  const findDuelPath = (
+    start: GridPos,
+    goal: GridPos,
+    gridSize: { width: number; height: number },
+    obstacles: GridObstacle[]
+  ): VisualBlock[] => {
+    const isBlocked = (x: number, y: number) => {
+      if (x < 0 || x >= gridSize.width || y < 0 || y >= gridSize.height) return true;
+      return obstacles.some((o) => o.x === x && o.y === y && (o.type === 'wall' || o.type === 'water'));
+    };
+
+    const queue: Array<{ x: number; y: number; path: VisualBlock[] }> = [{ x: start.x, y: start.y, path: [] }];
+    const visited = new Set<string>();
+    visited.add(`${start.x},${start.y}`);
+
+    const dirs: Array<{ type: VisualBlock['type']; dx: number; dy: number }> = [
+      { type: 'move_up', dx: 0, dy: -1 },
+      { type: 'move_right', dx: 1, dy: 0 },
+      { type: 'move_down', dx: 0, dy: 1 },
+      { type: 'move_left', dx: -1, dy: 0 },
+    ];
+
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      if (cur.x === goal.x && cur.y === goal.y) {
+        return cur.path;
+      }
+
+      for (const d of dirs) {
+        const nx = cur.x + d.dx;
+        const ny = cur.y + d.dy;
+        const key = `${nx},${ny}`;
+        if (!isBlocked(nx, ny) && !visited.has(key)) {
+          visited.add(key);
+          queue.push({
+            x: nx,
+            y: ny,
+            path: [...cur.path, { id: `d_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, type: d.type }],
+          });
+        }
+      }
+    }
+
+    // Fallback: Safe Manhattan steps
+    const fallback: VisualBlock[] = [];
+    let cx = start.x;
+    let cy = start.y;
+    for (let i = 0; i < 4; i++) {
+      if (cy > goal.y && !isBlocked(cx, cy - 1)) {
+        fallback.push({ id: `d_fb_${i}`, type: 'move_up' });
+        cy--;
+      } else if (cx < goal.x && !isBlocked(cx + 1, cy)) {
+        fallback.push({ id: `d_fb_${i}`, type: 'move_right' });
+        cx++;
+      } else if (cy < goal.y && !isBlocked(cx, cy + 1)) {
+        fallback.push({ id: `d_fb_${i}`, type: 'move_down' });
+        cy++;
+      } else if (cx > goal.x && !isBlocked(cx - 1, cy)) {
+        fallback.push({ id: `d_fb_${i}`, type: 'move_left' });
+        cx--;
+      }
+    }
+    return fallback;
+  };
+
   const handleOpenChallenge = (contact: Contact) => {
     sound.playClick();
     if (raceRef.current) { clearInterval(raceRef.current); raceRef.current = null; }
-    const arena = getArenaForContact(contact);
+    const arena = getArenaForContact(contact, communityProblems);
     setSelectedOpponent(contact);
-    setDuelBlocks(arena.startPos.y > arena.goalPos.y
-      ? [{ id: "d1", type: "move_up" }, { id: "d2", type: "move_up" }, { id: "d3", type: "move_right" }]
-      : [{ id: "d1", type: "move_down" }, { id: "d2", type: "move_down" }, { id: "d3", type: "move_right" }]);
-    setPlayerDuelStep(0); setOpponentDuelStep(0); setPlayerSimulationSteps([]); setDuelResult(null); setDuelRacing(false);
+
+    // Calculate smart starter steps towards goal without colliding
+    const smartPath = findDuelPath(arena.startPos, arena.goalPos, arena.gridSize, arena.obstacles);
+    const starterBlocks = smartPath.length > 0
+      ? smartPath.slice(0, 3)
+      : [
+          { id: 'd1', type: (arena.startPos.y > arena.goalPos.y ? 'move_up' : 'move_down') as const },
+          { id: 'd2', type: (arena.startPos.x < arena.goalPos.x ? 'move_right' : 'move_up') as const },
+        ];
+    setDuelBlocks(starterBlocks);
+    setPlayerDuelStep(0);
+    setOpponentDuelStep(0);
+    setPlayerSimulationSteps([]);
+    setDuelResult(null);
+    setDuelRacing(false);
+  };
+
+  const handleAutoRoute = () => {
+    sound.playClick();
+    if (!currentArena) return;
+    const smartPath = findDuelPath(currentArena.startPos, currentArena.goalPos, currentArena.gridSize, currentArena.obstacles);
+    if (smartPath.length > 0) {
+      setDuelBlocks(smartPath);
+      setDuelResult(null);
+    }
   };
 
   const handleStartDuelRace = () => {
@@ -1346,9 +1433,23 @@ export function MultiplayerPage() {
   };
 
   const currentArena = selectedOpponent ? getArenaForContact(selectedOpponent, communityProblems) : null;
-  const playerActivePos = playerSimulationSteps.length > 0 && playerSimulationSteps[playerDuelStep] ? playerSimulationSteps[playerDuelStep].petPos : currentArena?.startPos ?? { x: 0, y: 0 };
-  const opponentActivePos = currentArena && currentArena.botPath[Math.min(opponentDuelStep, currentArena.botPath.length - 1)] ? currentArena.botPath[Math.min(opponentDuelStep, currentArena.botPath.length - 1)] : { x: 0, y: 0 };
-  const playerCrystals = playerSimulationSteps.length > 0 && playerSimulationSteps[playerDuelStep] ? playerSimulationSteps[playerDuelStep].crystalsCollected : [];
+  const playerActiveStep = playerSimulationSteps.length > 0 && playerSimulationSteps[playerDuelStep] ? playerSimulationSteps[playerDuelStep] : null;
+  const playerActivePos = playerActiveStep ? playerActiveStep.petPos : currentArena?.startPos ?? { x: 0, y: 0 };
+  const playerActiveDir = playerActiveStep ? playerActiveStep.petDir : currentArena?.startDir ?? "right";
+  const playerCrystals = playerActiveStep ? playerActiveStep.crystalsCollected : [];
+
+  const oppPathIndex = Math.min(opponentDuelStep, (currentArena?.botPath.length || 1) - 1);
+  const opponentActivePos = currentArena && currentArena.botPath[oppPathIndex] ? currentArena.botPath[oppPathIndex] : { x: 0, y: 0 };
+  
+  // Calculate dynamic opponent facing direction based on next path node
+  const oppNextPos = currentArena && currentArena.botPath[Math.min(oppPathIndex + 1, (currentArena?.botPath.length || 1) - 1)];
+  let opponentActiveDir: Direction = currentArena?.startDir ?? "right";
+  if (oppNextPos && (oppNextPos.x !== opponentActivePos.x || oppNextPos.y !== opponentActivePos.y)) {
+    if (oppNextPos.x > opponentActivePos.x) opponentActiveDir = "right";
+    else if (oppNextPos.x < opponentActivePos.x) opponentActiveDir = "left";
+    else if (oppNextPos.y < opponentActivePos.y) opponentActiveDir = "up";
+    else if (oppNextPos.y > opponentActivePos.y) opponentActiveDir = "down";
+  }
   const bugActivePos = bugSimSteps.length > 0 && bugSimSteps[bugSimStepIndex] ? bugSimSteps[bugSimStepIndex].petPos : selectedBug?.grid.start ?? { x: 0, y: 0 };
 
   const liveStatusMap = new Map<string, LobbyPresence>(onlinePlayers.map((p) => [p.userId, p]));
@@ -1706,33 +1807,130 @@ export function MultiplayerPage() {
           <div onClick={(e) => { if (e.target === e.currentTarget && !duelRacing) handleCloseDuel(); }} className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
             <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} onClick={(e) => e.stopPropagation()} className="bg-white border border-[#e2ece5] rounded-3xl p-5 max-w-2xl w-full space-y-4 shadow-card relative my-6">
               <button onClick={handleCloseDuel} className="absolute top-4 right-4 px-3 py-1.5 text-xs font-extrabold text-[#5b7566] hover:text-[#1b382b] rounded-xl bg-[#f4f8f5] border border-[#e2ece5] cursor-pointer flex items-center gap-1.5"><X size={14} /> Close</button>
-              <div className="text-center"><h3 className="text-lg font-black text-[#1b382b] flex items-center justify-center gap-2"><span className="text-[#2d6a4f]">{pet?.pet_name || "Your Pet"}</span><span className="text-[#7a9386] text-sm">VS</span><span>{selectedOpponent.friend_name}</span></h3></div>
+              <div className="text-center"><h3 className="text-lg font-black text-[#1b382b] flex items-center justify-center gap-2"><span className="text-[#2d6a4f]">{myUsername || pet?.pet_name || "Your Pet"}</span><span className="text-[#7a9386] text-sm">VS</span><span>{selectedOpponent.friend_name}</span></h3></div>
               {currentArena && (
                 <div className="bg-[#f4f8f5] p-4 rounded-2xl border border-[#e2ece5]">
                   <GameScene3D gridSize={currentArena.gridSize} startPos={currentArena.startPos} goalPos={currentArena.goalPos} obstacles={currentArena.obstacles}
                     crystals={currentArena.crystals.map(c => ({ x: c.x, y: c.y, collected: playerCrystals.some(pc => pc.x === c.x && pc.y === c.y) }))}
                     switches={currentArena.switches || []}
-                    activeStep={{ stepIndex: playerDuelStep, petPos: playerActivePos, petDir: "right", petAction: duelRacing ? "move_forward" : "idle", crystalsCollected: playerCrystals, openGates: [], status: duelResult?.winner === "player" ? "success" : duelResult?.winner === "opponent" ? "failed" : "running", message: duelResult?.message || "" }}
+                    activeStep={{
+                      stepIndex: playerDuelStep,
+                      petPos: playerActivePos,
+                      petDir: playerActiveDir,
+                      petAction: duelRacing ? (playerActiveStep?.petAction || "move_forward") : "idle",
+                      crystalsCollected: playerCrystals,
+                      openGates: playerActiveStep?.openGates || [],
+                      status: duelResult?.winner === "player" ? "success" : duelResult?.winner === "opponent" ? "failed" : "running",
+                      message: playerActiveStep?.message || duelResult?.message || ""
+                    }}
                     petType={pet?.pet_type || "cat"} equipped={pet?.equipped_items} theme="arena"
-                    opponentPet={{ type: selectedOpponent.friend_pet_type, pos: opponentActivePos, dir: "right", name: selectedOpponent.friend_name }}
+                    playerName={myUsername || pet?.pet_name || "You"}
+                    showNameTags={true}
+                    opponentPet={{ type: selectedOpponent.friend_pet_type, pos: opponentActivePos, dir: opponentActiveDir, name: selectedOpponent.friend_name }}
                     cameraPreset="iso" height="300px"
                   />
                 </div>
               )}
-              <div className="flex flex-wrap gap-1.5">
-                {(["move_up","move_down","move_left","move_right","interact"] as const).map((t) => (
-                  <button key={t} onClick={() => setDuelBlocks(prev => [...prev, { id: `d_${Date.now()}`, type: t }])} className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold cursor-pointer">+ {t.replace("move_","").replace("_"," ")}</button>
-                ))}
-                <button onClick={() => setDuelBlocks([])} className="px-2.5 py-1.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1"><Trash2 size={11} /> Clear</button>
+
+              {/* Instructions Toolbar */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-[#1b382b] flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-[#2d6a4f]" /> Algorithm Instructions:
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={handleAutoRoute}
+                      disabled={duelRacing}
+                      title="Automatically calculate safe route to portal"
+                      className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#d8e8dc] text-[#2d6a4f] border border-[#d3e2d8] rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                    >
+                      <Sparkles size={12} /> Auto-Route
+                    </button>
+                    <button
+                      onClick={() => setDuelBlocks([])}
+                      disabled={duelRacing}
+                      className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      <Trash2 size={12} /> Clear
+                    </button>
+                  </div>
+                </div>
+
+                {/* Move selector buttons */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { type: 'move_up', label: 'Up ⬆' },
+                    { type: 'move_down', label: 'Down ⬇' },
+                    { type: 'move_left', label: 'Left ⬅' },
+                    { type: 'move_right', label: 'Right ➡' },
+                    { type: 'move_forward', label: 'Forward 🐾' },
+                    { type: 'turn_left', label: 'Turn L ↺' },
+                    { type: 'turn_right', label: 'Turn R ↻' },
+                    { type: 'interact', label: 'Interact ✋' },
+                  ].map(({ type, label }) => (
+                    <button
+                      key={type}
+                      disabled={duelRacing}
+                      onClick={() => setDuelBlocks(prev => [...prev, { id: `d_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`, type: type as any }])}
+                      className="px-2.5 py-1.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#e2ece5] hover:border-[#2d6a4f]/30 text-[#1b382b] font-extrabold rounded-xl text-xs shadow-xs transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                    >
+                      + {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="min-h-[48px] max-h-[72px] overflow-y-auto bg-[#f4f8f5] p-2 rounded-xl border border-[#e2ece5] flex flex-wrap gap-1.5">
-                {duelBlocks.length === 0 ? <span className="text-xs text-[#7a9386]">Add moves above…</span>
-                  : duelBlocks.map((b, i) => <span key={i} className="px-2 py-0.5 bg-white border border-[#e2ece5] text-[10px] font-bold text-[#1b382b] rounded-lg flex items-center gap-1">#{i+1} {b.type.replace("move_","")}<button onClick={() => setDuelBlocks(prev => prev.filter((_,j)=>j!==i))} className="text-[#7a9386] hover:text-rose-600">×</button></span>)}
+
+              {/* Instructions sequence preview & Active step highlighting */}
+              <div className="min-h-[52px] max-h-[88px] overflow-y-auto bg-[#f4f8f5] p-2.5 rounded-2xl border border-[#e2ece5] flex flex-wrap gap-1.5 items-center">
+                {duelBlocks.length === 0 ? (
+                  <span className="text-xs text-[#7a9386]">Click buttons above to add moves or tap Auto-Route…</span>
+                ) : (
+                  duelBlocks.map((b, i) => {
+                    const isStepRunning = duelRacing && playerDuelStep === i + 1;
+                    const isStepPast = duelRacing && playerDuelStep > i + 1;
+                    return (
+                      <span
+                        key={b.id || i}
+                        className={`px-2 py-1 text-[11px] font-extrabold rounded-xl border flex items-center gap-1 transition-all ${
+                          isStepRunning
+                            ? 'bg-[#2d6a4f] text-white border-[#1b382b] shadow-md ring-2 ring-[#2d6a4f]/50 scale-105 animate-pulse'
+                            : isStepPast
+                            ? 'bg-[#eaf2ec] text-[#2d6a4f] border-[#d3e2d8]'
+                            : 'bg-white text-[#1b382b] border-[#e2ece5]'
+                        }`}
+                      >
+                        <span className="text-[9px] opacity-70">#{i + 1}</span>
+                        {b.type.replace('move_', '').replace('_', ' ')}
+                        {!duelRacing && (
+                          <button
+                            onClick={() => setDuelBlocks(prev => prev.filter((_, j) => j !== i))}
+                            className="text-[#7a9386] hover:text-rose-600 font-bold ml-0.5 cursor-pointer"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    );
+                  })
+                )}
               </div>
+
+              {/* Live Status indicator */}
+              <div className="flex items-center justify-between px-3 py-1.5 bg-[#f4f8f5] rounded-xl border border-[#e2ece5] text-[11px] text-[#5b7566] font-medium">
+                <span>📍 Facing: <strong className="text-[#1b382b] uppercase">{playerActiveDir}</strong> · Pos: <strong className="text-[#2d6a4f]">({playerActivePos.x}, {playerActivePos.y})</strong></span>
+                <span>🏁 Goal: <strong className="text-amber-700">({currentArena?.goalPos.x}, {currentArena?.goalPos.y})</strong></span>
+              </div>
+
               {duelResult && (
                 <div className={`p-4 rounded-2xl text-xs font-bold text-center ${duelResult.winner === "player" ? "bg-[#eaf2ec] border border-[#d3e2d8] text-[#2d6a4f]" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
                   <div className="text-sm font-black">{duelResult.winner === "player" ? "🏆 VICTORY!" : "⚡ RACE FINISHED"}</div>
                   <div>{duelResult.message}</div>
+                  {duelResult.winner !== "player" && (
+                    <div className="mt-1 text-[11px] font-normal text-rose-600">
+                      💡 Tip: "Up" moves toward the goal portal, while "Down" moves toward the front edge. Tap <strong>✨ Auto-Route</strong> to see an optimal route!
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex gap-3">

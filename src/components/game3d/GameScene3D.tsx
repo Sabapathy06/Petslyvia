@@ -38,6 +38,8 @@ export interface GameScene3DProps {
   theme?: SceneTheme;
   interactive?: boolean;
   onTileClick?: (pos: GridPos) => void;
+  playerName?: string;
+  showNameTags?: boolean;
   opponentPet?: {
     type: PetType;
     pos: GridPos;
@@ -50,6 +52,145 @@ export interface GameScene3DProps {
   height?: string | number;
   className?: string;
   emotion?: 'hearts' | 'stars' | 'tears' | 'zzz' | 'crumbs' | null;
+}
+
+/**
+ * Procedural ultra-crisp billboard Name Tag badge for 3D pets
+ * Always faces the camera, stays above the pet's head, depthTest disabled for 100% visibility.
+ */
+function createNameTagSprite(
+  name: string,
+  isCurrentPlayer: boolean = false
+): THREE.Sprite {
+  if (typeof document === 'undefined') return new THREE.Sprite();
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return new THREE.Sprite();
+
+  ctx.clearRect(0, 0, 512, 128);
+
+  const padX = 20;
+  const padY = 20;
+  const w = 512 - padX * 2;
+  const h = 128 - padY * 2;
+  const r = h / 2;
+
+  const drawPill = () => {
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(padX, padY, w, h, r);
+    } else {
+      ctx.moveTo(padX + r, padY);
+      ctx.lineTo(padX + w - r, padY);
+      ctx.quadraticCurveTo(padX + w, padY, padX + w, padY + r);
+      ctx.lineTo(padX + w, padY + h - r);
+      ctx.quadraticCurveTo(padX + w, padY + h, padX + w - r, padY + h);
+      ctx.lineTo(padX + r, padY + h);
+      ctx.quadraticCurveTo(padX, padY + h, padX, padY + h - r);
+      ctx.lineTo(padX, padY + r);
+      ctx.quadraticCurveTo(padX, padY, padX + r, padY);
+    }
+  };
+
+  // Outer glow shadow
+  ctx.save();
+  ctx.shadowColor = isCurrentPlayer ? 'rgba(16, 185, 129, 0.75)' : 'rgba(245, 158, 11, 0.75)';
+  ctx.shadowBlur = 18;
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(padX, padY, padX + w, padY + h);
+  if (isCurrentPlayer) {
+    grad.addColorStop(0, 'rgba(8, 38, 24, 0.96)');
+    grad.addColorStop(1, 'rgba(19, 78, 48, 0.98)');
+  } else {
+    grad.addColorStop(0, 'rgba(15, 23, 42, 0.96)');
+    grad.addColorStop(1, 'rgba(30, 41, 59, 0.98)');
+  }
+
+  drawPill();
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+
+  // Vibrant border stroke
+  drawPill();
+  ctx.lineWidth = 4.5;
+  ctx.strokeStyle = isCurrentPlayer ? '#10b981' : '#f59e0b';
+  ctx.stroke();
+
+  // Interior shine arc
+  ctx.save();
+  drawPill();
+  ctx.clip();
+  const shineGrad = ctx.createLinearGradient(padX, padY, padX, padY + h / 2);
+  shineGrad.addColorStop(0, 'rgba(255, 255, 255, 0.32)');
+  shineGrad.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
+  ctx.fillStyle = shineGrad;
+  ctx.fillRect(padX, padY, w, h / 2);
+  ctx.restore();
+
+  // Status indicator circle on left
+  const circleX = padX + 34;
+  const circleY = padY + h / 2;
+  ctx.beginPath();
+  ctx.arc(circleX, circleY, 11, 0, Math.PI * 2);
+  ctx.fillStyle = isCurrentPlayer ? '#34d399' : '#fbbf24';
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  // Clean name
+  let cleanName = (name || (isCurrentPlayer ? 'YOU' : 'RIVAL')).trim();
+  if (cleanName.length > 14) cleanName = cleanName.slice(0, 13) + '…';
+
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+
+  // Measure text
+  ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+  ctx.shadowBlur = 8;
+  ctx.fillText(cleanName, circleX + 22, circleY);
+
+  const nameWidth = ctx.measureText(cleanName).width;
+  const badgeX = circleX + 22 + nameWidth + 12;
+
+  // Suffix Pill
+  if (isCurrentPlayer) {
+    ctx.font = '900 21px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif';
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowBlur = 0;
+    ctx.fillText('★ (YOU)', badgeX, circleY);
+  } else {
+    ctx.font = '800 19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif';
+    ctx.fillStyle = '#fde68a';
+    ctx.shadowBlur = 0;
+    ctx.fillText('⚔️ RIVAL', badgeX, circleY);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+
+  const mat = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.9, 0.475, 1.0);
+  sprite.position.set(0, 1.45, 0);
+  sprite.renderOrder = 9999;
+
+  return sprite;
 }
 
 export function GameScene3D({
@@ -65,6 +206,8 @@ export function GameScene3D({
   theme = 'forest',
   interactive = false,
   onTileClick,
+  playerName = '',
+  showNameTags = true,
   opponentPet = null,
   cameraPreset = 'iso',
   onCameraPresetChange,
@@ -557,6 +700,13 @@ export function GameScene3D({
     scene.add(petModel.group);
     pet3DRef.current = petModel;
 
+    // Attach floating Name Tag to Player Pet
+    if (showNameTags) {
+      const petTag = createNameTagSprite(playerName || 'YOU', true);
+      petTag.name = 'PetNameTag';
+      petModel.group.add(petTag);
+    }
+
     // Set initial Pet position
     const initPetWorld = gridToWorld(startPos.x, startPos.y);
     petModel.group.position.copy(initPetWorld);
@@ -573,6 +723,12 @@ export function GameScene3D({
       const oppModel = createPet3D(opponentPet.type, null, 0.95);
       scene.add(oppModel.group);
       opponent3DRef.current = oppModel;
+
+      if (showNameTags) {
+        const oppTag = createNameTagSprite(opponentPet.name || 'Opponent', false);
+        oppTag.name = 'OpponentNameTag';
+        oppModel.group.add(oppTag);
+      }
 
       const oppInitWorld = gridToWorld(opponentPet.pos.x, opponentPet.pos.y);
       oppModel.group.position.copy(oppInitWorld);
@@ -1024,16 +1180,87 @@ export function GameScene3D({
     petTargetPosRef.current.copy(targetWorld);
     petTargetAngleRef.current = dirToAngle(activeStep.petDir);
     hopTimeRef.current = 0;
-  }, [activeStep.petPos, activeStep.petDir, gridToWorld]);
+  }, [activeStep.petPos.x, activeStep.petPos.y, activeStep.petDir, gridToWorld]);
 
-  // Update Opponent Pet if present
+  // Update Opponent Pet if present (Instantiate dynamically if added after mount)
   useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
     if (opponentPet) {
+      if (!opponent3DRef.current) {
+        const oppModel = createPet3D(opponentPet.type, null, 0.95);
+        scene.add(oppModel.group);
+        opponent3DRef.current = oppModel;
+
+        const oppInitWorld = gridToWorld(opponentPet.pos.x, opponentPet.pos.y);
+        oppModel.group.position.copy(oppInitWorld);
+        oppCurrentPosRef.current.copy(oppInitWorld);
+        oppTargetPosRef.current.copy(oppInitWorld);
+
+        const oppInitAngle = dirToAngle(opponentPet.dir);
+        oppModel.group.rotation.y = oppInitAngle;
+        oppCurrentAngleRef.current = oppInitAngle;
+      }
+
       const oppWorld = gridToWorld(opponentPet.pos.x, opponentPet.pos.y);
       oppTargetPosRef.current.copy(oppWorld);
       oppCurrentAngleRef.current = dirToAngle(opponentPet.dir);
+
+      if (showNameTags) {
+        const existingTag = opponent3DRef.current.group.getObjectByName('OpponentNameTag');
+        if (!existingTag) {
+          const oppTag = createNameTagSprite(opponentPet.name || 'Opponent', false);
+          oppTag.name = 'OpponentNameTag';
+          opponent3DRef.current.group.add(oppTag);
+        }
+      }
+    } else if (opponent3DRef.current) {
+      scene.remove(opponent3DRef.current.group);
+      opponent3DRef.current.cleanup();
+      opponent3DRef.current = null;
     }
-  }, [opponentPet, gridToWorld]);
+  }, [
+    opponentPet?.type,
+    opponentPet?.pos?.x,
+    opponentPet?.pos?.y,
+    opponentPet?.dir,
+    opponentPet?.name,
+    showNameTags,
+    gridToWorld,
+  ]);
+
+  // Synchronize Player Name Tag
+  useEffect(() => {
+    if (!pet3DRef.current || !showNameTags) return;
+    const existing = pet3DRef.current.group.getObjectByName('PetNameTag');
+    if (existing) {
+      pet3DRef.current.group.remove(existing);
+      if (existing instanceof THREE.Sprite) {
+        existing.material.map?.dispose();
+        existing.material.dispose();
+      }
+    }
+    const newTag = createNameTagSprite(playerName || 'YOU', true);
+    newTag.name = 'PetNameTag';
+    pet3DRef.current.group.add(newTag);
+  }, [playerName, showNameTags]);
+
+  // Synchronize Opponent Name Tag
+  useEffect(() => {
+    if (!opponent3DRef.current || !opponentPet || !showNameTags) return;
+    const existing = opponent3DRef.current.group.getObjectByName('OpponentNameTag');
+    if (existing) {
+      opponent3DRef.current.group.remove(existing);
+      if (existing instanceof THREE.Sprite) {
+        existing.material.map?.dispose();
+        existing.material.dispose();
+      }
+    }
+    const newTag = createNameTagSprite(opponentPet.name || 'Opponent', false);
+    newTag.name = 'OpponentNameTag';
+    opponent3DRef.current.group.add(newTag);
+  }, [opponentPet?.name, showNameTags]);
 
   // Trigger expressive 3D emotion bursts
   useEffect(() => {
