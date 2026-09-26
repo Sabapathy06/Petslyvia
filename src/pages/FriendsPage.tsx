@@ -409,7 +409,21 @@ export function FriendsPage() {
                     </span>
                   ) : searchResult.friendship_status === 'request_received' ? (
                     <button
-                      onClick={() => setActiveTab('requests')}
+                      onClick={async () => {
+                        const inReq = pendingRequests.find(
+                          (r) => r.friend_id.toUpperCase() === searchResult.friend_id.toUpperCase() || r.sender_user_id === searchResult.user_id
+                        );
+                        if (inReq) {
+                          const res = await respondRequest(inReq.request_id, 'accept');
+                          if (res.success) {
+                            sound.playVictory();
+                            setActionSuccessMessage(`You and ${searchResult.username} are now friends!`);
+                            setSearchResult({ ...searchResult, friendship_status: 'friends' });
+                          }
+                        } else {
+                          setActiveTab('requests');
+                        }
+                      }}
                       className="px-4 py-2 bg-[#2d6a4f] text-white text-xs font-black rounded-xl shadow-sm hover:bg-[#22533d] cursor-pointer flex items-center gap-1.5"
                     >
                       <UserCheck size={14} /> ACCEPT REQUEST
@@ -513,14 +527,23 @@ export function FriendsPage() {
                       <button
                         onClick={async () => {
                           const res = await respondRequest(req.request_id, 'accept');
-                          if (res.success) sound.playVictory();
+                          if (res.success) {
+                            sound.playVictory();
+                            setActionSuccessMessage(`You and ${req.username} are now friends! Check the "My Friends" tab.`);
+                          }
                         }}
                         className="px-3 py-1.5 bg-[#2d6a4f] hover:bg-[#22533d] text-white text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-sm"
                       >
                         <UserCheck size={13} /> ACCEPT
                       </button>
                       <button
-                        onClick={() => respondRequest(req.request_id, 'reject')}
+                        onClick={async () => {
+                          const res = await respondRequest(req.request_id, 'reject');
+                          if (res.success) {
+                            sound.playClick();
+                            setActionSuccessMessage(`Request from ${req.username} declined.`);
+                          }
+                        }}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-[#5b7566] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1"
                       >
                         <UserX size={13} /> DECLINE

@@ -6,7 +6,8 @@
  *  - Authoritative relationship status resolver
  *  - Live Realtime Presence binding (online, lobby, playing, finished, offline)
  *  - Real-time instant updates on request receive, accept, decline, and invite
- *  - Clean channel unsubscribe on unmount to prevent memory leaks
+ *  - Window focus sync & multi-channel broadcast listener
+ *  - Automatic public directory registration
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -30,6 +31,7 @@ import {
   respondRoomInvitation as apiRespondRoomInvitation,
   ensureFriendId,
   generateFriendId,
+  registerPublicProfile,
   type FriendEntry,
   type PendingFriendRequest,
   type RoomInvitation,
@@ -55,24 +57,41 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
   const [error, setError] = useState<string | null>(null);
   const [assignedFriendId, setAssignedFriendId] = useState<string | null>(profile?.friend_id || null);
 
-  const currentUserId = user?.id || profile?.id;
-  const channelRef = useRef<any>(null);
+  const currentUserId = user?.id || profile?.id || 'guest_user';
+  const socialChannelRef = useRef<any>(null);
+  const fidChannelRef = useRef<any>(null);
+  const globalChannelRef = useRef<any>(null);
 
-  // Sync / Ensure friend ID
+  // Sync / Ensure friend ID & auto-register public profile
   useEffect(() => {
     if (!currentUserId) return;
-    const fid = profile?.friend_id || generateFriendId(currentUserId);
+    const fid = profile?.friend_id || assignedFriendId || generateFriendId(currentUserId);
     setAssignedFriendId(fid);
     if (profile && !profile.friend_id) {
       profile.friend_id = fid;
     }
+
     void ensureFriendId(currentUserId, fid).then((confirmedFid) => {
-      if (confirmedFid && confirmedFid !== fid) {
-        setAssignedFriendId(confirmedFid);
-        if (profile) profile.friend_id = confirmedFid;
-      }
+      const activeFid = confirmedFid || fid;
+      setAssignedFriendId(activeFid);
+      if (profile) profile.friend_id = activeFid;
+
+      // Auto-register in global cloud directory
+      void registerPublicProfile({
+        user_id: currentUserId,
+        friend_id: activeFid,
+        username: profile?.display_name || profile?.username || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Explorer',
+        level: profile?.current_level || 1,
+        xp: profile?.total_xp || 50,
+        score: profile?.coins || 100,
+        avatar_url: profile?.avatar_url || null,
+        wins: profile?.bugs_solved || 0,
+        pet_type: profile?.pet_type || 'fox',
+        pet_name: profile?.pet_name || 'Companion',
+        pet_stage: profile?.pet_stage || 'infant',
+      });
     });
-  }, [currentUserId, profile?.friend_id]);
+  }, [currentUserId, profile?.friend_id, profile?.display_name, profile?.current_level, profile?.total_xp]);
 
   // Load initial friends, incoming & outgoing requests
   const refreshFriends = useCallback(async () => {
@@ -99,79 +118,87 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
     refreshFriends();
   }, [refreshFriends]);
 
-  // Subscribe to Realtime social updates with cleanup
+  // Refreshes on window focus so switching tabs/windows updates instantly
+  useEffect(() => {
+    const handleFocus = () => {
+      void refreshFriends();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshFriends]);
+
+  // Subscribe to Realtime social updates with cleanup across user & friend ID channels
   useEffect(() => {
     if (!currentUserId) return;
 
+    // 1. User ID channel
     const socialChannel = supabase
       .channel(`user-social:${currentUserId}`)
-      .on('broadcast', { event: 'friend_request' }, () => {
-        void refreshFriends();
-      })
-      .on('broadcast', { event: 'friend_request_accepted' }, () => {
-        void refreshFriends();
-      })
-      .on('broadcast', { event: 'friend_removed' }, () => {
-        void refreshFriends();
-      })
-      .on('broadcast', { event: 'room_invitation' }, () => {
-        void refreshFriends();
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'friend_requests',
-          filter: `receiver_user_id=eq.${currentUserId}`,
-        },
-        () => {
-          void refreshFriends();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'friend_requests',
-          filter: `sender_user_id=eq.${currentUserId}`,
-        },
-        () => {
-          void refreshFriends();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'room_invitations',
-          filter: `receiver_user_id=eq.${currentUserId}`,
-        },
-        () => {
-          void refreshFriends();
-        }
-      )
+      .on('broadcast', { event: 'friend_request' }, () => void refreshFriends())
+      .on('broadcast', { event: 'friend_request_accepted' }, () => void refreshFriends())
+      .on('broadcast', { event: 'friend_removed' }, () => void refreshFriends())
+      .on('broadcast', { event: 'friend_request_cancelled' }, () => void refreshFriends())
+      .on('broadcast', { event: 'room_invitation' }, () => void refreshFriends())
       .subscribe();
+    socialChannelRef.current = socialChannel;
 
-    channelRef.current = socialChannel;
+    // 2. Friend ID channel
+    const fid = assignedFriendId || profile?.friend_id;
+    if (fid) {
+      const fidChannel = supabase
+        .channel(`user-social:${fid}`)
+        .on('broadcast', { event: 'friend_request' }, () => void refreshFriends())
+        .on('broadcast', { event: 'friend_request_accepted' }, () => void refreshFriends())
+        .on('broadcast', { event: 'friend_removed' }, () => void refreshFriends())
+        .on('broadcast', { event: 'friend_request_cancelled' }, () => void refreshFriends())
+        .subscribe();
+      fidChannelRef.current = fidChannel;
+    }
 
+    // 3. Global social channel
+    const globalChannel = supabase
+      .channel('petslyvia:social_global')
+      .on('broadcast', { event: 'friend_request' }, (p: any) => {
+        if (p?.payload?.to === currentUserId || (fid && p?.payload?.toFid === fid)) {
+          void refreshFriends();
+        }
+      })
+      .on('broadcast', { event: 'friend_request_accepted' }, (p: any) => {
+        if (p?.payload?.to === currentUserId || (fid && p?.payload?.toFid === fid) || p?.payload?.from === currentUserId) {
+          void refreshFriends();
+        }
+      })
+      .on('broadcast', { event: 'friend_removed' }, () => void refreshFriends())
+      .subscribe();
+    globalChannelRef.current = globalChannel;
+
+    // 4. Lobby arena channel
     const lobbyChan = supabase.channel('arena:lobby');
     lobbyChan.on('broadcast', { event: 'social_event' }, (payload: any) => {
-      if (payload?.payload?.to === currentUserId || payload?.payload?.from === currentUserId) {
+      const p = payload?.payload;
+      if (p?.to === currentUserId || p?.from === currentUserId || (fid && (p?.toFid === fid || p?.fromFid === fid))) {
         void refreshFriends();
       }
     });
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      if (socialChannelRef.current) {
+        supabase.removeChannel(socialChannelRef.current);
+        socialChannelRef.current = null;
+      }
+      if (fidChannelRef.current) {
+        supabase.removeChannel(fidChannelRef.current);
+        fidChannelRef.current = null;
+      }
+      if (globalChannelRef.current) {
+        supabase.removeChannel(globalChannelRef.current);
+        globalChannelRef.current = null;
       }
       supabase.removeChannel(lobbyChan);
     };
-  }, [currentUserId, refreshFriends]);
+  }, [currentUserId, assignedFriendId, profile?.friend_id, refreshFriends]);
 
   // Combine friends with live presence status
   const friendsWithPresence = useMemo<FriendWithPresence[]>(() => {
@@ -181,7 +208,7 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
     }
 
     return friends.map((f) => {
-      const p = presenceMap.get(f.user_id) || Array.from(presenceMap.values()).find((pm) => pm.friendId === f.friend_id);
+      const p = presenceMap.get(f.user_id) || Array.from(presenceMap.values()).find((pm) => pm.friendId?.toUpperCase() === f.friend_id.toUpperCase());
       return {
         ...f,
         presence: p,
