@@ -6,7 +6,8 @@ import {
   Trophy, Swords, X, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
   Hand, Trash2, Box, Plus, Radio, RefreshCw,
   Wifi, WifiOff, Loader2, LogIn, LogOut as LeaveIcon,
-  Zap, Lock, Clock, UserPlus, UserCheck
+  Zap, Lock, Clock, UserPlus, UserCheck,
+  Award, Shield, Flame, RotateCcw, AlertCircle, HelpCircle, Code2
 } from "lucide-react";
 import { useGameData } from "@/hooks/useGameData";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,12 +42,20 @@ function StatusDot({ status }: { status: string }) {
 
 function ConnectionBanner({ status, reconnectCount }: { status: string; reconnectCount: number }) {
   if (status === "connected") return null;
+  const isBrowserOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+  if (!isBrowserOffline && (status === "connecting" || status === "disconnected")) {
+    if (status === "connecting") return null;
+  }
+
   return (
     <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
       className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-bold ${status === "reconnecting" ? "bg-amber-50 border border-amber-200 text-amber-700" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
       {status === "reconnecting"
-        ? <><Loader2 size={14} className="animate-spin" /> Reconnecting… (attempt {reconnectCount})</>
-        : <><WifiOff size={14} /> Multiplayer unavailable — internet connection required.</>}
+        ? <><Loader2 size={14} className="animate-spin" /> Reconnecting to multiplayer relay… (attempt {reconnectCount})</>
+        : isBrowserOffline
+        ? <><WifiOff size={14} /> Multiplayer offline — internet connection required.</>
+        : <><Loader2 size={14} className="animate-spin" /> Connecting to real-time multiplayer relay…</>}
     </motion.div>
   );
 }
@@ -316,6 +325,100 @@ function CreateRoomModal({ onClose, onCreate }: { onClose: () => void; onCreate:
   );
 }
 
+interface BlitzWall {
+  id: string;
+  wallNumber: number;
+  title: string;
+  question: string;
+  codeSnippet?: string;
+  options: { label: string; isCorrect: boolean }[];
+  explanation: string;
+}
+
+const BLITZ_WALLS: BlitzWall[] = [
+  {
+    id: "wall_1",
+    wallNumber: 1,
+    title: "Barrier 1: Array Pipeline",
+    question: "What is the output of [1, 2, 3].map(x => x * 2).filter(x => x > 2)?",
+    codeSnippet: "[1, 2, 3]\n  .map(x => x * 2)\n  .filter(x => x > 2);",
+    options: [
+      { label: "[4, 6]", isCorrect: true },
+      { label: "[2, 4, 6]", isCorrect: false },
+      { label: "[2, 4]", isCorrect: false },
+      { label: "[3, 6]", isCorrect: false },
+    ],
+    explanation: "[1, 2, 3] becomes [2, 4, 6], and filter(x > 2) leaves [4, 6].",
+  },
+  {
+    id: "wall_2",
+    wallNumber: 2,
+    title: "Barrier 2: Algorithm Complexity",
+    question: "What is the worst-case time complexity of Binary Search on a sorted array of N elements?",
+    options: [
+      { label: "O(log N)", isCorrect: true },
+      { label: "O(N)", isCorrect: false },
+      { label: "O(N log N)", isCorrect: false },
+      { label: "O(1)", isCorrect: false },
+    ],
+    explanation: "Binary search cuts the search space in half with each iteration: O(log N).",
+  },
+  {
+    id: "wall_3",
+    wallNumber: 3,
+    title: "Barrier 3: Web Protocols",
+    question: "Which HTTP status code signifies 'Unauthorized' (authentication credentials required)?",
+    options: [
+      { label: "401 Unauthorized", isCorrect: true },
+      { label: "403 Forbidden", isCorrect: false },
+      { label: "404 Not Found", isCorrect: false },
+      { label: "500 Server Error", isCorrect: false },
+    ],
+    explanation: "401 means authentication is missing or invalid; 403 means permission denied.",
+  },
+  {
+    id: "wall_4",
+    wallNumber: 4,
+    title: "Barrier 4: Debug the Loop Bounds",
+    question: "In Python, which range call iterates through all valid indices 0 to len(arr) - 1?",
+    codeSnippet: "for i in range(?):\n    print(arr[i])",
+    options: [
+      { label: "range(len(arr))", isCorrect: true },
+      { label: "range(len(arr) + 1)", isCorrect: false },
+      { label: "range(1, len(arr))", isCorrect: false },
+      { label: "range(0, len(arr) - 1)", isCorrect: false },
+    ],
+    explanation: "range(len(arr)) yields indices 0 up to len(arr) - 1.",
+  },
+  {
+    id: "wall_5",
+    wallNumber: 5,
+    title: "Barrier 5: Core Master Gate",
+    question: "According to De Morgan's Law, what is !(A && B) logically equivalent to?",
+    options: [
+      { label: "!A || !B", isCorrect: true },
+      { label: "!A && !B", isCorrect: false },
+      { label: "A || B", isCorrect: false },
+      { label: "!(!A && !B)", isCorrect: false },
+    ],
+    explanation: "De Morgan's law: NOT (A AND B) equals (NOT A) OR (NOT B).",
+  },
+];
+
+const MAZE_GRID_SIZE = { width: 6, height: 6 };
+const MAZE_START = { x: 0, y: 0 };
+const MAZE_GOAL = { x: 5, y: 5 };
+const MAZE_OBSTACLES = [
+  { x: 1, y: 1 }, { x: 2, y: 1 }, { x: 4, y: 1 },
+  { x: 2, y: 3 }, { x: 3, y: 3 }, { x: 1, y: 4 }, { x: 4, y: 4 },
+];
+const MAZE_CRYSTALS = [
+  { id: 'c1', x: 0, y: 3, collected: false },
+  { id: 'c2', x: 3, y: 1, collected: false },
+  { id: 'c3', x: 5, y: 2, collected: false },
+  { id: 'c4', x: 2, y: 5, collected: false },
+];
+
 function RoomPanel({
   room,
   sessions,
@@ -323,10 +426,18 @@ function RoomPanel({
   recentEvents,
   isReady,
   currentUserId,
+  pet,
+  profile,
   onToggleReady,
   onLeave,
   onCloseRoom,
   onLaunchGame,
+  onResetMatch,
+  onSubmitWall,
+  onBroadcastWallBreak,
+  onBroadcastProgress,
+  onFinishSession,
+  onCompleteMission,
 }: {
   room: GameRoom;
   sessions: any[];
@@ -334,92 +445,640 @@ function RoomPanel({
   recentEvents: any[];
   isReady: boolean;
   currentUserId: string;
+  pet: any;
+  profile: any;
   onToggleReady: () => void;
   onLeave: () => void;
   onCloseRoom: () => void;
-  onLaunchGame: () => void;
+  onLaunchGame: (payload?: any) => Promise<void>;
+  onResetMatch: () => Promise<void>;
+  onSubmitWall: (wallKey: string, isCorrect: boolean, wallNumber?: number) => Promise<any>;
+  onBroadcastWallBreak: (wallKey: string, xpAwarded: number) => Promise<void>;
+  onBroadcastProgress: (progress: number) => Promise<void>;
+  onFinishSession: (totalTimeSec?: number) => Promise<void>;
+  onCompleteMission: (missionId: string, xpReward: number, coinReward: number, skillRewards?: any) => Promise<any>;
 }) {
-  const isHost = currentUserId ? (room.host_id === currentUserId || (room.player_ids && room.player_ids[0] === currentUserId)) : false;
+  const currentUsername = profile?.username || "";
+  const isHost = currentUserId ? (
+    room.host_id === currentUserId ||
+    (room.player_ids && room.player_ids[0] === currentUserId) ||
+    Boolean(room.host_name && currentUsername && room.host_name.toLowerCase() === currentUsername.toLowerCase()) ||
+    Boolean(room.name && currentUsername && room.name.toLowerCase().includes(currentUsername.toLowerCase()))
+  ) : false;
+
+  const [gameMode, setGameMode] = useState<"blitz" | "maze">("blitz");
+
+  // Blitz state
+  const [activeWallIndex, setActiveWallIndex] = useState(0);
+  const [brokenWalls, setBrokenWalls] = useState<string[]>([]);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<{ correct: boolean; message: string } | null>(null);
+  const [blitzFinished, setBlitzFinished] = useState(false);
+  const [blitzScore, setBlitzScore] = useState(0);
+
+  // Maze state
+  const [mazeBlocks, setMazeBlocks] = useState<VisualBlock[]>([
+    { id: "m1", type: "move_down" },
+    { id: "m2", type: "move_down" },
+    { id: "m3", type: "move_right" },
+  ]);
+  const [mazeRacing, setMazeRacing] = useState(false);
+  const [mazeStep, setMazeStep] = useState(0);
+  const [mazeSimSteps, setMazeSimSteps] = useState<SimulationStep[]>([]);
+  const [mazeFinished, setMazeFinished] = useState(false);
+  const [mazeResult, setMazeResult] = useState<{ success: boolean; message: string } | null>(null);
+  const mazeRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Reset when room resets to waiting
+  useEffect(() => {
+    if (room.status === "waiting") {
+      setActiveWallIndex(0);
+      setBrokenWalls([]);
+      setSelectedOption(null);
+      setFeedback(null);
+      setBlitzFinished(false);
+      setBlitzScore(0);
+      setMazeFinished(false);
+      setMazeStep(0);
+      setMazeSimSteps([]);
+      setMazeResult(null);
+      setMazeRacing(false);
+      if (mazeRef.current) clearInterval(mazeRef.current);
+    }
+  }, [room.status]);
+
+  useEffect(() => () => {
+    if (mazeRef.current) clearInterval(mazeRef.current);
+  }, []);
+
+  const handleAnswerBlitz = async (idx: number) => {
+    if (blitzFinished || feedback?.correct) return;
+    const currentWall = BLITZ_WALLS[activeWallIndex];
+    if (!currentWall) return;
+
+    setSelectedOption(idx);
+    const isCorrect = currentWall.options[idx]?.isCorrect;
+
+    if (isCorrect) {
+      sound.playVictory();
+      setBlitzScore((prev) => prev + 25);
+      setBrokenWalls((prev) => [...prev, currentWall.id]);
+      setFeedback({ correct: true, message: `💥 Barrier ${currentWall.wallNumber} breached! +25 XP` });
+
+      await onBroadcastWallBreak(currentWall.id, 25);
+      await onSubmitWall(currentWall.id, true, currentWall.wallNumber);
+      const newProgress = Math.round(((activeWallIndex + 1) / BLITZ_WALLS.length) * 100);
+      await onBroadcastProgress(newProgress);
+
+      setTimeout(async () => {
+        setSelectedOption(null);
+        setFeedback(null);
+        if (activeWallIndex + 1 >= BLITZ_WALLS.length) {
+          setBlitzFinished(true);
+          sound.playVictory();
+          await onFinishSession();
+          await onCompleteMission("multiplayer_blitz", 125, 50, { logic: 25, focus: 20 });
+        } else {
+          setActiveWallIndex((prev) => prev + 1);
+        }
+      }, 900);
+    } else {
+      sound.playError();
+      setFeedback({ correct: false, message: "❌ Access Denied! Review the logic and try again." });
+      setTimeout(() => {
+        setSelectedOption(null);
+        setFeedback(null);
+      }, 1200);
+    }
+  };
+
+  const handleRunMaze = () => {
+    if (mazeBlocks.length === 0) {
+      sound.playError();
+      return;
+    }
+    sound.playClick();
+    setMazeRacing(true);
+    setMazeResult(null);
+
+    const sim = runDeterministicSimulation(
+      MAZE_GRID_SIZE,
+      MAZE_START,
+      "right",
+      MAZE_GOAL,
+      MAZE_OBSTACLES,
+      MAZE_CRYSTALS,
+      [],
+      mazeBlocks
+    );
+
+    setMazeSimSteps(sim.steps);
+    let step = 0;
+    if (mazeRef.current) clearInterval(mazeRef.current);
+
+    mazeRef.current = setInterval(async () => {
+      step++;
+      if (step < sim.steps.length) {
+        setMazeStep(step);
+        sound.playStep();
+        const progress = Math.min(100, Math.round((step / sim.steps.length) * 100));
+        onBroadcastProgress(progress);
+      } else {
+        if (mazeRef.current) {
+          clearInterval(mazeRef.current);
+          mazeRef.current = null;
+        }
+        setMazeRacing(false);
+        if (sim.success) {
+          sound.playVictory();
+          setMazeFinished(true);
+          setMazeResult({ success: true, message: "🏆 Goal Portal Reached! Maze Solved!" });
+          await onBroadcastProgress(100);
+          await onFinishSession();
+          await onCompleteMission("multiplayer_maze", 150, 60, { algorithm: 30, logic: 20 });
+        } else {
+          sound.playError();
+          setMazeResult({ success: false, message: `❌ Maze Incomplete: ${sim.message}` });
+        }
+      }
+    }, 420);
+  };
+
+  const handleResetRound = async () => {
+    sound.playClick();
+    setActiveWallIndex(0);
+    setBrokenWalls([]);
+    setBlitzFinished(false);
+    setBlitzScore(0);
+    setSelectedOption(null);
+    setFeedback(null);
+    setMazeFinished(false);
+    setMazeStep(0);
+    setMazeSimSteps([]);
+    setMazeResult(null);
+    setMazeRacing(false);
+    if (mazeRef.current) clearInterval(mazeRef.current);
+    await onResetMatch();
+  };
+
+  const mazeActivePos = mazeSimSteps.length > 0 && mazeSimSteps[mazeStep]
+    ? mazeSimSteps[mazeStep].petPos
+    : MAZE_START;
+  const mazeCrystalsCollected = mazeSimSteps.length > 0 && mazeSimSteps[mazeStep]
+    ? mazeSimSteps[mazeStep].crystalsCollected
+    : [];
+
+  const isMatchActive = room.status === "playing";
+  const currentWall = BLITZ_WALLS[activeWallIndex] ?? BLITZ_WALLS[BLITZ_WALLS.length - 1];
 
   return (
     <div className="space-y-4">
-      <div className={`rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-card ${isHost ? "bg-gradient-to-r from-[#1b382b] via-[#214736] to-[#1b382b] border-2 border-amber-400/40" : "bg-[#1b382b]"}`}>
+      {/* Room Header Banner */}
+      <div className={`rounded-3xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-card ${isHost ? "bg-gradient-to-r from-[#1b382b] via-[#214736] to-[#1b382b] border-2 border-amber-400/40" : "bg-[#1b382b]"}`}>
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400" />
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isMatchActive ? "bg-amber-400" : "bg-emerald-400"} opacity-75`} />
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${isMatchActive ? "bg-amber-400" : "bg-emerald-400"}`} />
             </span>
-            <span className="text-emerald-300 text-xs font-black uppercase tracking-widest">Live Room</span>
+            <span className={`text-xs font-black uppercase tracking-widest ${isMatchActive ? "text-amber-300" : "text-emerald-300"}`}>
+              {isMatchActive ? "🔥 Match In Progress" : "🟢 Waiting In Lobby"}
+            </span>
             {isHost && (
               <span className="px-2.5 py-0.5 bg-amber-400 text-amber-950 text-[10px] font-black rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm">
                 👑 YOU ARE HOST
               </span>
             )}
           </div>
-          <h2 className="text-xl font-black text-white">{room.name}</h2>
-          <p className="text-emerald-200 text-xs mt-0.5">
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">{room.name}</h2>
+          <p className="text-emerald-200 text-xs mt-1">
             {Math.max(roomPlayers.length, sessions.filter((s: any) => s.status !== "disconnected").length, 1)} / {room.max_players} players
-            {room.host_name ? ` · Host: ${isHost ? 'You' : room.host_name}` : ''}
-            {room.mission_id ? ` · Mission: ${room.mission_id}` : " · Open Practice"}
+            {room.host_name ? ` · Host: ${isHost ? "You" : room.host_name}` : ""}
+            {` · Mode: ${gameMode === "blitz" ? "Logic Wall Blitz" : "Crystal Maze Sprint"}`}
           </p>
         </div>
+
+        {/* Room Header Controls */}
         <div className="flex flex-wrap items-center gap-2">
+          {isHost && (
+            isMatchActive ? (
+              <button
+                onClick={handleResetRound}
+                className="px-4 py-2 rounded-xl text-xs font-black bg-white/20 hover:bg-white/30 text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+              >
+                <RotateCcw size={13} /> Reset / Next Round
+              </button>
+            ) : (
+              <button
+                onClick={() => onLaunchGame({ mode: gameMode })}
+                className="px-4 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-amber-950 transition-all cursor-pointer flex items-center gap-2 shadow-lg active:scale-95 animate-pulse"
+              >
+                <Sparkles size={14} /> 🚀 Start Match
+              </button>
+            )
+          )}
+
+          <button
+            onClick={onToggleReady}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${isReady ? "bg-emerald-400 text-white" : "bg-white/20 text-white hover:bg-white/30"}`}
+          >
+            <CheckCircle2 size={13} /> {isReady ? "Ready!" : "Set Ready"}
+          </button>
+
           {isHost ? (
-            <>
-              {room.status === 'waiting' && (
-                <button
-                  onClick={onLaunchGame}
-                  className="px-4 py-2 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-amber-950 transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
-                >
-                  <Sparkles size={13} /> Start Match
-                </button>
-              )}
-              <button
-                onClick={onToggleReady}
-                className={`px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${isReady ? "bg-emerald-400 text-white" : "bg-white/20 text-white hover:bg-white/30"}`}
-              >
-                <CheckCircle2 size={13} /> {isReady ? "Ready!" : "Set Ready"}
-              </button>
-              <button
-                onClick={onCloseRoom}
-                className="px-3.5 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
-                title="Close room and return all players to lobby"
-              >
-                <Trash2 size={13} /> Close Room
-              </button>
-            </>
+            <button
+              onClick={onCloseRoom}
+              className="px-3.5 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+              title="Close room and return all players to lobby"
+            >
+              <Trash2 size={13} /> Close Room
+            </button>
           ) : (
-            <>
-              <button
-                onClick={onToggleReady}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${isReady ? "bg-emerald-400 text-white" : "bg-white/20 text-white hover:bg-white/30"}`}
-              >
-                <CheckCircle2 size={13} /> {isReady ? "Ready!" : "Set Ready"}
-              </button>
-              <button
-                onClick={onLeave}
-                className="px-4 py-2 rounded-xl text-xs font-black bg-rose-500/80 hover:bg-rose-500 text-white transition-all cursor-pointer flex items-center gap-1.5"
-              >
-                <LeaveIcon size={13} /> Leave Room
-              </button>
-            </>
+            <button
+              onClick={onLeave}
+              className="px-4 py-2 rounded-xl text-xs font-black bg-rose-500/80 hover:bg-rose-500 text-white transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <LeaveIcon size={13} /> Leave Room
+            </button>
           )}
         </div>
       </div>
+
+      {/* Mode Selector & Lobby Notification */}
+      <div className="bg-white rounded-2xl p-3 border border-[#e2ece5] shadow-soft flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-[#5b7566]">Challenge Mode:</span>
+          <div className="flex bg-[#f4f8f5] p-1 rounded-xl border border-[#e2ece5] gap-1">
+            <button
+              onClick={() => { setGameMode("blitz"); sound.playClick(); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${gameMode === "blitz" ? "bg-[#2d6a4f] text-white shadow-xs" : "text-[#5b7566] hover:text-[#1b382b]"}`}
+            >
+              <Flame size={13} /> Logic Wall Blitz
+            </button>
+            <button
+              onClick={() => { setGameMode("maze"); sound.playClick(); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${gameMode === "maze" ? "bg-[#2d6a4f] text-white shadow-xs" : "text-[#5b7566] hover:text-[#1b382b]"}`}
+            >
+              <Box size={13} /> Crystal Maze Sprint
+            </button>
+          </div>
+        </div>
+
+        {!isMatchActive && (
+          <div className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-1.5">
+            {isHost ? (
+              <>💡 Click <strong>"Start Match"</strong> above when all players are ready to race!</>
+            ) : (
+              <>⏳ Waiting for host to click Start Match. You can practice below!</>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Live Match Race Tracker (Realtime Progress of all players) */}
+      <div className="bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Award size={16} className="text-amber-500" />
+            <h3 className="font-extrabold text-sm text-[#1b382b]">Live Multi-Player Race Tracker</h3>
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+              {roomPlayers.length} Connected
+            </span>
+          </div>
+          <span className="text-xs font-bold text-[#5b7566]">
+            {isMatchActive ? "⚡ Real-time Speed" : "Waiting for Start"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {roomPlayers.map((p: any, idx: number) => {
+            const isMe = p.userId === currentUserId;
+            const progress = p.progress ?? 0;
+            const isWinner = progress >= 100;
+            return (
+              <div
+                key={p.userId || idx}
+                className={`p-3 rounded-2xl border transition-all ${
+                  isWinner
+                    ? "bg-amber-50/80 border-amber-300 shadow-sm"
+                    : isMe
+                    ? "bg-[#f4f8f5] border-[#2d6a4f]/40"
+                    : "bg-white border-[#e2ece5]"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-white border border-[#e2ece5] flex items-center justify-center shrink-0">
+                      <PetSVG type={p.petType || "fox"} stage={p.petStage || "child"} state={isWinner ? "happy" : "normal"} size={24} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="font-extrabold text-xs text-[#1b382b] truncate">{p.username}</span>
+                        {isMe && <span className="text-[8px] bg-[#2d6a4f] text-white font-black px-1 rounded">YOU</span>}
+                        {(p.userId === room.host_id || p.userId === room.player_ids?.[0]) && (
+                          <span className="text-[8px] bg-amber-100 text-amber-800 font-bold px-1 rounded border border-amber-200">
+                            👑 Host
+                          </span>
+                        )}
+                        {isWinner && <span className="text-[9px] font-black text-amber-600">🥇 FINISHED!</span>}
+                      </div>
+                      <span className="text-[9px] text-[#7a9386]">
+                        {p.wallsBroken ? `${p.wallsBroken} walls · ` : ""}{p.score ?? 0} pts
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-[#2d6a4f] shrink-0">{progress}%</span>
+                </div>
+                <div className="w-full bg-[#e2ece5] h-2 rounded-full overflow-hidden">
+                  <motion.div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      isWinner ? "bg-gradient-to-r from-amber-400 to-amber-500" : "bg-gradient-to-r from-emerald-400 to-[#2d6a4f]"
+                    }`}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Victory Podium Modal/Card */}
+      {(blitzFinished || mazeFinished) && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-gradient-to-br from-amber-50 via-white to-emerald-50 rounded-3xl p-6 border-2 border-amber-300 shadow-card text-center space-y-4"
+        >
+          <div className="text-5xl animate-bounce">🏆</div>
+          <h3 className="text-2xl font-black text-[#1b382b]">Challenge Complete!</h3>
+          <p className="text-xs text-[#5b7566] max-w-md mx-auto">
+            Spectacular performance! You crushed the challenge, earned rewards for your pet, and synced with the arena leaderboard.
+          </p>
+          <div className="flex items-center justify-center gap-6 py-2">
+            <div className="bg-white px-4 py-2 rounded-2xl border border-amber-200 shadow-sm">
+              <span className="text-[10px] font-bold text-[#7a9386] block">XP EARNED</span>
+              <span className="text-lg font-black text-amber-600">+{gameMode === "blitz" ? 125 : 150} XP</span>
+            </div>
+            <div className="bg-white px-4 py-2 rounded-2xl border border-emerald-200 shadow-sm">
+              <span className="text-[10px] font-bold text-[#7a9386] block">COINS EARNED</span>
+              <span className="text-lg font-black text-[#2d6a4f]">+{gameMode === "blitz" ? 50 : 60} Coins</span>
+            </div>
+          </div>
+          {isHost ? (
+            <button
+              onClick={handleResetRound}
+              className="px-6 py-3 rounded-2xl text-sm font-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-amber-950 shadow-md cursor-pointer transition-all active:scale-95 inline-flex items-center gap-2"
+            >
+              <RotateCcw size={16} /> Start Next Round / Play Again
+            </button>
+          ) : (
+            <div className="text-xs text-[#7a9386] font-bold">
+              Waiting for host to start the next round…
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* Interactive Arena - Logic Wall Blitz */}
+      {gameMode === "blitz" && !blitzFinished && (
+        <div className="bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#e2ece5] pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Flame size={18} className="text-amber-500" />
+                <h3 className="font-black text-base text-[#1b382b]">Logic Wall Blitz</h3>
+                <span className="text-xs bg-[#eaf2ec] text-[#2d6a4f] font-bold px-2 py-0.5 rounded-full">
+                  Barrier {activeWallIndex + 1} of {BLITZ_WALLS.length}
+                </span>
+              </div>
+              <p className="text-xs text-[#5b7566] mt-0.5">
+                Answer each computer science & logic challenge to breach the firewall barriers!
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] text-[#7a9386] font-bold uppercase block">Your Score</span>
+              <span className="text-base font-black text-amber-600">{blitzScore} XP</span>
+            </div>
+          </div>
+
+          {/* Wall Visual Progress */}
+          <div className="grid grid-cols-5 gap-2">
+            {BLITZ_WALLS.map((w, i) => {
+              const isBroken = brokenWalls.includes(w.id);
+              const isCurrent = i === activeWallIndex;
+              return (
+                <div
+                  key={w.id}
+                  className={`p-2 rounded-xl text-center border transition-all ${
+                    isBroken
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                      : isCurrent
+                      ? "bg-amber-50 border-amber-400 text-amber-900 shadow-sm animate-pulse"
+                      : "bg-[#f4f8f5] border-[#e2ece5] text-[#7a9386]"
+                  }`}
+                >
+                  <div className="text-sm">{isBroken ? "💥" : isCurrent ? "⚡" : "🔒"}</div>
+                  <div className="text-[10px] font-bold mt-0.5 truncate">Wall {w.wallNumber}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Question & Interactive Choices */}
+          <div className="bg-[#f4f8f5] rounded-2xl p-5 border border-[#e2ece5] space-y-4">
+            <div>
+              <span className="text-[10px] font-black uppercase text-[#2d6a4f] tracking-wider block mb-1">
+                {currentWall.title}
+              </span>
+              <h4 className="text-sm sm:text-base font-bold text-[#1b382b]">
+                {currentWall.question}
+              </h4>
+            </div>
+
+            {currentWall.codeSnippet && (
+              <pre className="bg-[#1b382b] text-emerald-300 text-xs font-mono p-3 rounded-xl overflow-x-auto border border-[#2d6a4f]/50">
+                <code>{currentWall.codeSnippet}</code>
+              </pre>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              {currentWall.options.map((opt, idx) => {
+                const isSelected = selectedOption === idx;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleAnswerBlitz(idx)}
+                    disabled={feedback?.correct === true}
+                    className={`p-3 rounded-xl border text-left text-xs font-bold transition-all cursor-pointer active:scale-98 flex items-center justify-between ${
+                      isSelected
+                        ? opt.isCorrect
+                          ? "bg-emerald-50 border-emerald-400 text-emerald-900 ring-2 ring-emerald-300"
+                          : "bg-rose-50 border-rose-300 text-rose-900"
+                        : "bg-white hover:bg-[#eaf2ec] border-[#e2ece5] text-[#1b382b] hover:border-[#2d6a4f]"
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    <span className="text-[10px] text-[#7a9386] ml-2 shrink-0">#{idx + 1}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {feedback && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-3 rounded-xl text-xs font-bold text-center ${
+                  feedback.correct
+                    ? "bg-emerald-100 border border-emerald-300 text-emerald-900"
+                    : "bg-rose-100 border border-rose-300 text-rose-900"
+                }`}
+              >
+                {feedback.message}
+              </motion.div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Arena - Crystal Maze Sprint */}
+      {gameMode === "maze" && !mazeFinished && (
+        <div className="bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#e2ece5] pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Box size={18} className="text-[#2d6a4f]" />
+                <h3 className="font-black text-base text-[#1b382b]">Crystal Maze Sprint</h3>
+                <span className="text-xs bg-[#eaf2ec] text-[#2d6a4f] font-bold px-2 py-0.5 rounded-full">
+                  Realtime Algorithm Race
+                </span>
+              </div>
+              <p className="text-xs text-[#5b7566] mt-0.5">
+                Construct movement blocks to navigate the maze, collect crystals (+20 XP), and reach the portal!
+              </p>
+            </div>
+            <button
+              onClick={handleRunMaze}
+              disabled={mazeRacing || mazeBlocks.length === 0}
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-[#2d6a4f] hover:from-emerald-500 hover:to-[#22533d] disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+            >
+              <Play size={14} className={mazeRacing ? "animate-spin" : ""} />
+              {mazeRacing ? "Executing…" : "Run Algorithm"}
+            </button>
+          </div>
+
+          {/* 3D Maze Simulation View */}
+          <div className="bg-[#f4f8f5] p-3 rounded-2xl border border-[#e2ece5] overflow-hidden">
+            <GameScene3D
+              gridSize={MAZE_GRID_SIZE}
+              startPos={MAZE_START}
+              goalPos={MAZE_GOAL}
+              obstacles={MAZE_OBSTACLES}
+              crystals={MAZE_CRYSTALS.map((c) => ({
+                x: c.x,
+                y: c.y,
+                collected: mazeCrystalsCollected.some((pc) => pc.x === c.x && pc.y === c.y),
+              }))}
+              switches={[]}
+              activeStep={{
+                stepIndex: mazeStep,
+                petPos: mazeActivePos,
+                petDir: "right",
+                petAction: mazeRacing ? "move_forward" : "idle",
+                crystalsCollected: mazeCrystalsCollected,
+                openGates: [],
+                status: mazeResult?.success ? "success" : mazeResult?.success === false ? "failed" : "running",
+                message: mazeResult?.message || "",
+              }}
+              petType={pet?.pet_type || "fox"}
+              equipped={pet?.equipped_items}
+              theme="arena"
+              cameraPreset="iso"
+              height="280px"
+            />
+          </div>
+
+          {/* Command Blocks Toolbar */}
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5 items-center justify-between">
+              <div className="flex flex-wrap gap-1.5">
+                {(["move_up", "move_down", "move_left", "move_right", "interact"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      setMazeBlocks((prev) => [...prev, { id: `m_${Date.now()}_${Math.random()}`, type: t }]);
+                      sound.playClick();
+                    }}
+                    disabled={mazeRacing}
+                    className="px-2.5 py-1.5 bg-[#eaf2ec] hover:bg-[#dde9e0] disabled:opacity-50 border border-[#d3e2d8] text-[#2d6a4f] rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-95 flex items-center gap-1"
+                  >
+                    <Plus size={11} /> {t.replace("move_", "").replace("_", " ")}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => { setMazeBlocks([]); sound.playClick(); }}
+                disabled={mazeRacing}
+                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1"
+              >
+                <Trash2 size={11} /> Clear
+              </button>
+            </div>
+
+            {/* Block Sequence Strip */}
+            <div className="min-h-[48px] max-h-[72px] overflow-y-auto bg-[#f4f8f5] p-2 rounded-xl border border-[#e2ece5] flex flex-wrap gap-1.5">
+              {mazeBlocks.length === 0 ? (
+                <span className="text-xs text-[#7a9386] py-1">Add movement blocks above to plot your route…</span>
+              ) : (
+                mazeBlocks.map((b, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-0.5 bg-white border border-[#e2ece5] text-[10px] font-bold text-[#1b382b] rounded-lg flex items-center gap-1 shadow-2xs"
+                  >
+                    #{i + 1} {b.type.replace("move_", "")}
+                    <button
+                      onClick={() => setMazeBlocks((prev) => prev.filter((_, j) => j !== i))}
+                      disabled={mazeRacing}
+                      className="text-[#7a9386] hover:text-rose-600 ml-0.5 cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+
+            {mazeResult && (
+              <div className={`p-3 rounded-xl text-xs font-bold text-center ${mazeResult.success ? "bg-[#eaf2ec] border border-[#d3e2d8] text-[#2d6a4f]" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
+                {mazeResult.message}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Players in Room & Live Events */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card space-y-3">
-          <h3 className="font-extrabold text-sm text-[#1b382b] flex items-center gap-2"><Users size={15} className="text-[#2d6a4f]" /> Players in Room</h3>
+          <h3 className="font-extrabold text-sm text-[#1b382b] flex items-center gap-2">
+            <Users size={15} className="text-[#2d6a4f]" /> Players in Room ({roomPlayers.length})
+          </h3>
           <div className="space-y-2">
-            {roomPlayers.length === 0
-              ? <div className="text-center py-6 text-[#7a9386] text-xs">Connecting to room channel…</div>
-              : roomPlayers.map((p: any) => (
+            {roomPlayers.length === 0 ? (
+              <div className="text-center py-6 text-[#7a9386] text-xs">Connecting to room channel…</div>
+            ) : (
+              roomPlayers.map((p: any) => (
                 <div key={p.userId} className="flex items-center gap-3 p-3 bg-[#f4f8f5] rounded-xl border border-[#e2ece5]">
                   <div className="relative shrink-0">
                     <div className="w-9 h-9 rounded-lg bg-white border border-[#e2ece5] flex items-center justify-center">
-                      <PetSVG type={p.petType} stage={p.petStage} state="happy" size={28} />
+                      <PetSVG type={p.petType || "fox"} stage={p.petStage || "child"} state="happy" size={28} />
                     </div>
-                    {p.userId === currentUserId && <span className="absolute -top-1 -right-1 text-[7px] bg-[#2d6a4f] text-white font-black px-0.5 rounded">YOU</span>}
+                    {p.userId === currentUserId && (
+                      <span className="absolute -top-1 -right-1 text-[7px] bg-[#2d6a4f] text-white font-black px-0.5 rounded">
+                        YOU
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -435,37 +1094,77 @@ function RoomPanel({
                     {p.status === "playing" && (
                       <div className="mt-1">
                         <div className="h-1 bg-[#e2ece5] rounded-full overflow-hidden">
-                          <motion.div className="h-full bg-emerald-400 rounded-full" animate={{ width: `${p.progress ?? 0}%` }} transition={{ duration: 0.5 }} />
+                          <motion.div
+                            className="h-full bg-emerald-400 rounded-full"
+                            animate={{ width: `${p.progress ?? 0}%` }}
+                            transition={{ duration: 0.5 }}
+                          />
                         </div>
                         <div className="flex justify-between mt-0.5">
-                          <span className="text-[8px] text-[#7a9386]">{p.progress ?? 0}% · {p.wallsBroken ?? 0} walls</span>
+                          <span className="text-[8px] text-[#7a9386]">
+                            {p.progress ?? 0}% · {p.wallsBroken ?? 0} walls
+                          </span>
                           <span className="text-[8px] font-black text-amber-600">{p.score ?? 0} pts</span>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
-              ))}
+              ))
+            )}
           </div>
         </div>
+
         <div className="bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card space-y-3">
-          <h3 className="font-extrabold text-sm text-[#1b382b] flex items-center gap-2"><Zap size={15} className="text-amber-500" /> Live Events</h3>
+          <h3 className="font-extrabold text-sm text-[#1b382b] flex items-center gap-2">
+            <Zap size={15} className="text-amber-500" /> Live Room Feed
+          </h3>
           <div className="space-y-2 max-h-[260px] overflow-y-auto">
-            {recentEvents.length === 0
-              ? <div className="text-center py-6 text-[#7a9386] text-xs">Events appear as players play…</div>
-              : recentEvents.slice(0, 20).map((evt: any, i: number) => (
+            {recentEvents.length === 0 ? (
+              <div className="text-center py-6 text-[#7a9386] text-xs">Events appear as players race and breach walls…</div>
+            ) : (
+              recentEvents.slice(0, 20).map((evt: any, i: number) => (
                 <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex items-start gap-2 text-xs">
                   <span className="mt-0.5 text-base">
-                    {evt.type === "wall_broken" ? "💥" : evt.type === "player_finished" ? "🏆" : evt.type === "player_joined" ? "👋" : evt.type === "player_left" ? "💨" : evt.type === "player_ready" ? "✅" : evt.type === "wrong_answer" ? "❌" : "⚡"}
+                    {evt.type === "wall_broken"
+                      ? "💥"
+                      : evt.type === "player_finished"
+                      ? "🏆"
+                      : evt.type === "player_joined"
+                      ? "👋"
+                      : evt.type === "player_left"
+                      ? "💨"
+                      : evt.type === "player_ready"
+                      ? "✅"
+                      : evt.type === "host_started_game"
+                      ? "🚀"
+                      : evt.type === "room_reset_waiting"
+                      ? "🔄"
+                      : "⚡"}
                   </span>
                   <div className="min-w-0">
                     <span className="font-bold text-[#1b382b]">{evt.payload?.username ?? "Player"}</span>
                     <span className="text-[#5b7566]">
-                      {evt.type === "wall_broken" ? ` broke a wall! (+${evt.payload?.xpAwarded ?? 0} XP)` : evt.type === "player_finished" ? ` finished!${evt.payload?.isFirst ? " 🥇" : ""}` : evt.type === "player_joined" ? " joined" : evt.type === "player_left" ? " left" : evt.type === "player_ready" ? ` is ${evt.payload?.isReady ? "ready" : "not ready"}` : ` ${evt.type.replace(/_/g," ")}`}
+                      {evt.type === "wall_broken"
+                        ? ` broke a firewall barrier! (+${evt.payload?.xpAwarded ?? 0} XP)`
+                        : evt.type === "player_finished"
+                        ? ` finished the race!${evt.payload?.isFirst ? " 🥇 Winner!" : ""}`
+                        : evt.type === "player_joined"
+                        ? " joined the room"
+                        : evt.type === "player_left"
+                        ? " left the room"
+                        : evt.type === "player_ready"
+                        ? ` is ${evt.payload?.isReady ? "ready" : "not ready"}`
+                        : evt.type === "host_started_game"
+                        ? " launched the challenge match!"
+                        : evt.type === "room_reset_waiting"
+                        ? " reset the room for next round"
+                        : ` ${evt.type.replace(/_/g, " ")}`}
                     </span>
                   </div>
                 </motion.div>
-              ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -484,7 +1183,8 @@ export function MultiplayerPage() {
     openRooms, loadingRooms, refreshRooms,
     currentRoom, currentSession, roomPlayers, roomSessions, recentEvents,
     createAndJoinRoom, joinExistingRoom, quickMatch, leaveCurrentRoom,
-    closeCurrentRoom, closeRoomById, launchGame, toggleReady,
+    closeCurrentRoom, closeRoomById, launchGame, resetMatch, toggleReady,
+    submitWall, broadcastWallBreak, broadcastProgress, finishCurrentSession,
     leaderboard, leaderboardType, loadingLb, setLeaderboardType, refreshLeaderboard,
   } = useMultiplayerRoom();
 
@@ -726,10 +1426,18 @@ export function MultiplayerPage() {
               recentEvents={recentEvents}
               isReady={currentSession?.is_ready ?? false}
               currentUserId={myUserId}
+              pet={pet}
+              profile={profile}
               onToggleReady={toggleReady}
               onLeave={leaveCurrentRoom}
               onCloseRoom={closeCurrentRoom}
               onLaunchGame={launchGame}
+              onResetMatch={resetMatch}
+              onSubmitWall={submitWall}
+              onBroadcastWallBreak={broadcastWallBreak}
+              onBroadcastProgress={broadcastProgress}
+              onFinishSession={finishCurrentSession}
+              onCompleteMission={completeMission}
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

@@ -81,7 +81,8 @@ export interface UseMultiplayerRoomReturn {
   leaveCurrentRoom:  () => Promise<void>;
   closeCurrentRoom:  () => Promise<void>;
   closeRoomById:     (roomId: string) => Promise<void>;
-  launchGame:        () => Promise<void>;
+  launchGame:        (challengePayload?: any) => Promise<void>;
+  resetMatch:        () => Promise<void>;
   toggleReady:       () => Promise<void>;
 
   // Gameplay
@@ -211,9 +212,16 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     // Host launched game match: start gameplay
     if (event.type === 'host_started_game') {
       setCurrentRoom((r) => r ? { ...r, status: 'playing' } : r);
-      setCurrentSession((s) => s ? { ...s, status: 'playing' } : s);
-      void updateRoomPresence({ status: 'playing' });
+      setCurrentSession((s) => s ? { ...s, status: 'playing', progress: 0 } : s);
+      void updateRoomPresence({ status: 'playing', progress: 0 });
       void updateLobbyPresence({ status: 'playing' });
+    }
+
+    if (event.type === 'room_reset_waiting' || (event as any).payload?.type === 'room_reset_waiting') {
+      setCurrentRoom((r) => r ? { ...r, status: 'waiting' } : r);
+      setCurrentSession((s) => s ? { ...s, status: 'lobby', progress: 0, walls_broken: 0, score: 0 } : s);
+      void updateRoomPresence({ status: 'lobby', progress: 0, wallsBroken: 0, score: 0 });
+      void updateLobbyPresence({ status: 'lobby' });
     }
 
     // Deduplicate by ts+userId
@@ -455,20 +463,57 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     }
   }, [currentRoom, closeCurrentRoom, myUserId, refreshRooms]);
 
-  const launchGame = useCallback(async () => {
+  const launchGame = useCallback(async (challengePayload?: any) => {
     if (!currentRoom) return;
     const updatedRoom: GameRoom = { ...currentRoom, status: 'playing' };
     setCurrentRoom(updatedRoom);
-    setCurrentSession((s) => s ? { ...s, status: 'playing' } : s);
-    void broadcastRoomEvent('host_started_game', myUserId, { roomId: currentRoom.room_id });
-    void updateRoomPresence({ status: 'playing' });
+    setCurrentSession((s) => s ? { ...s, status: 'playing', progress: 0 } : {
+      id: `sess_${myUserId}`,
+      room_id: currentRoom.room_id,
+      user_id: myUserId,
+      mission_id: currentRoom.mission_id,
+      level: currentRoom.level,
+      status: 'playing',
+      progress: 0,
+      walls_broken: 0,
+      score: 0,
+      is_ready: true,
+      started_at: new Date().toISOString(),
+      finished_at: null,
+    });
+    void broadcastRoomEvent('host_started_game', myUserId, { roomId: currentRoom.room_id, ...(challengePayload || {}) });
+    void updateRoomPresence({ status: 'playing', progress: 0 });
     void updateLobbyPresence({ status: 'playing', hostedRoom: updatedRoom });
   }, [currentRoom, myUserId]);
 
+  const resetMatch = useCallback(async () => {
+    if (!currentRoom) return;
+    const updatedRoom: GameRoom = { ...currentRoom, status: 'waiting' };
+    setCurrentRoom(updatedRoom);
+    setCurrentSession((s) => s ? { ...s, status: 'lobby', progress: 0, walls_broken: 0, score: 0 } : null);
+    void broadcastRoomEvent('room_reset_waiting', myUserId, { roomId: currentRoom.room_id });
+    void updateRoomPresence({ status: 'lobby', progress: 0, wallsBroken: 0, score: 0 });
+    void updateLobbyPresence({ status: 'lobby', hostedRoom: updatedRoom });
+  }, [currentRoom, myUserId]);
+
   const toggleReady = useCallback(async () => {
-    if (!currentRoom || !currentSession) return;
-    const newReady = !currentSession.is_ready;
-    setCurrentSession((s) => s ? { ...s, is_ready: newReady } : s);
+    if (!currentRoom) return;
+    const currentIsReady = currentSession?.is_ready ?? false;
+    const newReady = !currentIsReady;
+    setCurrentSession((s) => s ? { ...s, is_ready: newReady } : {
+      id: `sess_${myUserId}`,
+      room_id: currentRoom.room_id,
+      user_id: myUserId,
+      mission_id: currentRoom.mission_id,
+      level: currentRoom.level,
+      status: 'ready',
+      progress: 0,
+      walls_broken: 0,
+      score: 0,
+      is_ready: newReady,
+      started_at: new Date().toISOString(),
+      finished_at: null,
+    });
     await setReadyState(currentRoom.room_id, newReady);
     void broadcastRoomEvent('player_ready', myUserId, { username, isReady: newReady });
     void updateRoomPresence({ isReady: newReady });
@@ -482,12 +527,10 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     isCorrect:  boolean,
     wallNumber  = 1
   ): Promise<WallSolutionResult> => {
-    if (!currentSession) {
-      return { success: false, xp_awarded: 0, score_delta: 0, already_broken: false };
-    }
+    const sessId = currentSession?.id || `sess_${myUserId}`;
 
     const result = await submitWallSolution(
-      currentSession.id,
+      sessId,
       wallKey,
       isCorrect,
       currentRoom?.level ?? 1,
@@ -495,11 +538,24 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     );
 
     if (result.success && !result.already_broken) {
-      const updated: GameSession = {
+      const updated: GameSession = currentSession ? {
         ...currentSession,
         walls_broken: result.new_walls ?? currentSession.walls_broken + 1,
         score:        currentSession.score + (result.score_delta ?? 0),
-        progress:     result.new_progress ?? Math.min(100, currentSession.progress + 15),
+        progress:     result.new_progress ?? Math.min(100, currentSession.progress + 20),
+      } : {
+        id: sessId,
+        room_id: currentRoom?.room_id || 'room',
+        user_id: myUserId,
+        mission_id: currentRoom?.mission_id || null,
+        level: currentRoom?.level || 1,
+        status: 'playing',
+        progress: result.new_progress ?? Math.min(100, wallNumber * 20),
+        walls_broken: result.new_walls ?? wallNumber,
+        score: result.score_delta ?? 100,
+        is_ready: true,
+        started_at: new Date().toISOString(),
+        finished_at: null,
       };
       setCurrentSession(updated);
       void updateRoomPresence({
@@ -510,7 +566,7 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     }
 
     return result;
-  }, [currentSession, currentRoom?.level]);
+  }, [currentSession, currentRoom?.level, currentRoom?.mission_id, currentRoom?.room_id, myUserId]);
 
   const broadcastWallBreak = useCallback(async (wallKey: string, xpAwarded: number) => {
     void broadcastRoomEvent('wall_broken', myUserId, { username, wallKey, xpAwarded });
@@ -522,15 +578,16 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
   }, [myUserId, username]);
 
   const finishCurrentSession = useCallback(async (totalTimeSec = 0) => {
-    if (!currentSession) return;
-    const result = await finishSession(currentSession.id, totalTimeSec);
+    const sessId = currentSession?.id || `sess_${myUserId}`;
+    const result = await finishSession(sessId, totalTimeSec);
     if (result.success) {
-      setCurrentSession((s) => s ? { ...s, status: 'finished', progress: 100 } : s);
+      setCurrentSession((s) => s ? { ...s, status: 'finished', progress: 100 } : null);
       void broadcastRoomEvent('player_finished', myUserId, {
         username,
         isFirst: result.is_first,
         bonusXp: result.bonus_xp,
       });
+      void updateRoomPresence({ status: 'finished', progress: 100 });
       void updateLobbyPresence({ status: 'finished', progress: 100 });
     }
   }, [currentSession, myUserId, username]);
@@ -562,6 +619,7 @@ export function useMultiplayerRoom(): UseMultiplayerRoomReturn {
     closeCurrentRoom,
     closeRoomById,
     launchGame,
+    resetMatch,
     toggleReady,
     submitWall,
     broadcastWallBreak,

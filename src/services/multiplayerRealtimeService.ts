@@ -108,9 +108,33 @@ export function joinLobbyChannel(
 ): RealtimeChannel {
   _myUserId = myPresence.userId;
 
+  const sync = () => {
+    if (!_lobbyChannel) return;
+    try {
+      const state = _lobbyChannel.presenceState<LobbyPresence>();
+      onUpdate(Object.values(state).flat());
+    } catch {
+      // ignore
+    }
+  };
+
   if (_lobbyChannel) {
-    void _lobbyChannel.track(myPresence);
-    return _lobbyChannel;
+    if (_lobbyChannel.state === 'joined') {
+      void _lobbyChannel.track(myPresence);
+      onStatusChange?.('connected', 0);
+      sync();
+      return _lobbyChannel;
+    } else if (_lobbyChannel.state === 'closed' || _lobbyChannel.state === 'errored') {
+      try {
+        void supabase.removeChannel(_lobbyChannel);
+      } catch {
+        // ignore
+      }
+      _lobbyChannel = null;
+    } else {
+      void _lobbyChannel.track(myPresence);
+      return _lobbyChannel;
+    }
   }
 
   _lobbyChannel = supabase.channel('arena:lobby', {
@@ -119,11 +143,6 @@ export function joinLobbyChannel(
       broadcast: { ack: true, self: false },
     },
   });
-
-  const sync = () => {
-    const state = _lobbyChannel!.presenceState<LobbyPresence>();
-    onUpdate(Object.values(state).flat());
-  };
 
   _lobbyChannel
     .on('presence', { event: 'sync'  }, sync)
@@ -134,8 +153,10 @@ export function joinLobbyChannel(
     })
     .subscribe(async (status, err) => {
       if (status === 'SUBSCRIBED') {
+        _reconnectCount = 0;
         await _lobbyChannel!.track(myPresence);
-        onStatusChange?.('connected', _reconnectCount);
+        onStatusChange?.('connected', 0);
+        sync();
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         _reconnectCount++;
         onStatusChange?.('reconnecting', _reconnectCount);
@@ -206,9 +227,33 @@ export function joinRoomChannel(
 
   _currentRoomId = roomId;
 
+  const syncPresence = () => {
+    if (!_roomChannel) return;
+    try {
+      const state = _roomChannel.presenceState<RoomPresence>();
+      onPresenceUpdate(Object.values(state).flat());
+    } catch {
+      // ignore
+    }
+  };
+
   if (_roomChannel) {
-    void _roomChannel.track(myPresence);
-    return _roomChannel;
+    if (_roomChannel.state === 'joined') {
+      void _roomChannel.track(myPresence);
+      onStatusChange?.('connected');
+      syncPresence();
+      return _roomChannel;
+    } else if (_roomChannel.state === 'closed' || _roomChannel.state === 'errored') {
+      try {
+        void supabase.removeChannel(_roomChannel);
+      } catch {
+        // ignore
+      }
+      _roomChannel = null;
+    } else {
+      void _roomChannel.track(myPresence);
+      return _roomChannel;
+    }
   }
 
   _roomChannel = supabase.channel(`room:${roomId}`, {
@@ -217,11 +262,6 @@ export function joinRoomChannel(
       broadcast: { ack: true, self: false },
     },
   });
-
-  const syncPresence = () => {
-    const state = _roomChannel!.presenceState<RoomPresence>();
-    onPresenceUpdate(Object.values(state).flat());
-  };
 
   _roomChannel
     .on('presence', { event: 'sync'  }, syncPresence)
