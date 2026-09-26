@@ -68,6 +68,7 @@ export function CodingLabPage() {
   const [successBanner, setSuccessBanner] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
+  const [rewardMultiplier, setRewardMultiplier] = useState<number>(1.0);
 
   // Switch level
   const handleSelectLevel = (idx: number) => {
@@ -85,6 +86,7 @@ export function CodingLabPage() {
     setSuccessBanner(false);
     setShowHint(false);
     setIsPlaying(false);
+    setRewardMultiplier(1.0);
   };
 
   // Switch programming language and update editor template
@@ -282,7 +284,9 @@ export function CodingLabPage() {
 
         if (result.success) {
           sound.playVictory();
-          completeMission(codeMission.id, codeMission.xpReward, codeMission.coinReward, {
+          const finalXp = Math.round(codeMission.xpReward * rewardMultiplier);
+          const finalCoins = Math.round(codeMission.coinReward * rewardMultiplier);
+          completeMission(codeMission.id, finalXp, finalCoins, {
             coding: 40,
             logic: 25,
           });
@@ -421,6 +425,8 @@ export function CodingLabPage() {
             onCodeChange={setCode}
             onLanguageChange={(newLang) => handleSelectLanguage(newLang)}
             onResetCode={handleReset}
+            rewardMultiplier={rewardMultiplier}
+            onPenaltyChange={(m) => setRewardMultiplier(m)}
             minHeight="h-72 sm:h-96"
             snippets={
               language === 'python'
@@ -505,7 +511,10 @@ export function CodingLabPage() {
 
           {successBanner && (
             <div className="p-3.5 bg-[#eaf2ec] border border-[#c8dad0] text-[#1b382b] text-xs font-bold rounded-2xl flex items-center justify-between shadow-soft">
-              <span>🏆 Algorithm Cleared! +{codeMission.xpReward} XP</span>
+              <span>
+                🏆 Algorithm Cleared! +{Math.round(codeMission.xpReward * rewardMultiplier)} XP
+                {rewardMultiplier < 1.0 && ` (${Math.round(rewardMultiplier * 100)}% reward applied)`}
+              </span>
               <button
                 onClick={() => {
                   if (selectedLevelIdx < codingMissions.length - 1) {

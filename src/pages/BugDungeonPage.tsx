@@ -174,6 +174,7 @@ export function BugDungeonPage() {
   const [showAiHelper, setShowAiHelper] = useState(false);
   const [showSuccessCard, setShowSuccessCard] = useState(false);
   const [lastErrorMsg, setLastErrorMsg] = useState<string | undefined>();
+  const [rewardMultiplier, setRewardMultiplier] = useState<number>(1.0);
 
   // Reset to initial broken instructions when mission changes
   useEffect(() => {
@@ -186,6 +187,7 @@ export function BugDungeonPage() {
     setCurrentStepIndex(0);
     setLastErrorMsg(undefined);
     setShowSuccessCard(false);
+    setRewardMultiplier(1.0);
   }, [breakFixMission.id]);
 
   // Keep rawCode in sync when blocks change in visual mode
@@ -307,7 +309,9 @@ export function BugDungeonPage() {
 
         if (result.success) {
           sound.playVictory();
-          completeMission(breakFixMission.id, breakFixMission.xpReward, breakFixMission.coinReward, {
+          const finalXp = Math.round(breakFixMission.xpReward * rewardMultiplier);
+          const finalCoins = Math.round(breakFixMission.coinReward * rewardMultiplier);
+          completeMission(breakFixMission.id, finalXp, finalCoins, {
             debugging: 35,
             logic: 20,
           });
@@ -739,6 +743,8 @@ export function BugDungeonPage() {
                 onCodeChange={handleCodeChange}
                 onLanguageChange={handleSwitchLanguage}
                 onResetCode={handleResetBug}
+                rewardMultiplier={rewardMultiplier}
+                onPenaltyChange={(m) => setRewardMultiplier(m)}
                 minHeight="h-56 sm:h-64"
                 snippets={
                   language === 'python'
@@ -801,8 +807,11 @@ export function BugDungeonPage() {
                 You diagnosed the flaw, repaired the logic code, and guided the pet safely to the exit!
               </p>
               <div className="flex justify-center gap-3 pt-1 text-xs font-bold text-emerald-300">
-                <span>+{breakFixMission.xpReward} XP</span>
-                <span>+{breakFixMission.coinReward} Coins</span>
+                <span>+{Math.round(breakFixMission.xpReward * rewardMultiplier)} XP</span>
+                <span>+{Math.round(breakFixMission.coinReward * rewardMultiplier)} Coins</span>
+                {rewardMultiplier < 1.0 && (
+                  <span className="text-amber-400 font-mono">({Math.round(rewardMultiplier * 100)}% reward applied)</span>
+                )}
                 <span>+35 Debugging Skill</span>
               </div>
             </motion.div>

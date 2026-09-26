@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   KeyRound,
@@ -9,7 +9,8 @@ import {
   ArrowRight,
   BookOpen,
   Sparkles,
-  Terminal
+  Terminal,
+  AlertTriangle,
 } from 'lucide-react';
 import { sound } from '@/utils/audio';
 import type { SupportedLanguage } from './CodespaceIdeHeader';
@@ -24,6 +25,7 @@ interface CodespaceSolutionModalProps {
   solutionJs: ProblemSolution;
   initialLanguage: SupportedLanguage;
   onApplySolution: (code: string, lang: SupportedLanguage) => void;
+  onSolutionViewed?: () => void;
 }
 
 export function CodespaceSolutionModal({
@@ -35,9 +37,16 @@ export function CodespaceSolutionModal({
   solutionJs,
   initialLanguage,
   onApplySolution,
+  onSolutionViewed,
 }: CodespaceSolutionModalProps) {
   const [activeLang, setActiveLang] = useState<SupportedLanguage>(initialLanguage);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      onSolutionViewed?.();
+    }
+  }, [isOpen, onSolutionViewed]);
 
   if (!isOpen) return null;
 
@@ -149,6 +158,15 @@ export function CodespaceSolutionModal({
 
           {/* Code Viewer Body */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 custom-scrollbar">
+            {/* Penalty Warning Banner */}
+            <div className="px-3.5 py-2.5 bg-rose-500/15 border border-rose-500/35 rounded-2xl flex items-center gap-2.5 text-rose-300 text-xs font-mono animate-in fade-in slide-in-from-top-1">
+              <AlertTriangle size={16} className="shrink-0 text-rose-400" />
+              <div>
+                <span className="font-bold text-rose-200">Solution Penalty Applied:</span>{' '}
+                <span>Full solution viewed! Final XP and Coin rewards are reduced by 50%.</span>
+              </div>
+            </div>
+
             {/* Dark Syntax Code Display */}
             <div className="relative rounded-2xl bg-[#0b0c0e] border border-[#22242c] overflow-hidden shadow-inner">
               <div className="px-3.5 py-1.5 bg-[#121317] border-b border-[#1c1e25] flex items-center justify-between text-[11px] font-mono text-zinc-400">

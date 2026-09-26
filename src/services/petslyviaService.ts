@@ -446,6 +446,7 @@ export const petslyviaService = {
     if (!allProgress[userId]) allProgress[userId] = {};
 
     const existingProg = allProgress[userId][missionId];
+    const isFirstCompletion = !existingProg || !existingProg.completed;
     const newProg: MissionProgress = {
       id: existingProg?.id || generateUUID(),
       user_id: userId,
@@ -459,50 +460,52 @@ export const petslyviaService = {
     allProgress[userId][missionId] = newProg;
     setLocal(STORAGE_KEYS.PROGRESS, allProgress);
 
-    // Reward XP & Coins
-    profile.total_xp += xpReward;
-    profile.coins += coinReward;
-    pet.xp += xpReward;
+    // Reward XP & Coins ONLY on first completion to prevent score farming on replay
+    if (isFirstCompletion) {
+      profile.total_xp += xpReward;
+      profile.coins += coinReward;
+      pet.xp += xpReward;
 
-    // Calculate level (100 XP per level)
-    const newLevel = Math.max(1, Math.floor(profile.total_xp / 100) + 1);
-    profile.current_level = newLevel;
-    pet.level = newLevel;
+      // Calculate level (100 XP per level)
+      const newLevel = Math.max(1, Math.floor(profile.total_xp / 100) + 1);
+      profile.current_level = newLevel;
+      pet.level = newLevel;
 
-    // Update Skills
-    if (skillRewards) {
-      Object.entries(skillRewards).forEach(([skillKey, points]) => {
-        const key = skillKey as keyof Profile['skills'];
-        if (profile.skills[key] !== undefined && typeof points === 'number') {
-          profile.skills[key] = Math.min(100, profile.skills[key] + points);
-        }
-      });
-    }
+      // Update Skills
+      if (skillRewards) {
+        Object.entries(skillRewards).forEach(([skillKey, points]) => {
+          const key = skillKey as keyof Profile['skills'];
+          if (profile.skills[key] !== undefined && typeof points === 'number') {
+            profile.skills[key] = Math.min(100, profile.skills[key] + points);
+          }
+        });
+      }
 
-    // Unlock new areas
-    if (newLevel >= 2 && !profile.unlocked_areas.includes('bug_dungeon')) {
-      profile.unlocked_areas.push('bug_dungeon');
-    }
-    if (newLevel >= 3 && !profile.unlocked_areas.includes('smart_city')) {
-      profile.unlocked_areas.push('smart_city');
-    }
-    if (newLevel >= 4 && !profile.unlocked_areas.includes('coding_lab')) {
-      profile.unlocked_areas.push('coding_lab');
-      profile.coding_mode_unlocked = true;
-    }
-    if (newLevel >= 2 && !profile.unlocked_areas.includes('creator_world')) {
-      profile.unlocked_areas.push('creator_world');
-      profile.unlocked_areas.push('challenge_arena');
-    }
+      // Unlock new areas
+      if (newLevel >= 2 && !profile.unlocked_areas.includes('bug_dungeon')) {
+        profile.unlocked_areas.push('bug_dungeon');
+      }
+      if (newLevel >= 3 && !profile.unlocked_areas.includes('smart_city')) {
+        profile.unlocked_areas.push('smart_city');
+      }
+      if (newLevel >= 4 && !profile.unlocked_areas.includes('coding_lab')) {
+        profile.unlocked_areas.push('coding_lab');
+        profile.coding_mode_unlocked = true;
+      }
+      if (newLevel >= 2 && !profile.unlocked_areas.includes('creator_world')) {
+        profile.unlocked_areas.push('creator_world');
+        profile.unlocked_areas.push('challenge_arena');
+      }
 
-    // Pet Stage Evolution
-    if (newLevel >= 5) {
-      pet.stage = 'teen';
-      if (!pet.unlocked_abilities.includes('combo')) pet.unlocked_abilities.push('combo');
-    } else if (newLevel >= 3) {
-      pet.stage = 'child';
-      if (!pet.unlocked_abilities.includes('repeat')) pet.unlocked_abilities.push('repeat');
-      if (!pet.unlocked_abilities.includes('bug_sense')) pet.unlocked_abilities.push('bug_sense');
+      // Pet Stage Evolution
+      if (newLevel >= 5) {
+        pet.stage = 'teen';
+        if (!pet.unlocked_abilities.includes('combo')) pet.unlocked_abilities.push('combo');
+      } else if (newLevel >= 3) {
+        pet.stage = 'child';
+        if (!pet.unlocked_abilities.includes('repeat')) pet.unlocked_abilities.push('repeat');
+        if (!pet.unlocked_abilities.includes('bug_sense')) pet.unlocked_abilities.push('bug_sense');
+      }
     }
 
     const savedProfile = await this.saveProfile(profile);

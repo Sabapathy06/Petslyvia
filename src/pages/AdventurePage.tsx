@@ -203,6 +203,7 @@ export function AdventurePage() {
   const [showAiHelper, setShowAiHelper] = useState(false);
   const [showAiLevelModal, setShowAiLevelModal] = useState(false);
   const [lastErrorMsg, setLastErrorMsg] = useState<string | undefined>();
+  const [rewardMultiplier, setRewardMultiplier] = useState<number>(1.0);
 
   // Load from sessionStorage if an AI level was created from WorldMap or other pages
   useEffect(() => {
@@ -231,6 +232,7 @@ export function AdventurePage() {
     setSimulationResult(null);
     setCurrentStepIndex(0);
     setLastErrorMsg(undefined);
+    setRewardMultiplier(1.0);
   };
 
   // Reset workspace when mission changes
@@ -243,6 +245,7 @@ export function AdventurePage() {
     setSimulationResult(null);
     setCurrentStepIndex(0);
     setLastErrorMsg(undefined);
+    setRewardMultiplier(1.0);
   }, [mission.id]);
 
   // Handle typing directly in the code editor
@@ -443,7 +446,9 @@ export function AdventurePage() {
 
         if (result.success) {
           sound.playVictory();
-          completeMission(mission.id, mission.xpReward, mission.coinReward, {
+          const finalXp = Math.round(mission.xpReward * rewardMultiplier);
+          const finalCoins = Math.round(mission.coinReward * rewardMultiplier);
+          completeMission(mission.id, finalXp, finalCoins, {
             coding: 25,
             logic: 30,
           });
@@ -867,6 +872,8 @@ export function AdventurePage() {
                   setBlocks(initial);
                   setRawCodeInput(blocksToCode(initial, coderLanguage));
                 }}
+                rewardMultiplier={rewardMultiplier}
+                onPenaltyChange={(m) => setRewardMultiplier(m)}
                 minHeight="h-44 sm:h-52"
               />
             </div>

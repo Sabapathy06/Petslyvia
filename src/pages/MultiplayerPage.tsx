@@ -339,69 +339,72 @@ const BLITZ_WALLS: BlitzWall[] = [
   {
     id: "wall_1",
     wallNumber: 1,
-    title: "Barrier 1: Array Pipeline",
-    question: "What is the output of [1, 2, 3].map(x => x * 2).filter(x => x > 2)?",
-    codeSnippet: "[1, 2, 3]\n  .map(x => x * 2)\n  .filter(x => x > 2);",
+    title: "Barrier 1: Printing Output",
+    question: "In Python, which function is used to output text to the screen console?",
+    codeSnippet: "# Output greeting\n???(\"Hello, World!\")",
     options: [
-      { label: "[4, 6]", isCorrect: true },
-      { label: "[2, 4, 6]", isCorrect: false },
-      { label: "[2, 4]", isCorrect: false },
-      { label: "[3, 6]", isCorrect: false },
+      { label: "echo(\"Hello, World!\")", isCorrect: false },
+      { label: "print(\"Hello, World!\")", isCorrect: true },
+      { label: "console.log(\"Hello, World!\")", isCorrect: false },
+      { label: "display(\"Hello, World!\")", isCorrect: false },
     ],
-    explanation: "[1, 2, 3] becomes [2, 4, 6], and filter(x > 2) leaves [4, 6].",
+    explanation: "print() is Python's standard built-in function to display text or values to the console.",
   },
   {
     id: "wall_2",
     wallNumber: 2,
-    title: "Barrier 2: Algorithm Complexity",
-    question: "What is the worst-case time complexity of Binary Search on a sorted array of N elements?",
+    title: "Barrier 2: Code Comments",
+    question: "In Python, which symbol is used at the start of a single-line comment?",
+    codeSnippet: "??? This is a single line comment\nx = 10",
     options: [
-      { label: "O(log N)", isCorrect: true },
-      { label: "O(N)", isCorrect: false },
-      { label: "O(N log N)", isCorrect: false },
-      { label: "O(1)", isCorrect: false },
+      { label: "// comment", isCorrect: false },
+      { label: "/* comment */", isCorrect: false },
+      { label: "# comment", isCorrect: true },
+      { label: "<!-- comment -->", isCorrect: false },
     ],
-    explanation: "Binary search cuts the search space in half with each iteration: O(log N).",
+    explanation: "# (hash symbol) starts a single-line comment in Python.",
   },
   {
     id: "wall_3",
     wallNumber: 3,
-    title: "Barrier 3: Web Protocols",
-    question: "Which HTTP status code signifies 'Unauthorized' (authentication credentials required)?",
+    title: "Barrier 3: List Length",
+    question: "What is the return value of len([10, 20, 30]) in Python?",
+    codeSnippet: "numbers = [10, 20, 30]\nprint(len(numbers))",
     options: [
-      { label: "401 Unauthorized", isCorrect: true },
-      { label: "403 Forbidden", isCorrect: false },
-      { label: "404 Not Found", isCorrect: false },
-      { label: "500 Server Error", isCorrect: false },
+      { label: "3", isCorrect: true },
+      { label: "2", isCorrect: false },
+      { label: "4", isCorrect: false },
+      { label: "30", isCorrect: false },
     ],
-    explanation: "401 means authentication is missing or invalid; 403 means permission denied.",
+    explanation: "len() counts the number of elements in the list. [10, 20, 30] contains 3 elements.",
   },
   {
     id: "wall_4",
     wallNumber: 4,
-    title: "Barrier 4: Debug the Loop Bounds",
-    question: "In Python, which range call iterates through all valid indices 0 to len(arr) - 1?",
-    codeSnippet: "for i in range(?):\n    print(arr[i])",
+    title: "Barrier 4: Equality Check",
+    question: "In Python and JavaScript, which operator checks if two values are equal?",
+    codeSnippet: "x = 5\nif x ??? 5:\n    print(\"Matches!\")",
     options: [
-      { label: "range(len(arr))", isCorrect: true },
-      { label: "range(len(arr) + 1)", isCorrect: false },
-      { label: "range(1, len(arr))", isCorrect: false },
-      { label: "range(0, len(arr) - 1)", isCorrect: false },
+      { label: "=", isCorrect: false },
+      { label: ":=", isCorrect: false },
+      { label: "!==", isCorrect: false },
+      { label: "==", isCorrect: true },
     ],
-    explanation: "range(len(arr)) yields indices 0 up to len(arr) - 1.",
+    explanation: "== compares two values for equality, whereas = is used for variable assignment.",
   },
   {
     id: "wall_5",
     wallNumber: 5,
-    title: "Barrier 5: Core Master Gate",
-    question: "According to De Morgan's Law, what is !(A && B) logically equivalent to?",
+    title: "Barrier 5: Variable Reassignment",
+    question: "In JavaScript, which keyword allows declaring a variable whose value can be reassigned?",
+    codeSnippet: "??? score = 10;\nscore = 20; // Allowed without error!",
     options: [
-      { label: "!A || !B", isCorrect: true },
-      { label: "!A && !B", isCorrect: false },
-      { label: "A || B", isCorrect: false },
-      { label: "!(!A && !B)", isCorrect: false },
+      { label: "const", isCorrect: false },
+      { label: "let", isCorrect: true },
+      { label: "static", isCorrect: false },
+      { label: "readonly", isCorrect: false },
     ],
-    explanation: "De Morgan's law: NOT (A AND B) equals (NOT A) OR (NOT B).",
+    explanation: "let allows variable reassignment in JavaScript. const variables cannot be reassigned.",
   },
 ];
 
@@ -544,7 +547,9 @@ function RoomPanel({
       }, 900);
     } else {
       sound.playError();
-      setFeedback({ correct: false, message: "❌ Access Denied! Review the logic and try again." });
+      setBlitzScore((prev) => Math.max(0, prev - 10));
+      setFeedback({ correct: false, message: "❌ Incorrect answer! -10 Score penalty. Try again!" });
+      await onSubmitWall(currentWall.id, false, currentWall.wallNumber);
       setTimeout(() => {
         setSelectedOption(null);
         setFeedback(null);

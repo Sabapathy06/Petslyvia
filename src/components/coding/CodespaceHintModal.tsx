@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, X, ChevronRight, CheckCircle2, Sparkles, BookOpen } from 'lucide-react';
+import { Lightbulb, X, ChevronRight, CheckCircle2, Sparkles, BookOpen, AlertTriangle } from 'lucide-react';
 import { sound } from '@/utils/audio';
 import type { SupportedLanguage } from './CodespaceIdeHeader';
 
@@ -10,6 +10,7 @@ interface CodespaceHintModalProps {
   hints: string[];
   missionTitle: string;
   language: SupportedLanguage;
+  onThirdHintRevealed?: () => void;
 }
 
 export function CodespaceHintModal({
@@ -18,6 +19,7 @@ export function CodespaceHintModal({
   hints,
   missionTitle,
   language,
+  onThirdHintRevealed,
 }: CodespaceHintModalProps) {
   const [revealedCount, setRevealedCount] = useState<number>(1);
 
@@ -26,13 +28,20 @@ export function CodespaceHintModal({
   const handleNextHint = () => {
     sound.playClick();
     if (revealedCount < hints.length) {
-      setRevealedCount((prev) => prev + 1);
+      const nextCount = revealedCount + 1;
+      setRevealedCount(nextCount);
+      if (nextCount >= 3) {
+        onThirdHintRevealed?.();
+      }
     }
   };
 
   const handleRevealAll = () => {
     sound.playClick();
     setRevealedCount(hints.length);
+    if (hints.length >= 3) {
+      onThirdHintRevealed?.();
+    }
   };
 
   return (
@@ -73,6 +82,16 @@ export function CodespaceHintModal({
 
           {/* Body */}
           <div className="p-5 space-y-3.5 max-h-[60vh] overflow-y-auto custom-scrollbar">
+            {revealedCount >= 3 && (
+              <div className="px-3.5 py-2.5 bg-amber-500/15 border border-amber-500/35 rounded-2xl flex items-center gap-2.5 text-amber-300 text-xs font-mono animate-in fade-in slide-in-from-top-1">
+                <AlertTriangle size={16} className="shrink-0 text-amber-400" />
+                <div>
+                  <span className="font-bold text-amber-200">Hint Penalty Applied:</span>{' '}
+                  <span>3rd hint revealed! Final XP and Coin rewards are reduced by 25%.</span>
+                </div>
+              </div>
+            )}
+
             {hints.map((hint, idx) => {
               const isRevealed = idx < revealedCount;
               return (

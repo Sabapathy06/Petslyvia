@@ -22,6 +22,8 @@ interface DarkIdeEditorProps {
   minHeight?: string;
   snippets?: { label: string; code: string; color?: string }[];
   onInsertSnippet?: (snippet: string) => void;
+  rewardMultiplier?: number;
+  onPenaltyChange?: (multiplier: number, reason: string) => void;
 }
 
 export function DarkIdeEditor({
@@ -35,9 +37,26 @@ export function DarkIdeEditor({
   minHeight = 'h-64 sm:h-80',
   snippets,
   onInsertSnippet,
+  rewardMultiplier,
+  onPenaltyChange,
 }: DarkIdeEditorProps) {
   const [hintModalOpen, setHintModalOpen] = useState(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState(false);
+  const [internalMultiplier, setInternalMultiplier] = useState<number>(1.0);
+
+  const currentMultiplier = rewardMultiplier !== undefined ? rewardMultiplier : internalMultiplier;
+
+  const handleThirdHintRevealed = () => {
+    const next = Math.min(currentMultiplier, 0.75);
+    setInternalMultiplier(next);
+    onPenaltyChange?.(next, '3rd Hint Unlocked (-25% Reward)');
+  };
+
+  const handleSolutionViewed = () => {
+    const next = 0.5;
+    setInternalMultiplier(next);
+    onPenaltyChange?.(next, 'Solution Viewed (-50% Reward)');
+  };
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
@@ -84,6 +103,7 @@ export function DarkIdeEditor({
         code={code}
         missionTitle={mission.title}
         hasHints={true}
+        rewardMultiplier={currentMultiplier}
       />
 
       {/* Editor Body with Line Numbers Gutter */}
@@ -143,6 +163,7 @@ export function DarkIdeEditor({
         hints={hints}
         missionTitle={mission.title}
         language={language}
+        onThirdHintRevealed={handleThirdHintRevealed}
       />
 
       {/* Verified Solution Modal */}
@@ -155,6 +176,7 @@ export function DarkIdeEditor({
         solutionJs={solutionJs}
         initialLanguage={language}
         onApplySolution={handleApplySolution}
+        onSolutionViewed={handleSolutionViewed}
       />
     </div>
   );

@@ -133,6 +133,7 @@ export function AcademyPage() {
   const [showHint, setShowHint] = useState(false);
   const [academyHintModalOpen, setAcademyHintModalOpen] = useState(false);
   const [academySolutionModalOpen, setAcademySolutionModalOpen] = useState(false);
+  const [rewardMultiplier, setRewardMultiplier] = useState<number>(1.0);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiMessage, setAiMessage] = useState<string | null>(null);
 
@@ -168,6 +169,7 @@ export function AcademyPage() {
     setCompilerError(null);
     setMissionSuccessModal(false);
     setShowHint(false);
+    setRewardMultiplier(1.0);
     setPetState('focused');
     setTerminalLogs([
       `📘 Mission Loaded: ${mission.title}`,
@@ -379,15 +381,17 @@ export function AcademyPage() {
           sound.playVictory();
           setPetState('excited');
           setMissionSuccessModal(true);
+          const finalXp = Math.round(mission.xpReward * rewardMultiplier);
+          const finalCoins = Math.round(mission.coinReward * rewardMultiplier);
           setTerminalLogs((prev) => [
             ...prev,
             `🎉 SUCCESS! Target reached safely.`,
-            `+${mission.xpReward} XP earned! +${mission.coinReward} gems!`,
+            `+${finalXp} XP earned! +${finalCoins} gems!${rewardMultiplier < 1.0 ? ` (${Math.round(rewardMultiplier * 100)}% reward applied)` : ''}`,
           ]);
           completeMission(
             mission.id,
-            mission.xpReward,
-            mission.coinReward,
+            finalXp,
+            finalCoins,
             { logic: 20 } as any
           );
         } else {
@@ -1312,6 +1316,8 @@ export function AcademyPage() {
                   else if (activeTab === 'javascript') setJsCode(getStarterCode(mission, 'javascript'));
                   else setCCode(getStarterCode(mission, 'c'));
                 }}
+                rewardMultiplier={rewardMultiplier}
+                onPenaltyChange={(m) => setRewardMultiplier(m)}
                 minHeight="h-64 sm:h-72"
                 snippets={
                   activeTab === 'python'

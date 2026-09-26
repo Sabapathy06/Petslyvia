@@ -25,6 +25,7 @@ interface CodespaceIdeHeaderProps {
   code: string;
   missionTitle?: string;
   hasHints?: boolean;
+  rewardMultiplier?: number;
 }
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, { short: string; full: string; badge: string }> = {
@@ -43,6 +44,7 @@ export function CodespaceIdeHeader({
   code,
   missionTitle,
   hasHints = true,
+  rewardMultiplier,
 }: CodespaceIdeHeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -239,6 +241,21 @@ export function CodespaceIdeHeader({
             document.body
           )}
         </div>
+
+        {/* ⚠️ Reward Penalty Badge */}
+        {rewardMultiplier !== undefined && rewardMultiplier < 1.0 && (
+          <div
+            title={`Active Penalty: ${(1 - rewardMultiplier) * 100}% reduction applied to mission XP and Coin rewards`}
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-mono font-bold shrink-0 animate-in fade-in ${
+              rewardMultiplier <= 0.5
+                ? 'bg-rose-500/15 border-rose-500/35 text-rose-300'
+                : 'bg-amber-500/15 border-amber-500/35 text-amber-300'
+            }`}
+          >
+            <span>⚠️</span>
+            <span>{Math.round(rewardMultiplier * 100)}% Reward</span>
+          </div>
+        )}
 
         {/* 💡 Hint Button */}
         {hasHints && (

@@ -14,6 +14,7 @@ export interface TaskItem {
   title: string;
   category: TaskCategory;
   completed: boolean;
+  rewardClaimed?: boolean;
   completedAt?: string;
   isCustom?: boolean;
 }
@@ -234,12 +235,14 @@ export function Taskbar() {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    if (task.completed) {
-      // Un-complete
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, completed: false, completedAt: undefined } : t))
-      );
+    if (task.completed || task.rewardClaimed) {
       sound.playClick();
+      setRewardToast({
+        show: true,
+        text: '✅ Task Already Finished!',
+        subtext: 'You have already collected the rewards for this task! Add a new task to earn more.',
+      });
+      setTimeout(() => setRewardToast(null), 3500);
       return;
     }
 
@@ -289,7 +292,7 @@ export function Taskbar() {
 
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === taskId ? { ...t, completed: true, completedAt: new Date().toISOString() } : t
+          t.id === taskId ? { ...t, completed: true, rewardClaimed: true, completedAt: new Date().toISOString() } : t
         )
       );
 
