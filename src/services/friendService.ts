@@ -269,43 +269,30 @@ export async function resolveCurrentUser(): Promise<{ id: string; email?: string
  * Ensures user has a permanent public friend_id assigned in profile.
  */
 export async function ensureFriendId(userId: string, currentFid?: string): Promise<string> {
-  if (currentFid && isValidFriendIdFormat(currentFid)) {
-    try {
-      await supabase.from('profiles').update({ friend_id: currentFid }).eq('id', userId);
-    } catch {
-      // ignore
-    }
-    return currentFid;
-  }
+  const fid = (currentFid && isValidFriendIdFormat(currentFid)) ? currentFid : generateFriendId(userId);
 
   try {
-    const { data, error } = await supabase.rpc('ensure_friend_id', { p_user_id: userId });
-    if (!error && data) {
-      return data as string;
-    }
-  } catch {
-    // ignore
-  }
-
-  // Check existing in database
-  try {
-    const { data } = await supabase.from('profiles').select('friend_id').eq('id', userId).maybeSingle();
-    if (data?.friend_id && isValidFriendIdFormat(data.friend_id)) {
-      return data.friend_id;
+    const { data: prof } = await supabase.from('profiles').select('skills').eq('id', userId).maybeSingle();
+    if (prof) {
+      const skills = (prof.skills as Record<string, any>) || {};
+      const existingFid = skills.friend_id;
+      if (existingFid && isValidFriendIdFormat(existingFid)) {
+        return existingFid;
+      }
+      skills.friend_id = fid;
+      await supabase.from('profiles').update({ skills }).eq('id', userId);
     }
   } catch {
     // ignore
   }
 
-  // Generate deterministic ID
-  const newFid = generateFriendId(userId);
   try {
-    await supabase.from('profiles').update({ friend_id: newFid }).eq('id', userId);
+    await supabase.from('profiles').update({ friend_id: fid }).eq('id', userId);
   } catch {
     // ignore
   }
 
-  return newFid;
+  return fid;
 }
 
 // ----------------------------------------------------------------
@@ -368,7 +355,43 @@ export async function getFriendshipStatus(targetUserId: string): Promise<Friends
     // fallback
   }
 
-  // 3. Check synchronized all requests store
+  // 3. Check Supabase profiles.skills cloud sync (cross-device & cross-browser)
+  try {
+    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
+    if (myProf?.skills) {
+      const skills = (myProf.skills as Record<string, any>) || {};
+      const cloudFriends: FriendEntry[] = skills.friends || [];
+      if (cloudFriends.some((f) => f.user_id === targetUserId)) return 'friends';
+
+      const cloudSent: any[] = skills.sent_requests || [];
+      if (cloudSent.some((r) => r.receiver_user_id === targetUserId)) return 'request_sent';
+
+      const cloudIn: any[] = skills.friend_requests || [];
+      if (cloudIn.some((r) => r.sender_user_id === targetUserId)) return 'request_received';
+
+      const cloudBlocked: string[] = skills.blocked || [];
+      if (cloudBlocked.includes(targetUserId)) return 'blocked';
+    }
+  } catch {
+    // fallback
+  }
+
+  // 4. Check target user's profile skills in Supabase
+  try {
+    const { data: targetProf } = await supabase.from('profiles').select('skills').eq('id', targetUserId).maybeSingle();
+    if (targetProf?.skills) {
+      const tSkills = (targetProf.skills as Record<string, any>) || {};
+      const tFriends: FriendEntry[] = tSkills.friends || [];
+      if (tFriends.some((f) => f.user_id === currentUser.id)) return 'friends';
+
+      const tIn: any[] = tSkills.friend_requests || [];
+      if (tIn.some((r) => r.sender_user_id === currentUser.id)) return 'request_sent';
+    }
+  } catch {
+    // fallback
+  }
+
+  // 5. Check synchronized all requests store
   const allReqs = getAllStoredRequests();
   const matchedReq = allReqs.find(
     (r) =>
@@ -387,7 +410,7 @@ export async function getFriendshipStatus(targetUserId: string): Promise<Friends
     }
   }
 
-  // 4. Fallback: check blocked list and friends list
+  // 6. Fallback: check blocked list and friends list
   const blocked = getLocalStore<string[]>(STORAGE_KEYS.BLOCKS, []);
   if (blocked.includes(targetUserId)) return 'blocked';
 
@@ -445,48 +468,66 @@ export async function searchPlayerByFriendId(
     }
   }
 
-  // 2. Direct database query
+  // 2. Direct database query (safe against missing friend_id column by including skills)
   try {
-    let query = supabase.from('profiles').select('id, username, display_name, avatar_url, friend_id, current_level, total_xp, coins, bugs_solved, created_at');
+    const { data: profilesList, error: queryError } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url, current_level, total_xp, coins, bugs_solved, created_at, skills');
 
-    if (isValidFriendIdFormat(normalized)) {
-      query = query.ilike('friend_id', normalized);
-    } else {
-      query = query.or(`username.ilike.%${raw}%,display_name.ilike.%${raw}%`);
-    }
+    if (!queryError && profilesList && profilesList.length > 0) {
+      const match = profilesList.find((p) => {
+        const skills = (p.skills as Record<string, any>) || {};
+        const fidFromSkills = (skills.friend_id || '').toUpperCase();
+        const deterministicFid = generateFriendId(p.id).toUpperCase();
+        const pUsername = (p.username || '').toLowerCase();
+        const pDisplayName = (p.display_name || '').toLowerCase();
+        const qLower = raw.toLowerCase();
 
-    const { data, error } = await query.limit(1).maybeSingle();
+        return (
+          (isValidFriendIdFormat(normalized) && (fidFromSkills === normalized || deterministicFid === normalized)) ||
+          fidFromSkills === normalized ||
+          deterministicFid === normalized ||
+          p.id === raw ||
+          pUsername === qLower ||
+          pDisplayName === qLower ||
+          pUsername.includes(qLower) ||
+          pDisplayName.includes(qLower)
+        );
+      });
 
-    if (!error && data) {
-      let petData: any = null;
-      try {
-        const petRes = await supabase.from('pets').select('*').eq('user_id', data.id).eq('is_active', true).maybeSingle();
-        petData = petRes.data;
-      } catch {
-        // ignore
+      if (match) {
+        let petData: any = null;
+        try {
+          const petRes = await supabase.from('pets').select('*').eq('user_id', match.id).eq('is_active', true).maybeSingle();
+          petData = petRes.data;
+        } catch {
+          // ignore
+        }
+
+        const skills = (match.skills as Record<string, any>) || {};
+        const assignedFid = skills.friend_id || (isValidFriendIdFormat(normalized) ? normalized : generateFriendId(match.id));
+
+        const safeProfile: SafePublicProfile = {
+          user_id: match.id,
+          username: match.display_name || match.username || 'Explorer',
+          friend_id: assignedFid,
+          avatar_url: match.avatar_url || null,
+          level: match.current_level || 1,
+          xp: match.total_xp || 50,
+          score: match.coins || 100,
+          wins: match.bugs_solved || 0,
+          missions_completed: match.bugs_solved || 0,
+          walls_broken: match.bugs_solved || 0,
+          best_time_sec: 45,
+          pet_type: petData?.pet_type || 'fox',
+          pet_name: petData?.pet_name || 'Companion',
+          pet_stage: petData?.stage || 'infant',
+          created_at: match.created_at || new Date().toISOString(),
+        };
+
+        safeProfile.friendship_status = await getFriendshipStatus(safeProfile.user_id);
+        return { profile: safeProfile };
       }
-
-      const assignedFid = data.friend_id || generateFriendId(data.id);
-      const safeProfile: SafePublicProfile = {
-        user_id: data.id,
-        username: data.display_name || data.username || 'Explorer',
-        friend_id: assignedFid,
-        avatar_url: data.avatar_url || null,
-        level: data.current_level || 1,
-        xp: data.total_xp || 50,
-        score: data.coins || 100,
-        wins: data.bugs_solved || 0,
-        missions_completed: data.bugs_solved || 0,
-        walls_broken: data.bugs_solved || 0,
-        best_time_sec: 45,
-        pet_type: petData?.pet_type || 'fox',
-        pet_name: petData?.pet_name || 'Companion',
-        pet_stage: petData?.stage || 'infant',
-        created_at: data.created_at || new Date().toISOString(),
-      };
-
-      safeProfile.friendship_status = await getFriendshipStatus(safeProfile.user_id);
-      return { profile: safeProfile };
     }
   } catch {
     // fallback
@@ -700,9 +741,61 @@ export async function sendFriendRequest(
     // fallback to resilient synchronization
   }
 
-  // 6. Resilient Authoritative Synchronized Store
+  // 6. Cross-Device Supabase Profile Skills Synchronization
+  const reqId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   try {
-    recordStoredRequest(currentUser, targetUser);
+    // Target user's incoming requests
+    const { data: targetProf } = await supabase.from('profiles').select('skills').eq('id', targetUser.user_id).maybeSingle();
+    if (targetProf) {
+      const tSkills = (targetProf.skills as Record<string, any>) || {};
+      const existingIn: any[] = tSkills.friend_requests || [];
+      tSkills.friend_requests = [
+        ...existingIn.filter((r: any) => r.sender_user_id !== currentUser.id),
+        {
+          request_id: reqId,
+          sender_user_id: currentUser.id,
+          receiver_user_id: targetUser.user_id,
+          username: currentUser.username || 'Explorer',
+          friend_id: currentUser.friend_id || generateFriendId(currentUser.id),
+          avatar_url: null,
+          level: 1,
+          pet_type: 'fox',
+          pet_stage: 'infant',
+          created_at: new Date().toISOString(),
+        },
+      ];
+      await supabase.from('profiles').update({ skills: tSkills }).eq('id', targetUser.user_id);
+    }
+
+    // Sender's outgoing requests
+    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
+    if (myProf) {
+      const mSkills = (myProf.skills as Record<string, any>) || {};
+      const existingOut: any[] = mSkills.sent_requests || [];
+      mSkills.sent_requests = [
+        ...existingOut.filter((r: any) => r.receiver_user_id !== targetUser.user_id),
+        {
+          request_id: reqId,
+          sender_user_id: currentUser.id,
+          receiver_user_id: targetUser.user_id,
+          username: targetUser.username,
+          friend_id: targetUser.friend_id,
+          avatar_url: targetUser.avatar_url,
+          level: targetUser.level,
+          pet_type: targetUser.pet_type,
+          pet_stage: targetUser.pet_stage,
+          created_at: new Date().toISOString(),
+        },
+      ];
+      await supabase.from('profiles').update({ skills: mSkills }).eq('id', currentUser.id);
+    }
+  } catch {
+    // non-blocking fallback
+  }
+
+  // 7. Resilient Authoritative Synchronized Local Store & Realtime Broadcast
+  try {
+    recordStoredRequest(currentUser, targetUser, reqId);
     broadcastSocialEvent('friend_request', currentUser.id, targetUser.user_id);
     return { success: true, message: 'Friend request sent successfully!', status: 'request_sent' };
   } catch (err: any) {
@@ -710,8 +803,8 @@ export async function sendFriendRequest(
   }
 }
 
-function recordStoredRequest(currentUser: any, targetUser: SafePublicProfile) {
-  const reqId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+function recordStoredRequest(currentUser: any, targetUser: SafePublicProfile, customReqId?: string) {
+  const reqId = customReqId || `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const newReq: StoredFriendRequest = {
     id: reqId,
     sender_user_id: currentUser.id,
@@ -856,7 +949,76 @@ export async function respondFriendRequest(
     // fallback
   }
 
-  // 3. Resilient store update
+  // 3. Cloud synchronization via profiles.skills (cross-device)
+  try {
+    const { data: myProf } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+    if (myProf) {
+      const mSkills = (myProf.skills as Record<string, any>) || {};
+      const myInReqs: any[] = mSkills.friend_requests || [];
+      const foundInCloud = myInReqs.find((r) => r.request_id === requestId || r.sender_user_id === requestId);
+
+      if (foundInCloud) {
+        mSkills.friend_requests = myInReqs.filter((r) => r.request_id !== requestId && r.sender_user_id !== requestId);
+
+        if (action === 'accept') {
+          const friendEntryForMe: FriendEntry = {
+            user_id: foundInCloud.sender_user_id,
+            username: foundInCloud.username,
+            friend_id: foundInCloud.friend_id,
+            avatar_url: foundInCloud.avatar_url || null,
+            level: foundInCloud.level || 1,
+            xp: 100,
+            pet_type: foundInCloud.pet_type || 'fox',
+            pet_stage: foundInCloud.pet_stage || 'infant',
+            pet_name: `${foundInCloud.username}'s Companion`,
+            request_id: requestId,
+            friendship_since: new Date().toISOString(),
+          };
+          const myFriends: FriendEntry[] = mSkills.friends || [];
+          mSkills.friends = [...myFriends.filter((f) => f.user_id !== foundInCloud.sender_user_id), friendEntryForMe];
+
+          // Also update sender profile skills in Supabase
+          const { data: senderProf } = await supabase.from('profiles').select('*').eq('id', foundInCloud.sender_user_id).maybeSingle();
+          if (senderProf) {
+            const sSkills = (senderProf.skills as Record<string, any>) || {};
+            const senderFriends: FriendEntry[] = sSkills.friends || [];
+            const friendEntryForSender: FriendEntry = {
+              user_id: currentUser.id,
+              username: currentUser.username || 'Explorer',
+              friend_id: currentUser.friend_id || generateFriendId(currentUser.id),
+              avatar_url: null,
+              level: 1,
+              xp: 100,
+              pet_type: 'fox',
+              pet_stage: 'infant',
+              pet_name: `${currentUser.username || 'Player'}'s Companion`,
+              request_id: requestId,
+              friendship_since: new Date().toISOString(),
+            };
+            sSkills.friends = [...senderFriends.filter((f) => f.user_id !== currentUser.id), friendEntryForSender];
+            const senderSent: any[] = sSkills.sent_requests || [];
+            sSkills.sent_requests = senderSent.filter((r) => r.receiver_user_id !== currentUser.id && r.request_id !== requestId);
+            await supabase.from('profiles').update({ skills: sSkills }).eq('id', foundInCloud.sender_user_id);
+          }
+
+          addFriendToStore(currentUser.id, friendEntryForMe);
+          mirrorFriendInContacts(friendEntryForMe, currentUser.id);
+          broadcastSocialEvent('friend_request_accepted', currentUser.id, foundInCloud.sender_user_id);
+        } else if (action === 'block') {
+          const blockedList: string[] = mSkills.blocked || [];
+          if (!blockedList.includes(foundInCloud.sender_user_id)) {
+            mSkills.blocked = [...blockedList, foundInCloud.sender_user_id];
+          }
+        }
+
+        await supabase.from('profiles').update({ skills: mSkills }).eq('id', currentUser.id);
+      }
+    }
+  } catch {
+    // non-blocking
+  }
+
+  // 4. Resilient store update
   const allReqs = getAllStoredRequests();
   const req = allReqs.find((r) => r.id === requestId);
 
@@ -964,7 +1126,31 @@ export async function cancelFriendRequest(requestId: string): Promise<{ success:
     // fallback
   }
 
-  // 3. Remove from all requests store
+  // 3. Cloud sync: cancel in Supabase profiles.skills
+  try {
+    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
+    if (myProf?.skills) {
+      const mSkills = (myProf.skills as Record<string, any>) || {};
+      const mySent = (mSkills.sent_requests as any[]) || [];
+      const targetReq = mySent.find((r) => r.request_id === requestId);
+      mSkills.sent_requests = mySent.filter((r) => r.request_id !== requestId);
+      await supabase.from('profiles').update({ skills: mSkills }).eq('id', currentUser.id);
+
+      if (targetReq?.receiver_user_id) {
+        const { data: targetProf } = await supabase.from('profiles').select('skills').eq('id', targetReq.receiver_user_id).maybeSingle();
+        if (targetProf?.skills) {
+          const tSkills = (targetProf.skills as Record<string, any>) || {};
+          const tIn = (tSkills.friend_requests as any[]) || [];
+          tSkills.friend_requests = tIn.filter((r) => r.request_id !== requestId && r.sender_user_id !== currentUser.id);
+          await supabase.from('profiles').update({ skills: tSkills }).eq('id', targetReq.receiver_user_id);
+        }
+      }
+    }
+  } catch {
+    // non-blocking
+  }
+
+  // 4. Remove from all requests store
   const allReqs = getAllStoredRequests().filter((r) => r.id !== requestId);
   saveAllStoredRequests(allReqs);
 
@@ -996,6 +1182,26 @@ export async function removeFriend(friendUserId: string): Promise<{ success: boo
     );
   } catch {
     // ignore
+  }
+
+  // Cloud sync: remove friend from both profiles' skills
+  try {
+    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
+    if (myProf?.skills) {
+      const mSkills = (myProf.skills as Record<string, any>) || {};
+      const myFriends = (mSkills.friends as FriendEntry[]) || [];
+      mSkills.friends = myFriends.filter((f) => f.user_id !== friendUserId);
+      await supabase.from('profiles').update({ skills: mSkills }).eq('id', currentUser.id);
+    }
+    const { data: theirProf } = await supabase.from('profiles').select('skills').eq('id', friendUserId).maybeSingle();
+    if (theirProf?.skills) {
+      const tSkills = (theirProf.skills as Record<string, any>) || {};
+      const theirFriends = (tSkills.friends as FriendEntry[]) || [];
+      tSkills.friends = theirFriends.filter((f) => f.user_id !== currentUser.id);
+      await supabase.from('profiles').update({ skills: tSkills }).eq('id', friendUserId);
+    }
+  } catch {
+    // non-blocking
   }
 
   // Remove from all requests store
@@ -1174,6 +1380,22 @@ export async function fetchFriendsList(): Promise<FriendEntry[]> {
     // ignore
   }
 
+  // Cloud sync check via profiles.skills (cross-device)
+  try {
+    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
+    if (myProf?.skills) {
+      const skills = (myProf.skills as Record<string, any>) || {};
+      const cloudFriends: FriendEntry[] = skills.friends || [];
+      if (cloudFriends && cloudFriends.length > 0) {
+        setLocalStore(STORAGE_KEYS.FRIENDS, cloudFriends);
+        cloudFriends.forEach((f) => mirrorFriendInContacts(f, currentUser.id));
+        return cloudFriends;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   // Local fallback: user-specific friends or all accepted requests
   const userKey = `${STORAGE_KEYS.FRIENDS}_${currentUser.id}`;
   const userSpecific = getLocalStore<FriendEntry[]>(userKey, []);
@@ -1267,6 +1489,21 @@ export async function fetchPendingRequests(): Promise<PendingFriendRequest[]> {
     // ignore
   }
 
+  // Cloud sync check via profiles.skills (cross-device)
+  try {
+    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
+    if (myProf?.skills) {
+      const skills = (myProf.skills as Record<string, any>) || {};
+      const cloudReqs: PendingFriendRequest[] = skills.friend_requests || [];
+      if (cloudReqs && cloudReqs.length > 0) {
+        setLocalStore(STORAGE_KEYS.REQUESTS_IN, cloudReqs);
+        return cloudReqs;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   const allReqs = getAllStoredRequests();
   const pendingForUser = allReqs
     .filter((r) => r.receiver_user_id === currentUser.id && r.status === 'pending')
@@ -1336,6 +1573,21 @@ export async function fetchSentRequests(): Promise<PendingFriendRequest[]> {
         });
         setLocalStore(STORAGE_KEYS.REQUESTS_OUT, outReqs);
         return outReqs;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // Cloud sync check via profiles.skills (cross-device)
+  try {
+    const { data: myProf } = await supabase.from('profiles').select('skills').eq('id', currentUser.id).maybeSingle();
+    if (myProf?.skills) {
+      const skills = (myProf.skills as Record<string, any>) || {};
+      const cloudSent: PendingFriendRequest[] = skills.sent_requests || [];
+      if (cloudSent && cloudSent.length > 0) {
+        setLocalStore(STORAGE_KEYS.REQUESTS_OUT, cloudSent);
+        return cloudSent;
       }
     }
   } catch {

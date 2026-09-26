@@ -162,7 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (p && !p.friend_id) {
-      p.friend_id = generateFriendId(p.id);
+      const skills = (p.skills as Record<string, any>) || {};
+      p.friend_id = skills.friend_id || generateFriendId(p.id);
       void petslyviaService.saveProfile(p);
     }
 

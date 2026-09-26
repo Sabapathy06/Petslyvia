@@ -66,7 +66,12 @@ export function useFriends(onlinePlayers: LobbyPresence[] = []) {
     if (profile && !profile.friend_id) {
       profile.friend_id = fid;
     }
-    void ensureFriendId(currentUserId, fid);
+    void ensureFriendId(currentUserId, fid).then((confirmedFid) => {
+      if (confirmedFid && confirmedFid !== fid) {
+        setAssignedFriendId(confirmedFid);
+        if (profile) profile.friend_id = confirmedFid;
+      }
+    });
   }, [currentUserId, profile?.friend_id]);
 
   // Load initial friends, incoming & outgoing requests
