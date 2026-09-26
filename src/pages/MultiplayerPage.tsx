@@ -7,7 +7,8 @@ import {
   Hand, Trash2, Box, Plus, Radio, RefreshCw,
   Wifi, WifiOff, Loader2, LogIn, LogOut as LeaveIcon,
   Zap, Lock, Clock, UserPlus, UserCheck,
-  Award, Shield, Flame, RotateCcw, AlertCircle, HelpCircle, Code2
+  Award, Shield, Flame, RotateCcw, AlertCircle, HelpCircle, Code2,
+  Check, Layers, BookOpen, Brain, Activity, Target
 } from "lucide-react";
 import { useGameData } from "@/hooks/useGameData";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,6 +23,13 @@ import { useMultiplayerRoom } from "@/hooks/useMultiplayerRoom";
 import { AREA_LABELS, type LobbyPresence } from "@/services/multiplayerRealtimeService";
 import type { GameRoom, LeaderboardEntry } from "@/services/multiplayerRoomService";
 import { getArenaForContact } from "@/data/arenas";
+import {
+  QUESTION_SETS,
+  type QuestionSet,
+  type DuelQuestion,
+  getQuestionSetById,
+  getRandomDuelQuestions,
+} from "@/data/duelQuestions";
 
 const STATUS_COLORS: Record<string, string> = {
   online: "bg-slate-400", lobby: "bg-yellow-400", playing: "bg-emerald-400", finished: "bg-purple-400",
@@ -325,88 +333,9 @@ function CreateRoomModal({ onClose, onCreate }: { onClose: () => void; onCreate:
   );
 }
 
-interface BlitzWall {
-  id: string;
-  wallNumber: number;
-  title: string;
-  question: string;
-  codeSnippet?: string;
-  options: { label: string; isCorrect: boolean }[];
-  explanation: string;
-}
+type BlitzWall = DuelQuestion;
+const BLITZ_WALLS: BlitzWall[] = QUESTION_SETS[0].questions;
 
-const BLITZ_WALLS: BlitzWall[] = [
-  {
-    id: "wall_1",
-    wallNumber: 1,
-    title: "Barrier 1: Printing Output",
-    question: "In Python, which function is used to output text to the screen console?",
-    codeSnippet: "# Output greeting\n???(\"Hello, World!\")",
-    options: [
-      { label: "echo(\"Hello, World!\")", isCorrect: false },
-      { label: "print(\"Hello, World!\")", isCorrect: true },
-      { label: "console.log(\"Hello, World!\")", isCorrect: false },
-      { label: "display(\"Hello, World!\")", isCorrect: false },
-    ],
-    explanation: "print() is Python's standard built-in function to display text or values to the console.",
-  },
-  {
-    id: "wall_2",
-    wallNumber: 2,
-    title: "Barrier 2: Code Comments",
-    question: "In Python, which symbol is used at the start of a single-line comment?",
-    codeSnippet: "??? This is a single line comment\nx = 10",
-    options: [
-      { label: "// comment", isCorrect: false },
-      { label: "/* comment */", isCorrect: false },
-      { label: "# comment", isCorrect: true },
-      { label: "<!-- comment -->", isCorrect: false },
-    ],
-    explanation: "# (hash symbol) starts a single-line comment in Python.",
-  },
-  {
-    id: "wall_3",
-    wallNumber: 3,
-    title: "Barrier 3: List Length",
-    question: "What is the return value of len([10, 20, 30]) in Python?",
-    codeSnippet: "numbers = [10, 20, 30]\nprint(len(numbers))",
-    options: [
-      { label: "3", isCorrect: true },
-      { label: "2", isCorrect: false },
-      { label: "4", isCorrect: false },
-      { label: "30", isCorrect: false },
-    ],
-    explanation: "len() counts the number of elements in the list. [10, 20, 30] contains 3 elements.",
-  },
-  {
-    id: "wall_4",
-    wallNumber: 4,
-    title: "Barrier 4: Equality Check",
-    question: "In Python and JavaScript, which operator checks if two values are equal?",
-    codeSnippet: "x = 5\nif x ??? 5:\n    print(\"Matches!\")",
-    options: [
-      { label: "=", isCorrect: false },
-      { label: ":=", isCorrect: false },
-      { label: "!==", isCorrect: false },
-      { label: "==", isCorrect: true },
-    ],
-    explanation: "== compares two values for equality, whereas = is used for variable assignment.",
-  },
-  {
-    id: "wall_5",
-    wallNumber: 5,
-    title: "Barrier 5: Variable Reassignment",
-    question: "In JavaScript, which keyword allows declaring a variable whose value can be reassigned?",
-    codeSnippet: "??? score = 10;\nscore = 20; // Allowed without error!",
-    options: [
-      { label: "const", isCorrect: false },
-      { label: "let", isCorrect: true },
-      { label: "static", isCorrect: false },
-      { label: "readonly", isCorrect: false },
-    ],
-    explanation: "let allows variable reassignment in JavaScript. const variables cannot be reassigned.",
-  },
-];
 
 const MAZE_GRID_SIZE = { width: 6, height: 6 };
 const MAZE_START = { x: 0, y: 0 };
@@ -471,7 +400,12 @@ function RoomPanel({
 
   const [gameMode, setGameMode] = useState<"blitz" | "maze">("blitz");
 
-  // Blitz state
+  // Blitz state with selectable question sets
+  const [roomQuestionSetId, setRoomQuestionSetId] = useState<string>("python_basics");
+  const currentRoomWalls = roomQuestionSetId === "random_mix"
+    ? getRandomDuelQuestions(5)
+    : getQuestionSetById(roomQuestionSetId);
+
   const [activeWallIndex, setActiveWallIndex] = useState(0);
   const [brokenWalls, setBrokenWalls] = useState<string[]>([]);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -516,7 +450,7 @@ function RoomPanel({
 
   const handleAnswerBlitz = async (idx: number) => {
     if (blitzFinished || feedback?.correct) return;
-    const currentWall = BLITZ_WALLS[activeWallIndex];
+    const currentWall = currentRoomWalls[activeWallIndex];
     if (!currentWall) return;
 
     setSelectedOption(idx);
@@ -526,17 +460,17 @@ function RoomPanel({
       sound.playVictory();
       setBlitzScore((prev) => prev + 25);
       setBrokenWalls((prev) => [...prev, currentWall.id]);
-      setFeedback({ correct: true, message: `💥 Barrier ${currentWall.wallNumber} breached! +25 XP` });
+      setFeedback({ correct: true, message: `💥 Barrier ${currentWall.wallNumber} breached! +25 PTS` });
 
       await onBroadcastWallBreak(currentWall.id, 25);
       await onSubmitWall(currentWall.id, true, currentWall.wallNumber);
-      const newProgress = Math.round(((activeWallIndex + 1) / BLITZ_WALLS.length) * 100);
+      const newProgress = Math.round(((activeWallIndex + 1) / currentRoomWalls.length) * 100);
       await onBroadcastProgress(newProgress);
 
       setTimeout(async () => {
         setSelectedOption(null);
         setFeedback(null);
-        if (activeWallIndex + 1 >= BLITZ_WALLS.length) {
+        if (activeWallIndex + 1 >= currentRoomWalls.length) {
           setBlitzFinished(true);
           sound.playVictory();
           await onFinishSession();
@@ -548,7 +482,7 @@ function RoomPanel({
     } else {
       sound.playError();
       setBlitzScore((prev) => Math.max(0, prev - 10));
-      setFeedback({ correct: false, message: "❌ Incorrect answer! -10 Score penalty. Try again!" });
+      setFeedback({ correct: false, message: "❌ Incorrect answer! -10 PTS penalty. Try again!" });
       await onSubmitWall(currentWall.id, false, currentWall.wallNumber);
       setTimeout(() => {
         setSelectedOption(null);
@@ -634,7 +568,7 @@ function RoomPanel({
     : [];
 
   const isMatchActive = room.status === "playing";
-  const currentWall = BLITZ_WALLS[activeWallIndex] ?? BLITZ_WALLS[BLITZ_WALLS.length - 1];
+  const currentWall = currentRoomWalls[activeWallIndex] ?? currentRoomWalls[currentRoomWalls.length - 1];
 
   return (
     <div className="space-y-4">
@@ -848,28 +782,86 @@ function RoomPanel({
       {/* Interactive Arena - Logic Wall Blitz */}
       {gameMode === "blitz" && !blitzFinished && (
         <div className="bg-white rounded-3xl p-5 border border-[#e2ece5] shadow-card space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#e2ece5] pb-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#e2ece5] pb-3">
             <div>
               <div className="flex items-center gap-2">
                 <Flame size={18} className="text-amber-500" />
                 <h3 className="font-black text-base text-[#1b382b]">Logic Wall Blitz</h3>
-                <span className="text-xs bg-[#eaf2ec] text-[#2d6a4f] font-bold px-2 py-0.5 rounded-full">
-                  Barrier {activeWallIndex + 1} of {BLITZ_WALLS.length}
+                <span className="text-xs bg-[#eaf2ec] text-[#2d6a4f] font-bold px-2.5 py-0.5 rounded-full">
+                  Barrier {activeWallIndex + 1} of {currentRoomWalls.length}
                 </span>
               </div>
               <p className="text-xs text-[#5b7566] mt-0.5">
-                Answer each computer science & logic challenge to breach the firewall barriers!
+                Answer computer science & logic challenges to breach firewall barriers together!
               </p>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] text-[#7a9386] font-bold uppercase block">Your Score</span>
-              <span className="text-base font-black text-amber-600">{blitzScore} XP</span>
+            
+            {/* Real-time PTS and Percentage Display */}
+            <div className="flex items-center gap-2">
+              <div className="bg-amber-50 border border-amber-200/90 px-3 py-1.5 rounded-xl text-right shadow-xs">
+                <span className="text-[10px] text-amber-700 font-extrabold uppercase block tracking-wider">Points</span>
+                <span className="text-sm font-black text-amber-800">{blitzScore} PTS</span>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-200/90 px-3 py-1.5 rounded-xl text-right shadow-xs">
+                <span className="text-[10px] text-emerald-700 font-extrabold uppercase block tracking-wider">Progress</span>
+                <span className="text-sm font-black text-emerald-800">
+                  {Math.round((brokenWalls.length / currentRoomWalls.length) * 100)}%
+                </span>
+              </div>
             </div>
+          </div>
+
+          {/* Question Set / Topic Picker */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-[#f4f8f5] p-2.5 rounded-2xl border border-[#e2ece5]">
+            <span className="text-[10px] font-black uppercase text-[#5b7566] px-1 flex items-center gap-1">
+              <Layers size={12} className="text-[#2d6a4f]" /> Topic:
+            </span>
+            {QUESTION_SETS.map((qs) => (
+              <button
+                key={qs.id}
+                onClick={() => {
+                  sound.playClick();
+                  setRoomQuestionSetId(qs.id);
+                  setActiveWallIndex(0);
+                  setBrokenWalls([]);
+                  setSelectedOption(null);
+                  setFeedback(null);
+                }}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  roomQuestionSetId === qs.id
+                    ? "bg-[#2d6a4f] text-white shadow-xs"
+                    : "bg-white text-[#5b7566] hover:bg-[#eaf2ec] border border-[#e2ece5]"
+                }`}
+              >
+                <span>{qs.icon}</span>
+                <span>{qs.name}</span>
+                <span className="text-[9px] opacity-75 bg-black/10 px-1 rounded">{qs.badge}</span>
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                sound.playClick();
+                setRoomQuestionSetId("random_mix");
+                setActiveWallIndex(0);
+                setBrokenWalls([]);
+                setSelectedOption(null);
+                setFeedback(null);
+              }}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                roomQuestionSetId === "random_mix"
+                  ? "bg-[#2d6a4f] text-white shadow-xs"
+                  : "bg-white text-[#5b7566] hover:bg-[#eaf2ec] border border-[#e2ece5]"
+              }`}
+            >
+              <span>🎲</span>
+              <span>Random Mix</span>
+              <span className="text-[9px] opacity-75 bg-black/10 px-1 rounded">5 Qs</span>
+            </button>
           </div>
 
           {/* Wall Visual Progress */}
           <div className="grid grid-cols-5 gap-2">
-            {BLITZ_WALLS.map((w, i) => {
+            {currentRoomWalls.map((w, i) => {
               const isBroken = brokenWalls.includes(w.id);
               const isCurrent = i === activeWallIndex;
               return (
@@ -1177,6 +1169,186 @@ function RoomPanel({
   );
 }
 
+function CreativeCountdownOverlay({
+  onComplete,
+  playerName,
+  playerPetType,
+  opponentName,
+  opponentPetType,
+  modeTitle,
+}: {
+  onComplete: () => void;
+  playerName: string;
+  playerPetType?: string;
+  opponentName: string;
+  opponentPetType?: string;
+  modeTitle?: string;
+}) {
+  const [count, setCount] = useState<number>(3);
+
+  useEffect(() => {
+    sound.playStep();
+
+    const interval = setInterval(() => {
+      setCount((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          sound.playVictory();
+          setTimeout(() => {
+            onComplete();
+          }, 800);
+          return 0;
+        }
+        sound.playStep();
+        return prev - 1;
+      });
+    }, 850);
+
+    return () => clearInterval(interval);
+  }, [onComplete]);
+
+  const config = {
+    3: {
+      number: "3",
+      tagline: "⚡ PREPARE YOUR LOGIC MATRIX",
+      color: "from-amber-400 via-orange-400 to-amber-500",
+      ringColor: "border-amber-400",
+    },
+    2: {
+      number: "2",
+      tagline: "🧠 COMPILE NEURAL ALGORITHMS",
+      color: "from-cyan-400 via-teal-400 to-blue-500",
+      ringColor: "border-cyan-400",
+    },
+    1: {
+      number: "1",
+      tagline: "🔥 ENGAGE BATTLE PROTOCOLS",
+      color: "from-emerald-400 via-teal-300 to-emerald-500",
+      ringColor: "border-emerald-400",
+    },
+    0: {
+      number: "⚔️ DUEL!",
+      tagline: "🚀 UNLEASH YOUR CODE! FIGHT!",
+      color: "from-amber-300 via-emerald-400 to-teal-200",
+      ringColor: "border-emerald-300",
+    },
+  }[count as 3 | 2 | 1 | 0];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] bg-[#07130e]/90 backdrop-blur-xl flex flex-col items-center justify-between p-6 sm:p-10 select-none overflow-hidden"
+    >
+      {/* Dynamic Background Radiance */}
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+        <div className={`w-[450px] h-[450px] rounded-full blur-[120px] opacity-35 bg-gradient-to-tr ${config.color} transition-all duration-700`} />
+      </div>
+
+      {/* Top Banner: Competitors Matchup */}
+      <motion.div
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-xl z-10"
+      >
+        <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-3xl p-3.5 shadow-2xl flex items-center justify-between">
+          {/* Player */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/30 border border-emerald-400/50 flex items-center justify-center shadow-inner">
+              <PetSVG type={(playerPetType as any) || "fox"} stage="child" state="happy" size={32} />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">YOU</span>
+              <span className="text-sm sm:text-base font-black text-white">{playerName}</span>
+            </div>
+          </div>
+
+          {/* VS Badge */}
+          <div className="flex flex-col items-center px-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-white shadow-lg border border-amber-300/40 animate-pulse">
+              <Swords size={16} />
+            </div>
+            <span className="text-[10px] font-black text-amber-300 mt-0.5 tracking-widest">VS</span>
+          </div>
+
+          {/* Opponent */}
+          <div className="flex items-center gap-2.5 text-right">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-300 block">RIVAL</span>
+              <span className="text-sm sm:text-base font-black text-white">{opponentName}</span>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/30 border border-indigo-400/50 flex items-center justify-center shadow-inner">
+              <PetSVG type={(opponentPetType as any) || "cat"} stage="child" state="normal" size={32} />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Center Stage: Shockwaves & Huge Countdown */}
+      <div className="relative flex flex-col items-center justify-center my-auto z-10">
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            key={`ring-1-${count}`}
+            initial={{ scale: 0.6, opacity: 0.9 }}
+            animate={{ scale: 2.2, opacity: 0 }}
+            transition={{ duration: 0.85, ease: "easeOut" }}
+            className={`absolute w-44 h-44 rounded-full border-2 ${config.ringColor} pointer-events-none`}
+          />
+          <motion.div
+            key={`ring-2-${count}`}
+            initial={{ scale: 0.4, opacity: 0.7 }}
+            animate={{ scale: 1.7, opacity: 0 }}
+            transition={{ duration: 0.85, ease: "easeOut", delay: 0.1 }}
+            className={`absolute w-44 h-44 rounded-full border ${config.ringColor} pointer-events-none`}
+          />
+        </AnimatePresence>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={count}
+            initial={{ scale: 0.2, rotate: count === 0 ? 0 : -20, opacity: 0 }}
+            animate={{ scale: [1.4, 1], rotate: 0, opacity: 1 }}
+            exit={{ scale: 1.8, opacity: 0, filter: "blur(10px)" }}
+            transition={{ type: "spring", stiffness: 400, damping: 22 }}
+            className="flex flex-col items-center justify-center text-center select-none"
+          >
+            <div
+              className={`font-black tracking-tight bg-gradient-to-b ${config.color} bg-clip-text text-transparent ${
+                count === 0 ? "text-6xl sm:text-8xl py-2" : "text-8xl sm:text-9xl"
+              } drop-shadow-2xl`}
+            >
+              {config.number}
+            </div>
+            <motion.p
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.15 }}
+              className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-200 mt-2 bg-black/40 px-4 py-1.5 rounded-full border border-white/10"
+            >
+              {config.tagline}
+            </motion.p>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Bottom Mode Pill */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="z-10"
+      >
+        <span className="text-xs font-black text-emerald-300/80 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full flex items-center gap-2 backdrop-blur-sm">
+          <Sparkles size={13} className="text-amber-400" />
+          {modeTitle || "Multiplayer 1v1 Duel Arena"}
+        </span>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 type Tab = "arena" | "live" | "leaderboard" | "bugs" | "community";
 
 export function MultiplayerPage() {
@@ -1241,6 +1413,28 @@ export function MultiplayerPage() {
   const [bugSimSteps, setBugSimSteps] = useState<SimulationStep[]>([]);
   const [bugSimStepIndex, setBugSimStepIndex] = useState(0);
   const [selectedOpponent, setSelectedOpponent] = useState<Contact | null>(null);
+
+  // 1v1 Duel Modes: 'quiz' (Logic Quiz Duel) or 'race' (3D Grid Algorithm Race)
+  const [duelTab, setDuelTab] = useState<"quiz" | "race">("quiz");
+  const [selectedQuestionSetId, setSelectedQuestionSetId] = useState<string>("python_basics");
+  const [showCountdown, setShowCountdown] = useState<boolean>(false);
+  const [countdownPendingAction, setCountdownPendingAction] = useState<"quiz" | "race" | null>(null);
+
+  // 1v1 Quiz Duel State
+  const [activeDuelQuestions, setActiveDuelQuestions] = useState<DuelQuestion[]>(QUESTION_SETS[0].questions);
+  const [quizActiveIndex, setQuizActiveIndex] = useState(0);
+  const [playerQuizScore, setPlayerQuizScore] = useState(0);
+  const [opponentQuizScore, setOpponentQuizScore] = useState(0);
+  const [playerAnsweredCount, setPlayerAnsweredCount] = useState(0);
+  const [playerCorrectCount, setPlayerCorrectCount] = useState(0);
+  const [opponentAnsweredCount, setOpponentAnsweredCount] = useState(0);
+  const [opponentCorrectCount, setOpponentCorrectCount] = useState(0);
+  const [quizSelectedOption, setQuizSelectedOption] = useState<number | null>(null);
+  const [quizFeedback, setQuizFeedback] = useState<{ correct: boolean; message: string; explanation: string } | null>(null);
+  const [quizFinished, setQuizFinished] = useState(false);
+  const [quizRunning, setQuizRunning] = useState(false);
+
+  // 1v1 Race Duel State
   const [duelBlocks, setDuelBlocks] = useState<VisualBlock[]>([
     { id: "d1", type: "move_down" }, { id: "d2", type: "move_down" },
     { id: "d3", type: "move_down" }, { id: "d4", type: "move_right" },
@@ -1260,8 +1454,14 @@ export function MultiplayerPage() {
 
   const handleCloseDuel = () => {
     if (raceRef.current) { clearInterval(raceRef.current); raceRef.current = null; }
-    setDuelRacing(false); sound.playClick(); setSelectedOpponent(null);
+    setDuelRacing(false);
+    setQuizRunning(false);
+    setShowCountdown(false);
+    setCountdownPendingAction(null);
+    sound.playClick();
+    setSelectedOpponent(null);
   };
+
 
   const handleQuickMatch = async () => {
     setRoomError(null);
@@ -1382,6 +1582,24 @@ export function MultiplayerPage() {
     const arena = getArenaForContact(contact, communityProblems);
     setSelectedOpponent(contact);
 
+    // Reset Quiz state
+    setDuelTab("quiz");
+    setSelectedQuestionSetId("python_basics");
+    setActiveDuelQuestions(QUESTION_SETS[0].questions);
+    setQuizActiveIndex(0);
+    setPlayerQuizScore(0);
+    setOpponentQuizScore(0);
+    setPlayerAnsweredCount(0);
+    setPlayerCorrectCount(0);
+    setOpponentAnsweredCount(0);
+    setOpponentCorrectCount(0);
+    setQuizSelectedOption(null);
+    setQuizFeedback(null);
+    setQuizFinished(false);
+    setQuizRunning(false);
+    setShowCountdown(false);
+    setCountdownPendingAction(null);
+
     // Calculate smart starter steps towards goal without colliding
     const smartPath = findDuelPath(arena.startPos, arena.goalPos, arena.gridSize, arena.obstacles);
     const starterBlocks = smartPath.length > 0
@@ -1398,6 +1616,118 @@ export function MultiplayerPage() {
     setDuelRacing(false);
   };
 
+  const handleSelectDuelQuestionSet = (setId: string) => {
+    sound.playClick();
+    setSelectedQuestionSetId(setId);
+    const qList = setId === "random_mix" ? getRandomDuelQuestions(5) : getQuestionSetById(setId);
+    setActiveDuelQuestions(qList);
+    setQuizActiveIndex(0);
+    setPlayerQuizScore(0);
+    setOpponentQuizScore(0);
+    setPlayerAnsweredCount(0);
+    setPlayerCorrectCount(0);
+    setOpponentAnsweredCount(0);
+    setOpponentCorrectCount(0);
+    setQuizSelectedOption(null);
+    setQuizFeedback(null);
+    setQuizFinished(false);
+    setQuizRunning(false);
+  };
+
+  // Simulated Opponent Answering in Quiz Duel
+  useEffect(() => {
+    if (!quizRunning || quizFinished || !selectedOpponent) return;
+    if (opponentAnsweredCount >= activeDuelQuestions.length) return;
+
+    const delay = 3800 + Math.random() * 2500;
+    const timer = setTimeout(() => {
+      const isCorrect = Math.random() < 0.75;
+      setOpponentAnsweredCount((prev) => prev + 1);
+      if (isCorrect) {
+        setOpponentCorrectCount((prev) => prev + 1);
+        setOpponentQuizScore((prev) => prev + 25);
+      }
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [quizRunning, quizFinished, opponentAnsweredCount, selectedOpponent, activeDuelQuestions.length]);
+
+  const handleAnswerQuizDuel = (idx: number) => {
+    if (quizFeedback || quizFinished || !quizRunning) return;
+    const currentQ = activeDuelQuestions[quizActiveIndex];
+    if (!currentQ) return;
+
+    setQuizSelectedOption(idx);
+    const isCorrect = currentQ.options[idx]?.isCorrect;
+    const isLast = quizActiveIndex + 1 >= activeDuelQuestions.length;
+
+    setPlayerAnsweredCount((prev) => prev + 1);
+
+    if (isCorrect) {
+      sound.playVictory();
+      setPlayerCorrectCount((prev) => prev + 1);
+      setPlayerQuizScore((prev) => prev + 25);
+      setQuizFeedback({
+        correct: true,
+        message: "💥 Correct! +25 PTS",
+        explanation: currentQ.explanation,
+      });
+    } else {
+      sound.playError();
+      setQuizFeedback({
+        correct: false,
+        message: "❌ Incorrect! 0 PTS",
+        explanation: currentQ.explanation,
+      });
+    }
+
+    setTimeout(() => {
+      setQuizSelectedOption(null);
+      setQuizFeedback(null);
+      if (isLast) {
+        setQuizFinished(true);
+        setQuizRunning(false);
+        sound.playVictory();
+        completeMission("multiplayer_duel", 50, 30, { collaboration: 20, logic: 15 });
+      } else {
+        setQuizActiveIndex((prev) => prev + 1);
+      }
+    }, 1100);
+  };
+
+  const handleTriggerQuizDuel = () => {
+    sound.playClick();
+    setCountdownPendingAction("quiz");
+    setShowCountdown(true);
+  };
+
+  const handleTriggerRaceDuel = () => {
+    if (duelBlocks.length === 0) { sound.playError(); return; }
+    sound.playClick();
+    setCountdownPendingAction("race");
+    setShowCountdown(true);
+  };
+
+  const handleCountdownComplete = () => {
+    setShowCountdown(false);
+    if (countdownPendingAction === "quiz") {
+      setQuizRunning(true);
+      setQuizFinished(false);
+      setQuizActiveIndex(0);
+      setPlayerQuizScore(0);
+      setOpponentQuizScore(0);
+      setPlayerAnsweredCount(0);
+      setPlayerCorrectCount(0);
+      setOpponentAnsweredCount(0);
+      setOpponentCorrectCount(0);
+      setQuizSelectedOption(null);
+      setQuizFeedback(null);
+    } else if (countdownPendingAction === "race") {
+      executeStartDuelRace();
+    }
+    setCountdownPendingAction(null);
+  };
+
   const handleAutoRoute = () => {
     sound.playClick();
     if (!currentArena) return;
@@ -1408,9 +1738,10 @@ export function MultiplayerPage() {
     }
   };
 
-  const handleStartDuelRace = () => {
-    if (duelBlocks.length === 0) { sound.playError(); return; }
-    sound.playClick(); setDuelRacing(true); setDuelResult(null);
+  const executeStartDuelRace = () => {
+    sound.playClick();
+    setDuelRacing(true);
+    setDuelResult(null);
     const arena = selectedOpponent ? getArenaForContact(selectedOpponent, communityProblems) : getArenaForContact(contacts[0], communityProblems);
     const playerSim = runDeterministicSimulation(arena.gridSize, arena.startPos, arena.startDir, arena.goalPos, arena.obstacles, arena.crystals, arena.switches || [], duelBlocks);
     setPlayerSimulationSteps(playerSim.steps);
@@ -1425,12 +1756,22 @@ export function MultiplayerPage() {
       if (stepCount >= Math.max(playerSim.steps.length, opponentTotal + 1)) {
         if (raceRef.current) { clearInterval(raceRef.current); raceRef.current = null; }
         setDuelRacing(false);
-        if (playerSim.success && playerSim.steps.length <= opponentTotal + 2) { sound.playVictory(); setDuelResult({ winner: "player", message: `Victory! Outpaced ${selectedOpponent?.friend_name}!` }); completeMission("multiplayer_duel", 50, 30, { collaboration: 15, logic: 10 }); }
-        else if (playerSim.success) { sound.playVictory(); setDuelResult({ winner: "player", message: "Challenge Completed!" }); completeMission("multiplayer_duel", 40, 20, { collaboration: 10 }); }
-        else { sound.playError(); setDuelResult({ winner: "opponent", message: `Duel Lost: ${playerSim.message || "Did not reach portal."}` }); }
+        if (playerSim.success && playerSim.steps.length <= opponentTotal + 2) {
+          sound.playVictory();
+          setDuelResult({ winner: "player", message: `Victory! Outpaced ${selectedOpponent?.friend_name}!` });
+          completeMission("multiplayer_duel", 50, 30, { collaboration: 15, logic: 10 });
+        } else if (playerSim.success) {
+          sound.playVictory();
+          setDuelResult({ winner: "player", message: "Challenge Completed!" });
+          completeMission("multiplayer_duel", 40, 20, { collaboration: 10 });
+        } else {
+          sound.playError();
+          setDuelResult({ winner: "opponent", message: `Duel Lost: ${playerSim.message || "Did not reach portal."}` });
+        }
       }
     }, 450);
   };
+
 
   const currentArena = selectedOpponent ? getArenaForContact(selectedOpponent, communityProblems) : null;
   const playerActiveStep = playerSimulationSteps.length > 0 && playerSimulationSteps[playerDuelStep] ? playerSimulationSteps[playerDuelStep] : null;
@@ -1804,145 +2145,538 @@ export function MultiplayerPage() {
       {/* Duel modal */}
       <AnimatePresence>
         {selectedOpponent && (
-          <div onClick={(e) => { if (e.target === e.currentTarget && !duelRacing) handleCloseDuel(); }} className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} onClick={(e) => e.stopPropagation()} className="bg-white border border-[#e2ece5] rounded-3xl p-5 max-w-2xl w-full space-y-4 shadow-card relative my-6">
-              <button onClick={handleCloseDuel} className="absolute top-4 right-4 px-3 py-1.5 text-xs font-extrabold text-[#5b7566] hover:text-[#1b382b] rounded-xl bg-[#f4f8f5] border border-[#e2ece5] cursor-pointer flex items-center gap-1.5"><X size={14} /> Close</button>
-              <div className="text-center"><h3 className="text-lg font-black text-[#1b382b] flex items-center justify-center gap-2"><span className="text-[#2d6a4f]">{myUsername || pet?.pet_name || "Your Pet"}</span><span className="text-[#7a9386] text-sm">VS</span><span>{selectedOpponent.friend_name}</span></h3></div>
-              {currentArena && (
-                <div className="bg-[#f4f8f5] p-4 rounded-2xl border border-[#e2ece5]">
-                  <GameScene3D gridSize={currentArena.gridSize} startPos={currentArena.startPos} goalPos={currentArena.goalPos} obstacles={currentArena.obstacles}
-                    crystals={currentArena.crystals.map(c => ({ x: c.x, y: c.y, collected: playerCrystals.some(pc => pc.x === c.x && pc.y === c.y) }))}
-                    switches={currentArena.switches || []}
-                    activeStep={{
-                      stepIndex: playerDuelStep,
-                      petPos: playerActivePos,
-                      petDir: playerActiveDir,
-                      petAction: duelRacing ? (playerActiveStep?.petAction || "move_forward") : "idle",
-                      crystalsCollected: playerCrystals,
-                      openGates: playerActiveStep?.openGates || [],
-                      status: duelResult?.winner === "player" ? "success" : duelResult?.winner === "opponent" ? "failed" : "running",
-                      message: playerActiveStep?.message || duelResult?.message || ""
-                    }}
-                    petType={pet?.pet_type || "cat"} equipped={pet?.equipped_items} theme="arena"
-                    playerName={myUsername || pet?.pet_name || "You"}
-                    showNameTags={true}
-                    opponentPet={{ type: selectedOpponent.friend_pet_type, pos: opponentActivePos, dir: opponentActiveDir, name: selectedOpponent.friend_name }}
-                    cameraPreset="iso" height="300px"
-                  />
+          <div onClick={(e) => { if (e.target === e.currentTarget && !duelRacing && !quizRunning) handleCloseDuel(); }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} onClick={(e) => e.stopPropagation()} className="bg-white border border-[#e2ece5] rounded-3xl p-5 max-w-2xl w-full space-y-4 shadow-card relative my-6 max-h-[92vh] overflow-y-auto">
+              <button onClick={handleCloseDuel} className="absolute top-4 right-4 px-3 py-1.5 text-xs font-extrabold text-[#5b7566] hover:text-[#1b382b] rounded-xl bg-[#f4f8f5] border border-[#e2ece5] cursor-pointer flex items-center gap-1.5 z-10"><X size={14} /> Close</button>
+              
+              {/* Header Matchup */}
+              <div className="text-center pt-1">
+                <div className="inline-flex items-center gap-2 bg-[#f4f8f5] px-3.5 py-1 rounded-full border border-[#e2ece5] text-xs font-extrabold text-[#2d6a4f] mb-1.5">
+                  <Swords size={13} /> 1v1 Multiplayer Duel
                 </div>
-              )}
-
-              {/* Instructions Toolbar */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-[#1b382b] flex items-center gap-1.5">
-                    <Sparkles size={14} className="text-[#2d6a4f]" /> Algorithm Instructions:
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={handleAutoRoute}
-                      disabled={duelRacing}
-                      title="Automatically calculate safe route to portal"
-                      className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#d8e8dc] text-[#2d6a4f] border border-[#d3e2d8] rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
-                    >
-                      <Sparkles size={12} /> Auto-Route
-                    </button>
-                    <button
-                      onClick={() => setDuelBlocks([])}
-                      disabled={duelRacing}
-                      className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
-                    >
-                      <Trash2 size={12} /> Clear
-                    </button>
-                  </div>
-                </div>
-
-                {/* Move selector buttons */}
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { type: 'move_up', label: 'Up ⬆' },
-                    { type: 'move_down', label: 'Down ⬇' },
-                    { type: 'move_left', label: 'Left ⬅' },
-                    { type: 'move_right', label: 'Right ➡' },
-                    { type: 'move_forward', label: 'Forward 🐾' },
-                    { type: 'turn_left', label: 'Turn L ↺' },
-                    { type: 'turn_right', label: 'Turn R ↻' },
-                    { type: 'interact', label: 'Interact ✋' },
-                  ].map(({ type, label }) => (
-                    <button
-                      key={type}
-                      disabled={duelRacing}
-                      onClick={() => setDuelBlocks(prev => [...prev, { id: `d_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`, type: type as any }])}
-                      className="px-2.5 py-1.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#e2ece5] hover:border-[#2d6a4f]/30 text-[#1b382b] font-extrabold rounded-xl text-xs shadow-xs transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1"
-                    >
-                      + {label}
-                    </button>
-                  ))}
-                </div>
+                <h3 className="text-lg font-black text-[#1b382b] flex items-center justify-center gap-2">
+                  <span className="text-[#2d6a4f]">{myUsername || pet?.pet_name || "Your Pet"}</span>
+                  <span className="text-amber-500 text-sm font-black px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200">VS</span>
+                  <span className="text-indigo-800">{selectedOpponent.friend_name}</span>
+                </h3>
               </div>
 
-              {/* Instructions sequence preview & Active step highlighting */}
-              <div className="min-h-[52px] max-h-[88px] overflow-y-auto bg-[#f4f8f5] p-2.5 rounded-2xl border border-[#e2ece5] flex flex-wrap gap-1.5 items-center">
-                {duelBlocks.length === 0 ? (
-                  <span className="text-xs text-[#7a9386]">Click buttons above to add moves or tap Auto-Route…</span>
-                ) : (
-                  duelBlocks.map((b, i) => {
-                    const isStepRunning = duelRacing && playerDuelStep === i + 1;
-                    const isStepPast = duelRacing && playerDuelStep > i + 1;
-                    return (
-                      <span
-                        key={b.id || i}
-                        className={`px-2 py-1 text-[11px] font-extrabold rounded-xl border flex items-center gap-1 transition-all ${
-                          isStepRunning
-                            ? 'bg-[#2d6a4f] text-white border-[#1b382b] shadow-md ring-2 ring-[#2d6a4f]/50 scale-105 animate-pulse'
-                            : isStepPast
-                            ? 'bg-[#eaf2ec] text-[#2d6a4f] border-[#d3e2d8]'
-                            : 'bg-white text-[#1b382b] border-[#e2ece5]'
-                        }`}
-                      >
-                        <span className="text-[9px] opacity-70">#{i + 1}</span>
-                        {b.type.replace('move_', '').replace('_', ' ')}
-                        {!duelRacing && (
-                          <button
-                            onClick={() => setDuelBlocks(prev => prev.filter((_, j) => j !== i))}
-                            className="text-[#7a9386] hover:text-rose-600 font-bold ml-0.5 cursor-pointer"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </span>
-                    );
-                  })
-                )}
+              {/* Mode Switcher Tabs */}
+              <div className="flex bg-[#f4f8f5] p-1 rounded-2xl border border-[#e2ece5] max-w-md mx-auto">
+                <button
+                  onClick={() => { if (!duelRacing && !quizRunning) { sound.playClick(); setDuelTab("quiz"); } }}
+                  disabled={duelRacing || quizRunning}
+                  className={`flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    duelTab === "quiz" ? "bg-white text-[#2d6a4f] shadow-sm border border-[#d3e2d8]" : "text-[#5b7566] hover:text-[#1b382b]"
+                  }`}
+                >
+                  <Code2 size={14} /> 🧠 Logic Quiz Duel
+                </button>
+                <button
+                  onClick={() => { if (!duelRacing && !quizRunning) { sound.playClick(); setDuelTab("race"); } }}
+                  disabled={duelRacing || quizRunning}
+                  className={`flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    duelTab === "race" ? "bg-white text-[#2d6a4f] shadow-sm border border-[#d3e2d8]" : "text-[#5b7566] hover:text-[#1b382b]"
+                  }`}
+                >
+                  <Play size={14} /> 🏎️ 3D Grid Race
+                </button>
               </div>
 
-              {/* Live Status indicator */}
-              <div className="flex items-center justify-between px-3 py-1.5 bg-[#f4f8f5] rounded-xl border border-[#e2ece5] text-[11px] text-[#5b7566] font-medium">
-                <span>📍 Facing: <strong className="text-[#1b382b] uppercase">{playerActiveDir}</strong> · Pos: <strong className="text-[#2d6a4f]">({playerActivePos.x}, {playerActivePos.y})</strong></span>
-                <span>🏁 Goal: <strong className="text-amber-700">({currentArena?.goalPos.x}, {currentArena?.goalPos.y})</strong></span>
-              </div>
+              {/* TAB 1: LOGIC QUIZ DUEL */}
+              {duelTab === "quiz" && (
+                <div className="space-y-4">
+                  {/* Real-time PTS and Percentage Scoreboard */}
+                  {(quizRunning || quizFinished) && (
+                    <div className="bg-[#f4f8f5] p-3.5 rounded-2xl border border-[#e2ece5] space-y-3">
+                      <div className="flex items-center justify-between text-xs font-black">
+                        <div className="flex items-center gap-1.5">
+                          <Trophy size={14} className="text-amber-500" />
+                          <span className="text-[#1b382b]">
+                            {playerQuizScore > opponentQuizScore
+                              ? `🏆 You lead by +${playerQuizScore - opponentQuizScore} PTS!`
+                              : playerQuizScore === opponentQuizScore
+                              ? "⚡ Neck and Neck (Tied Score)"
+                              : `⚠️ Rival leads by +${opponentQuizScore - playerQuizScore} PTS`}
+                          </span>
+                        </div>
+                        <span className="text-[#5b7566] text-[11px] font-bold">
+                          Question {Math.min(quizActiveIndex + 1, activeDuelQuestions.length)} of {activeDuelQuestions.length}
+                        </span>
+                      </div>
 
-              {duelResult && (
-                <div className={`p-4 rounded-2xl text-xs font-bold text-center ${duelResult.winner === "player" ? "bg-[#eaf2ec] border border-[#d3e2d8] text-[#2d6a4f]" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
-                  <div className="text-sm font-black">{duelResult.winner === "player" ? "🏆 VICTORY!" : "⚡ RACE FINISHED"}</div>
-                  <div>{duelResult.message}</div>
-                  {duelResult.winner !== "player" && (
-                    <div className="mt-1 text-[11px] font-normal text-rose-600">
-                      💡 Tip: "Up" moves toward the goal portal, while "Down" moves toward the front edge. Tap <strong>✨ Auto-Route</strong> to see an optimal route!
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Player Stats */}
+                        <div className="bg-white p-3 rounded-xl border border-emerald-200/90 shadow-xs space-y-1.5">
+                          <div className="flex items-center justify-between text-xs font-black">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="text-[#1b382b] truncate">{myUsername || "You"}</span>
+                              <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded font-black shrink-0">YOU</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-emerald-700 font-black text-sm">{playerQuizScore} PTS</span>
+                              <span className="text-[11px] text-[#5b7566] font-bold">
+                                {Math.round((playerAnsweredCount / activeDuelQuestions.length) * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="w-full bg-[#e2ece5] h-2.5 rounded-full overflow-hidden">
+                            <motion.div
+                              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                              style={{ width: `${Math.round((playerAnsweredCount / activeDuelQuestions.length) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-[#5b7566] font-medium">
+                            <span>Answered: {playerAnsweredCount}/{activeDuelQuestions.length}</span>
+                            <span>Accuracy: {playerAnsweredCount > 0 ? Math.round((playerCorrectCount / playerAnsweredCount) * 100) : 100}%</span>
+                          </div>
+                        </div>
+
+                        {/* Opponent Stats */}
+                        <div className="bg-white p-3 rounded-xl border border-indigo-200/90 shadow-xs space-y-1.5">
+                          <div className="flex items-center justify-between text-xs font-black">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="text-[#1b382b] truncate">{selectedOpponent.friend_name}</span>
+                              <span className="text-[9px] bg-indigo-600 text-white px-1.5 py-0.2 rounded font-black shrink-0">RIVAL</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-indigo-700 font-black text-sm">{opponentQuizScore} PTS</span>
+                              <span className="text-[11px] text-[#5b7566] font-bold">
+                                {Math.round((opponentAnsweredCount / activeDuelQuestions.length) * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="w-full bg-[#e2ece5] h-2.5 rounded-full overflow-hidden">
+                            <motion.div
+                              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                              style={{ width: `${Math.round((opponentAnsweredCount / activeDuelQuestions.length) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-[#5b7566] font-medium">
+                            <span>Answered: {opponentAnsweredCount}/{activeDuelQuestions.length}</span>
+                            <span>Accuracy: {opponentAnsweredCount > 0 ? Math.round((opponentCorrectCount / opponentAnsweredCount) * 100) : 100}%</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                  )}
+
+                  {/* LOBBY / PRE-DUEL QUESTION SET PICKER */}
+                  {!quizRunning && !quizFinished && (
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-xs font-black text-[#1b382b] block mb-2 flex items-center gap-1.5">
+                          <BookOpen size={14} className="text-[#2d6a4f]" /> Select Question Set for Duel:
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {QUESTION_SETS.map((qs) => {
+                            const isSelected = selectedQuestionSetId === qs.id;
+                            return (
+                              <button
+                                key={qs.id}
+                                onClick={() => handleSelectDuelQuestionSet(qs.id)}
+                                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                                  isSelected
+                                    ? "bg-[#eaf2ec] border-[#2d6a4f] shadow-sm ring-1 ring-[#2d6a4f]"
+                                    : "bg-[#f4f8f5] hover:bg-[#eaf2ec]/60 border-[#e2ece5]"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between text-base mb-1">
+                                  <span>{qs.icon}</span>
+                                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${
+                                    isSelected ? "bg-[#2d6a4f] text-white" : "bg-[#e2ece5] text-[#5b7566]"
+                                  }`}>
+                                    {qs.badge}
+                                  </span>
+                                </div>
+                                <div className="font-black text-xs text-[#1b382b] truncate">{qs.name}</div>
+                                <div className="text-[10px] text-[#5b7566] mt-0.5 line-clamp-2 leading-tight">
+                                  {qs.description}
+                                </div>
+                              </button>
+                            );
+                          })}
+                          <button
+                            onClick={() => handleSelectDuelQuestionSet("random_mix")}
+                            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                              selectedQuestionSetId === "random_mix"
+                                ? "bg-[#eaf2ec] border-[#2d6a4f] shadow-sm ring-1 ring-[#2d6a4f]"
+                                : "bg-[#f4f8f5] hover:bg-[#eaf2ec]/60 border-[#e2ece5]"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-base mb-1">
+                              <span>🎲</span>
+                              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${
+                                selectedQuestionSetId === "random_mix" ? "bg-[#2d6a4f] text-white" : "bg-[#e2ece5] text-[#5b7566]"
+                              }`}>
+                                Mixed
+                              </span>
+                            </div>
+                            <div className="font-black text-xs text-[#1b382b] truncate">Random Mix</div>
+                            <div className="text-[10px] text-[#5b7566] mt-0.5 line-clamp-2 leading-tight">
+                              5 random mixed questions across all engineering tracks.
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Opponent Matchup Card */}
+                      <div className="bg-[#f4f8f5] p-3.5 rounded-2xl border border-[#e2ece5] flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-white border border-[#e2ece5] flex items-center justify-center">
+                            <PetSVG type={selectedOpponent.friend_pet_type || "cat"} stage="child" state="happy" size={28} />
+                          </div>
+                          <div>
+                            <div className="text-xs font-black text-[#1b382b]">{selectedOpponent.friend_name}</div>
+                            <div className="text-[10px] text-[#5b7566]">Companion: {selectedOpponent.friend_pet_type} · Ready for Duel</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-[#7a9386] font-bold block uppercase">Format</span>
+                          <span className="text-xs font-black text-[#2d6a4f]">5 Questions · Speed & Accuracy</span>
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="flex gap-3 pt-1">
+                        <button
+                          onClick={handleCloseDuel}
+                          className="flex-1 py-3 bg-[#f4f8f5] hover:bg-[#eaf2ec] text-[#5b7566] border border-[#e2ece5] font-bold text-sm rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          <X size={15} /> Cancel
+                        </button>
+                        <button
+                          onClick={handleTriggerQuizDuel}
+                          className="flex-1 py-3 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black text-sm rounded-2xl shadow-card transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
+                        >
+                          <Swords size={16} /> START 1v1 QUIZ DUEL!
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ACTIVE QUESTION BOARD */}
+                  {quizRunning && !quizFinished && activeDuelQuestions[quizActiveIndex] && (
+                    <div className="bg-[#f4f8f5] rounded-2xl p-5 border border-[#e2ece5] space-y-4">
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-[#2d6a4f] tracking-wider block mb-1">
+                          {activeDuelQuestions[quizActiveIndex].title}
+                        </span>
+                        <h4 className="text-sm sm:text-base font-bold text-[#1b382b]">
+                          {activeDuelQuestions[quizActiveIndex].question}
+                        </h4>
+                      </div>
+
+                      {activeDuelQuestions[quizActiveIndex].codeSnippet && (
+                        <pre className="bg-[#1b382b] text-emerald-300 text-xs font-mono p-3 rounded-xl overflow-x-auto border border-[#2d6a4f]/50">
+                          <code>{activeDuelQuestions[quizActiveIndex].codeSnippet}</code>
+                        </pre>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        {activeDuelQuestions[quizActiveIndex].options.map((opt, idx) => {
+                          const isSelected = quizSelectedOption === idx;
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => handleAnswerQuizDuel(idx)}
+                              disabled={quizFeedback !== null}
+                              className={`p-3 rounded-xl border text-left text-xs font-bold transition-all cursor-pointer active:scale-98 flex items-center justify-between ${
+                                isSelected
+                                  ? opt.isCorrect
+                                    ? "bg-emerald-50 border-emerald-400 text-emerald-900 ring-2 ring-emerald-300"
+                                    : "bg-rose-50 border-rose-300 text-rose-900"
+                                  : "bg-white hover:bg-[#eaf2ec] border-[#e2ece5] text-[#1b382b] hover:border-[#2d6a4f]"
+                              }`}
+                            >
+                              <span>{opt.label}</span>
+                              <span className="text-[10px] text-[#7a9386] ml-2 shrink-0">#{idx + 1}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {quizFeedback && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`p-3 rounded-xl text-xs font-bold text-center ${
+                            quizFeedback.correct
+                              ? "bg-emerald-100 border border-emerald-300 text-emerald-900"
+                              : "bg-rose-100 border border-rose-300 text-rose-900"
+                          }`}
+                        >
+                          <div className="font-black text-sm">{quizFeedback.message}</div>
+                          <div className="font-normal text-[11px] mt-1">{quizFeedback.explanation}</div>
+                        </motion.div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* DUEL RESULTS PODIUM */}
+                  {quizFinished && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-gradient-to-br from-amber-50 via-white to-emerald-50 rounded-3xl p-6 border-2 border-amber-300 shadow-card text-center space-y-4"
+                    >
+                      <div className="text-5xl animate-bounce">
+                        {playerQuizScore > opponentQuizScore ? "🏆" : playerQuizScore === opponentQuizScore ? "🤝" : "⚡"}
+                      </div>
+                      <h3 className="text-2xl font-black text-[#1b382b]">
+                        {playerQuizScore > opponentQuizScore
+                          ? "Victory! You Won the Duel!"
+                          : playerQuizScore === opponentQuizScore
+                          ? "Honorable Draw! Tied Match!"
+                          : "Duel Finished! Rival Outscored You!"}
+                      </h3>
+                      <p className="text-xs text-[#5b7566] max-w-md mx-auto">
+                        Head-to-head knowledge showdown concluded. Both players gained skill XP and progress!
+                      </p>
+
+                      {/* Side-by-side Results Card */}
+                      <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto py-2">
+                        <div className="bg-white p-3 rounded-2xl border border-emerald-200 shadow-xs">
+                          <span className="text-[10px] font-bold text-[#7a9386] block">YOU</span>
+                          <span className="text-xl font-black text-[#2d6a4f]">{playerQuizScore} PTS</span>
+                          <span className="text-[10px] text-[#5b7566] block mt-0.5">
+                            {Math.round((playerCorrectCount / activeDuelQuestions.length) * 100)}% accuracy ({playerCorrectCount}/{activeDuelQuestions.length})
+                          </span>
+                        </div>
+                        <div className="bg-white p-3 rounded-2xl border border-indigo-200 shadow-xs">
+                          <span className="text-[10px] font-bold text-[#7a9386] block">{selectedOpponent.friend_name}</span>
+                          <span className="text-xl font-black text-indigo-700">{opponentQuizScore} PTS</span>
+                          <span className="text-[10px] text-[#5b7566] block mt-0.5">
+                            {Math.round((opponentCorrectCount / activeDuelQuestions.length) * 100)}% accuracy ({opponentCorrectCount}/{activeDuelQuestions.length})
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 justify-center pt-2">
+                        <button
+                          onClick={() => {
+                            setQuizFinished(false);
+                            setQuizRunning(false);
+                          }}
+                          className="px-5 py-2.5 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black text-xs rounded-xl shadow-sm cursor-pointer transition-all active:scale-95"
+                        >
+                          Play Another Set
+                        </button>
+                        <button
+                          onClick={() => {
+                            setQuizFinished(false);
+                            setQuizRunning(false);
+                            setDuelTab("race");
+                          }}
+                          className="px-5 py-2.5 bg-white hover:bg-[#f4f8f5] text-[#1b382b] border border-[#e2ece5] font-black text-xs rounded-xl shadow-sm cursor-pointer transition-all active:scale-95"
+                        >
+                          Switch to Race Mode
+                        </button>
+                      </div>
+                    </motion.div>
                   )}
                 </div>
               )}
-              <div className="flex gap-3">
-                <button onClick={handleCloseDuel} disabled={duelRacing} className="flex-1 py-3 bg-[#f4f8f5] hover:bg-[#eaf2ec] text-[#5b7566] border border-[#e2ece5] font-bold text-sm rounded-2xl transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"><X size={15} /> Close</button>
-                <button onClick={handleStartDuelRace} disabled={duelRacing || duelBlocks.length === 0} className="flex-1 py-3 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black text-sm rounded-2xl shadow-card transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2">
-                  <Play size={16} className="fill-white" /> {duelRacing ? "RACING…" : duelResult ? "RETRY" : "START DUEL!"}
-                </button>
-              </div>
+
+              {/* TAB 2: 3D GRID RACE DUEL */}
+              {duelTab === "race" && (
+                <div className="space-y-3">
+                  {/* Live Race Meters with PTS and Percentage */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-[#f4f8f5] p-2.5 rounded-xl border border-[#e2ece5] space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className="text-[#1b382b] font-black flex items-center gap-1 truncate">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" /> You
+                        </span>
+                        <span className="text-[#2d6a4f] font-black">
+                          {(playerDuelStep * 10) + (playerCrystals.length * 25) + (duelResult?.winner === 'player' ? 50 : 0)} PTS
+                        </span>
+                      </div>
+                      <div className="w-full bg-[#e2ece5] h-2 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-400 to-[#2d6a4f] rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, Math.round((playerDuelStep / Math.max(1, playerSimulationSteps.length - 1)) * 100))}%` }}
+                        />
+                      </div>
+                      <div className="text-[10px] text-[#5b7566] text-right font-medium">
+                        {Math.min(100, Math.round((playerDuelStep / Math.max(1, playerSimulationSteps.length - 1)) * 100))}% to Portal
+                      </div>
+                    </div>
+
+                    <div className="bg-[#f4f8f5] p-2.5 rounded-xl border border-[#e2ece5] space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className="text-[#1b382b] font-black flex items-center gap-1 truncate">
+                          <span className="w-2 h-2 rounded-full bg-indigo-500" /> {selectedOpponent.friend_name}
+                        </span>
+                        <span className="text-indigo-700 font-black">
+                          {(opponentDuelStep * 10) + (duelResult?.winner === 'opponent' ? 50 : 0)} PTS
+                        </span>
+                      </div>
+                      <div className="w-full bg-[#e2ece5] h-2 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, Math.round((opponentDuelStep / Math.max(1, (currentArena?.botPath.length || 1) - 1)) * 100))}%` }}
+                        />
+                      </div>
+                      <div className="text-[10px] text-[#5b7566] text-right font-medium">
+                        {Math.min(100, Math.round((opponentDuelStep / Math.max(1, (currentArena?.botPath.length || 1) - 1)) * 100))}% to Portal
+                      </div>
+                    </div>
+                  </div>
+
+                  {currentArena && (
+                    <div className="bg-[#f4f8f5] p-4 rounded-2xl border border-[#e2ece5]">
+                      <GameScene3D gridSize={currentArena.gridSize} startPos={currentArena.startPos} goalPos={currentArena.goalPos} obstacles={currentArena.obstacles}
+                        crystals={currentArena.crystals.map(c => ({ x: c.x, y: c.y, collected: playerCrystals.some(pc => pc.x === c.x && pc.y === c.y) }))}
+                        switches={currentArena.switches || []}
+                        activeStep={{
+                          stepIndex: playerDuelStep,
+                          petPos: playerActivePos,
+                          petDir: playerActiveDir,
+                          petAction: duelRacing ? (playerActiveStep?.petAction || "move_forward") : "idle",
+                          crystalsCollected: playerCrystals,
+                          openGates: playerActiveStep?.openGates || [],
+                          status: duelResult?.winner === "player" ? "success" : duelResult?.winner === "opponent" ? "failed" : "running",
+                          message: playerActiveStep?.message || duelResult?.message || ""
+                        }}
+                        petType={pet?.pet_type || "cat"} equipped={pet?.equipped_items} theme="arena"
+                        playerName={myUsername || pet?.pet_name || "You"}
+                        showNameTags={true}
+                        opponentPet={{ type: selectedOpponent.friend_pet_type, pos: opponentActivePos, dir: opponentActiveDir, name: selectedOpponent.friend_name }}
+                        cameraPreset="iso" height="280px"
+                      />
+                    </div>
+                  )}
+
+                  {/* Instructions Toolbar */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-[#1b382b] flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-[#2d6a4f]" /> Algorithm Instructions:
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={handleAutoRoute}
+                          disabled={duelRacing}
+                          title="Automatically calculate safe route to portal"
+                          className="px-2.5 py-1 bg-[#eaf2ec] hover:bg-[#d8e8dc] text-[#2d6a4f] border border-[#d3e2d8] rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                        >
+                          <Sparkles size={12} /> Auto-Route
+                        </button>
+                        <button
+                          onClick={() => setDuelBlocks([])}
+                          disabled={duelRacing}
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
+                        >
+                          <Trash2 size={12} /> Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Move selector buttons */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { type: 'move_up', label: 'Up ⬆' },
+                        { type: 'move_down', label: 'Down ⬇' },
+                        { type: 'move_left', label: 'Left ⬅' },
+                        { type: 'move_right', label: 'Right ➡' },
+                        { type: 'move_forward', label: 'Forward 🐾' },
+                        { type: 'turn_left', label: 'Turn L ↺' },
+                        { type: 'turn_right', label: 'Turn R ↻' },
+                        { type: 'interact', label: 'Interact ✋' },
+                      ].map(({ type, label }) => (
+                        <button
+                          key={type}
+                          disabled={duelRacing}
+                          onClick={() => setDuelBlocks(prev => [...prev, { id: `d_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`, type: type as any }])}
+                          className="px-2.5 py-1.5 bg-[#f4f8f5] hover:bg-[#eaf2ec] border border-[#e2ece5] hover:border-[#2d6a4f]/30 text-[#1b382b] font-extrabold rounded-xl text-xs shadow-xs transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                        >
+                          + {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Instructions sequence preview & Active step highlighting */}
+                  <div className="min-h-[52px] max-h-[88px] overflow-y-auto bg-[#f4f8f5] p-2.5 rounded-2xl border border-[#e2ece5] flex flex-wrap gap-1.5 items-center">
+                    {duelBlocks.length === 0 ? (
+                      <span className="text-xs text-[#7a9386]">Click buttons above to add moves or tap Auto-Route…</span>
+                    ) : (
+                      duelBlocks.map((b, i) => {
+                        const isStepRunning = duelRacing && playerDuelStep === i + 1;
+                        const isStepPast = duelRacing && playerDuelStep > i + 1;
+                        return (
+                          <span
+                            key={b.id || i}
+                            className={`px-2 py-1 text-[11px] font-extrabold rounded-xl border flex items-center gap-1 transition-all ${
+                              isStepRunning
+                                ? 'bg-[#2d6a4f] text-white border-[#1b382b] shadow-md ring-2 ring-[#2d6a4f]/50 scale-105 animate-pulse'
+                                : isStepPast
+                                ? 'bg-[#eaf2ec] text-[#2d6a4f] border-[#d3e2d8]'
+                                : 'bg-white text-[#1b382b] border-[#e2ece5]'
+                            }`}
+                          >
+                            <span className="text-[9px] opacity-70">#{i + 1}</span>
+                            {b.type.replace('move_', '').replace('_', ' ')}
+                            {!duelRacing && (
+                              <button
+                                onClick={() => setDuelBlocks(prev => prev.filter((_, j) => j !== i))}
+                                className="text-[#7a9386] hover:text-rose-600 font-bold ml-0.5 cursor-pointer"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Live Status indicator */}
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-[#f4f8f5] rounded-xl border border-[#e2ece5] text-[11px] text-[#5b7566] font-medium">
+                    <span>📍 Facing: <strong className="text-[#1b382b] uppercase">{playerActiveDir}</strong> · Pos: <strong className="text-[#2d6a4f]">({playerActivePos.x}, {playerActivePos.y})</strong></span>
+                    <span>🏁 Goal: <strong className="text-amber-700">({currentArena?.goalPos.x}, {currentArena?.goalPos.y})</strong></span>
+                  </div>
+
+                  {duelResult && (
+                    <div className={`p-4 rounded-2xl text-xs font-bold text-center ${duelResult.winner === "player" ? "bg-[#eaf2ec] border border-[#d3e2d8] text-[#2d6a4f]" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
+                      <div className="text-sm font-black">{duelResult.winner === "player" ? "🏆 VICTORY!" : "⚡ RACE FINISHED"}</div>
+                      <div>{duelResult.message}</div>
+                      {duelResult.winner !== "player" && (
+                        <div className="mt-1 text-[11px] font-normal text-rose-600">
+                          💡 Tip: "Up" moves toward the goal portal, while "Down" moves toward the front edge. Tap <strong>✨ Auto-Route</strong> to see an optimal route!
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-1">
+                    <button onClick={handleCloseDuel} disabled={duelRacing} className="flex-1 py-3 bg-[#f4f8f5] hover:bg-[#eaf2ec] text-[#5b7566] border border-[#e2ece5] font-bold text-sm rounded-2xl transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"><X size={15} /> Close</button>
+                    <button onClick={handleTriggerRaceDuel} disabled={duelRacing || duelBlocks.length === 0} className="flex-1 py-3 bg-[#2d6a4f] hover:bg-[#245840] text-white font-black text-sm rounded-2xl shadow-card transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2">
+                      <Play size={16} className="fill-white" /> {duelRacing ? "RACING…" : duelResult ? "RETRY RACE" : "START RACE DUEL!"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* Creative 3-2-1 Countdown Overlay */}
+      <AnimatePresence>
+        {showCountdown && selectedOpponent && (
+          <CreativeCountdownOverlay
+            onComplete={handleCountdownComplete}
+            playerName={myUsername || pet?.pet_name || "You"}
+            playerPetType={pet?.pet_type || "cat"}
+            opponentName={selectedOpponent.friend_name}
+            opponentPetType={selectedOpponent.friend_pet_type || "fox"}
+            modeTitle={countdownPendingAction === "quiz" ? "🧠 Code Logic Quiz Duel" : "🏎️ 3D Grid Algorithm Race"}
+          />
+        )}
+      </AnimatePresence>
+
 
       {showCreateModal && <CreateRoomModal onClose={() => setShowCreateModal(false)} onCreate={handleCreateRoom} />}
     </div>

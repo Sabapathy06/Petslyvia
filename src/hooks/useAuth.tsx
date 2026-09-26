@@ -606,12 +606,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cleanEmail = email.trim().toLowerCase();
     const accounts = getLocalAccounts();
 
-    // Local check to prevent immediate duplicate
+    // 1. Strict local check: One email can only have one account
     if (accounts[cleanEmail]) {
       return {
         success: false,
-        error: 'This email is already registered. Please log in instead.',
+        error: 'This email is already registered. One email can only have one account. Please log in instead.',
       };
+    }
+
+    // 2. Strict remote database check: Check if profile already exists with this email
+    try {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
+
+      if (existingProfile) {
+        return {
+          success: false,
+          error: 'This email is already registered. One email can only have one account. Please log in instead.',
+        };
+      }
+    } catch (checkErr: any) {
+      console.warn('Existing email check notice:', checkErr?.message);
     }
 
     // Lock authState listener so it doesn't race and overwrite the chosen pet
@@ -625,7 +643,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const effectiveDisplayName = displayName.trim() || cleanEmail.split('@')[0] || 'Player';
       const effectivePetName = petName.trim() || 'Buddy';
 
-      // 1. Register with Supabase Backend Auth
+      // 3. Register with Supabase Backend Auth
       try {
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
@@ -640,16 +658,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (error) {
+          const msg = error.message?.toLowerCase() || '';
           if (
-            error.message?.toLowerCase().includes('already registered') ||
-            error.message?.toLowerCase().includes('already exists')
+            msg.includes('already registered') ||
+            msg.includes('already exists') ||
+            msg.includes('user already exists') ||
+            error.status === 400 ||
+            error.status === 422
           ) {
             return {
               success: false,
-              error: 'This email is already registered. Please log in instead.',
+              error: 'This email is already registered. One email can only have one account. Please log in instead.',
             };
           }
           console.warn('Supabase signUp notice:', error.message);
+          return { success: false, error: error.message };
+        }
+
+        // Supabase returns an empty identities array if user with this email already exists
+        if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          return {
+            success: false,
+            error: 'This email is already registered. One email can only have one account. Please log in instead.',
+          };
         }
 
         if (data?.user) {

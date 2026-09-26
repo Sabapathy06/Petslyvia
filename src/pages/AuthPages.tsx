@@ -496,7 +496,8 @@ export function SignupPage() {
     } else {
       sound.playError();
       setError(res.error || 'Could not create account.');
-      if (res.error?.includes('already registered')) {
+      const errLower = (res.error || '').toLowerCase();
+      if (errLower.includes('already registered') || errLower.includes('already exists') || errLower.includes('one email')) {
         setIsExistingAccountError(true);
       }
     }
